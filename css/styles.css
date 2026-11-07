@@ -205,3 +205,14 @@ table.bom{width:100%;border-collapse:collapse;font-size:12.5px}
   #alert{grid-template-columns:auto minmax(0,1fr)}
   .alert-btns{grid-column:1/-1;justify-content:flex-end}
 }
+
+/* ---------- ajustes: rieles visibles, accesos por categoría, pantalla completa ---------- */
+.rail{background:var(--accent-soft);color:var(--fg)}
+.rail:hover{background:var(--accent);color:var(--accent-fg)}
+.focus-only{display:none!important}
+.app.focus .focus-only{display:flex!important}
+.lib-list{position:relative}
+.cats{display:flex;flex-wrap:wrap;gap:5px}
+.cats:empty{display:none}
+.catb{border:1px solid var(--line);background:var(--panel-2);border-radius:99px;padding:3px 9px;font-size:11.5px;font-weight:500;cursor:pointer;color:var(--fg)}
+.catb:hover{border-color:var(--accent);color:var(--accent)}

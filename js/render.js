@@ -4,7 +4,7 @@ const board=$("board");
 const EXT_H=322,EXT_GAP=36;
 const extW=()=>S.ext.reduce((a,x)=>a+EXT[x.type].w(x.p),0)+Math.max(0,S.ext.length-1)*EXT_GAP;
 function dims(){const eh=S.ext.length?EXT_H:0,ew=extW()+20;
-  if(S.kind==="lc"){const n=lcRows(),ph=LY0+n*SL+46,dh=58+S.lc.spaces*18,Wd=Math.max(PW+28+DIRW,ew),top=Math.max(ph,dh);return{lc:true,PH:ph,Wd,encX:0,encW:PW,encB:ph,extY:top,tbY:top+eh+18,H:top+eh+18+TB+8}}
+  if(S.kind==="lc"){const n=lcRows(),ph=lcPH(),dh=58+S.lc.spaces*18,Wd=Math.max(PW+28+DIRW,ew),top=Math.max(ph,dh);return{lc:true,PH:ph,Wd,encX:0,encW:PW,encB:ph,extY:top,tbY:top+eh+18,H:top+eh+18+TB+8}}
   const W=SIDE*2+cap()*U,encH=TOP+S.board.rows*ROW_H+DUCT+28,Wd=Math.max(W,640,ew),encX=(Wd-W)/2;return{W,encH,Wd,encX,encW:W,encB:encH,extY:encH,tbY:encH+eh+18,H:encH+eh+18+TB+8}}
 function extSvg(forExport){if(!S.ext.length)return"";const D=dims(),ew=extW(),yb=D.extY+66+210;let x=Math.max(10,Math.min(D.encX,D.Wd-ew-10)),cab="",its="";
   S.ext.forEach((it,i)=>{const {w,h,svg}=drawExt(it.type,it.p),c=EXT[it.type],cx=x+w/2,tx=Math.max(D.encX+40,Math.min(D.encX+D.encW-40,cx)),ym=D.extY+20+i*8;
@@ -53,7 +53,22 @@ function lcItemSvg(b,c,o={}){const x=b.side==="L"?XL:XR,y=LY0+b.slot*SL,h=b.p.po
   return s+"</g>"}
 /* Panel body only (enclosure, main, bus, bars, breakers). Reused by the wall view.
    o.exp: clean export look · o.trip: Set of tripped breaker ids · o.wall: hide editor-only outlines */
-const lcPH=()=>LY0+lcRows()*SL+46;
+/* Riel auxiliar opcional al pie de la caja (supervisor, protector, DPS, contactores…) */
+const AUX_CAP=28,AUX_X0=(PW-AUX_CAP*U)/2,AUXH=250;
+const auxShown=()=>S.lc.aux.length>0||(typeof drag!=="undefined"&&!!drag&&!!drag.aux&&drag.moving);
+const auxY=()=>LY0+lcRows()*SL+30;
+const lcPH=()=>LY0+lcRows()*SL+(auxShown()?30+AUXH:46);
+function auxSvg(o={}){if(!auxShown())return"";const y0=auxY(),yr=y0+40+CH/2;
+  let s=R(30,y0-8,PW-60,1.5,"#8e969a")+T(CX,y0+12,"RIEL AUXILIAR · PROTECCIÓN Y CONTROL",{fs:7.5,ff:SANS,fw:700,c:"#3a4044"})+R(AUX_X0-14,yr-36,AUX_CAP*U+28,72,"url(#gR)",{s:"#8a9196"});
+  for(let t=AUX_X0;t<AUX_X0+AUX_CAP*U-20;t+=46)s+=R(t,yr-5,26,10,"#596065",{rx:5});
+  if(!S.lc.aux.length&&!o.wall)s+=T(CX,yr+4,"Suelta aquí el componente",{fs:10,ff:SANS,c:"#3a4044"});
+  for(const it of S.lc.aux){const {w,svg}=drawComp(it.type,it.p),mv=typeof drag!=="undefined"&&drag&&drag.moving&&drag.aux&&drag.id===it.id;
+    s+=`<g class="ax" data-id="${it.id}" transform="translate(${AUX_X0+it.x*U} ${y0+40})"${mv?` opacity=".3"`:""}><g filter="url(#sh)">${svg}</g>${tagSvg(w,it.p,it.type)}${it.id===sel&&!o.exp&&!o.wall?`<rect x="-4" y="-4" width="${w+8}" height="${CH+8}" rx="6" fill="none" stroke="#1c74e0" stroke-width="2.5"/>`:""}</g>`}
+  return s}
+/* Espacios libres de la caja: un clic suma un breaker */
+function slotsSvg(){let s="";for(let r=0;r<lcRows();r++)for(const side of ["L","R"]){if(S.lc.items.some(b=>b.side===side&&r>=b.slot&&r<b.slot+b.p.poles))continue;
+  const x=side==="L"?XL:XR,y=LY0+r*SL;s+=`<g class="slot" data-side="${side}" data-slot="${r}"><rect x="${x+2}" y="${y+5}" width="${BW-4}" height="${SL-10}" rx="5" fill="#ffffff" fill-opacity=".35" stroke="#5f666b" stroke-width="1.2" stroke-dasharray="5 4"/>${T(x+BW/2,y+SL/2+4,"+ breaker",{fs:9,ff:SANS,fw:600,c:"#3a4044"})}<title>Espacio ${circ(side,r)} libre: clic para poner un breaker de 20 A</title></g>`}
+  return s}
 function lcPanelSvg(o={}){const L=S.lc,n=lcRows(),ph=lcPH(),calc=lcCalc(),phs=PH();
   let s=R(1,1,PW-2,ph-2,"url(#gFM)",{rx:10,s:"#6f777b",sw:2})+R(12,12,PW-24,ph-24,"url(#gPM)",{rx:6,s:"#8e969a"});
   for(const [cx,cy] of [[26,26],[PW-26,26],[26,ph-26],[PW-26,ph-26]])s+=C(cx,cy,6,"#6d7579")+C(cx,cy,2.6,"#3c4245");
@@ -75,6 +90,7 @@ function lcPanelSvg(o={}){const L=S.lc,n=lcRows(),ph=lcPH(),calc=lcCalc(),phs=PH
   s+=R(nx-2,LY0-30,22,16,"#ffffff",{rx:2,s:"#888"})+T(nx+9,LY0-18,"N",{fs:9})+R(gx-2,LY0-30,22,16,"#2f9e44",{rx:2})+T(gx+9,LY0-18,"T",{fs:9,c:"#fff"});
   /* circuit numbers */
   for(let r=0;r<n;r++){const cy=LY0+r*SL+SL/2+3.5;s+=T(XL-NUMW/2,cy,circ("L",r),{fs:10,c:"#1d2326"})+T(XR+BW+NUMW/2,cy,circ("R",r),{fs:10,c:"#1d2326"})}
+  if(!o.wall&&!o.exp)s+=slotsSvg();s+=auxSvg(o);
   if(o.wall)return s+L.items.map(b=>lcItemSvg(Object.assign({},b,{p:Object.assign({},b.p,{trip:o.trip&&o.trip.has(b.id)})}),calc.per[b.id],{exp:true})).join("");
   return s+`<g id="items">${L.items.map(b=>lcItemSvg(b,calc.per[b.id],{exp:o.exp,op:drag&&drag.moving&&drag.id===b.id?.3:null})).join("")}</g><g id="pv"></g>`}
 function lcSvg(forExport){const L=S.lc,{tbY,Wd}=dims(),calc=lcCalc();

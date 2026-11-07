@@ -35,9 +35,10 @@
   </header>
 
   <aside id="lib">
-    <button class="rail" id="libRail" aria-expanded="false" aria-controls="libList"><span>Componentes</span></button>
+    <button class="rail" id="libRail" aria-expanded="false" aria-controls="libList"><span>Abrir componentes</span></button>
     <div class="lib-head">
       <div class="pane-head"><span class="label" id="libTitle">Componentes</span><button class="icon-btn" id="libClose" aria-label="Guardar el panel de componentes" title="Guardar panel">«</button></div>
+      <div class="cats" id="libCats" aria-label="Ir a una categoría"></div>
       <input class="txt" id="q" type="search" placeholder="Buscar…" aria-label="Buscar componentes">
     </div>
     <div class="lib-list" id="libList"></div>
@@ -67,12 +68,13 @@
         <label>Pared <select class="sel" id="wSize"></select></label>
         <select class="sel" id="wFinish" aria-label="Acabado de la pared"></select>
         <label class="chk"><input type="checkbox" id="wTube"> Tubería</label>
-        <button class="btn play" id="play">▶ Probar</button><button class="btn" id="rearm" hidden>Rearmar</button>
+        <button class="btn play" id="play">▶ Probar</button><button class="btn" id="rearm" hidden>Rearmar</button><button class="btn" id="blackout" hidden>Simular apagón</button>
       </span>
       <span class="chip" id="usage"></span>
       <span class="chip money" id="total" title="Total del presupuesto"></span>
       <span class="sp"></span>
       <div class="zoom"><button class="btn" id="zout" aria-label="Alejar">−</button><output id="zval">100%</output><button class="btn" id="zin" aria-label="Acercar">+</button><button class="btn" id="zfit">Ajustar</button></div>
+      <span class="tgroup focus-only"><button class="btn" id="fUndo">Deshacer</button><button class="btn" id="fRedo">Rehacer</button><button class="btn" id="fPng">Exportar imagen</button></span>
       <button class="btn" id="fs" aria-pressed="false">Pantalla completa</button>
     </div>
     <div id="stagebox"><div id="alert" hidden></div><div id="stage"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg><svg id="wall" xmlns="http://www.w3.org/2000/svg" hidden></svg></div></div>
@@ -80,7 +82,7 @@
   </section>
 
   <aside id="side">
-    <button class="rail" id="sideRail" aria-expanded="false" aria-controls="paneP"><span>Propiedades y presupuesto</span></button>
+    <button class="rail" id="sideRail" aria-expanded="false" aria-controls="paneP"><span>Abrir propiedades y presupuesto</span></button>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tabP" aria-selected="true">Propiedades</button>
       <button class="tab" role="tab" id="tabB" aria-selected="false">Presupuesto $</button>

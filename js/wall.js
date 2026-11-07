@@ -14,6 +14,10 @@ const APPL240={"Nada":0,"Secadora de ropa":5000,"Cocina eléctrica":8000};
 const FINISH=["Frisado y pintado","Bloque sin frisar","Cerámica"];
 const STD_H=[[0.30,"Tomas · 0,30 m"],[1.20,"Interruptores · 1,20 m"],[1.60,"Tablero · 1,60 m"],[2.20,"Apliques y A/A · 2,20 m"]];
 const T3=[["F1","F","F1"],["F2","F","F2"],["T","T","T"]];
+/* Equipos en línea: entrada (E) y salida (S) */
+const PT=[["IF","F","E·F"],["IN","N","E·N"],["OF","F","S·F"],["ON","N","S·N"],["T","T","T"]];
+const devPrice=(d,p)=>typeof d.price==="function"?d.price(Object.assign({},d.d,p)):d.price;
+const devQn=(d,p)=>typeof d.qn==="function"?d.qn(Object.assign({},d.d,p)):d.qn;
 const DEV={
  panel:{n:"Tablero (caja de breakers)",short:"Tablero",std:1.6},
  feed:{n:"Llegada de circuito",short:"Llegada",qn:"Caja de paso 4×4 con tapa",w:64,h:64,terms:[["F1","F","F1"],["F2","F","F2"],["N","N","N"],["T","T","T"]],d:{brk:null},price:3,std:2.1,
@@ -24,17 +28,28 @@ const DEV={
  inter3:{n:"Interruptor de tres vías (escalera)",short:"Tres vías",qn:"Interruptor de tres vías 15 A con caja",w:44,h:72,terms:[["COM","S","C"],["T1","S","1"],["T2","S","2"]],d:{pos:1},f:[["pos","Posición",[1,2]]],price:6,std:1.2,
   tip:"Con dos de estos prendes y apagas la misma luz desde dos sitios. Fase al común (C) del primero, los viajeros 1 y 2 entre los dos interruptores, y del común del segundo al bombillo."},
  luz:{n:"Bombillo / aplique",short:"Bombillo",qn:"Aplique de pared con bombillo",w:56,h:64,V:120,terms:[["F","F","F"],["N","N","N"]],d:{W:60},f:[["W","Potencia (W)",[12,60,100]]],W:p=>p.W,price:6,std:2.2},
+ estabw:{n:"Estabilizador de voltaje",short:"Estabilizador",ext:"estab",sc:.6,w:90,h:114,pass:true,terms:PT,d:{kva:2,on:true},f:[["kva","Capacidad (kVA)",[1,2,3,5]]],std:1,
+  qn:p=>EXT.estab.desc({kva:p.kva,sys:"Monofásico 120V"}),price:p=>Math.round(EXT.estab.price({kva:p.kva,sys:"Monofásico 120V"})),
+  tip:"Va entre el tomacorriente y el equipo: entra la línea por E·F y E·N, y el equipo se conecta en S·F y S·N. Corrige el voltaje cuando baja o sube."},
+ protw:{n:"Protector de voltaje enchufable",short:"Protector",w:50,h:76,pass:true,terms:PT,d:{on:true},std:.3,qn:"Protector de voltaje enchufable 120 V",price:25,
+  tip:"Corta la corriente si el voltaje sube o baja demasiado y la devuelve después de un retardo. Ideal para neveras, aires y bombas."},
+ upsw:{n:"UPS",short:"UPS",ext:"ups",sc:.6,w:66,h:120,pass:true,battery:true,cap:p=>Math.round(p.kva*600),terms:PT,d:{kva:1.5,on:true},f:[["kva","Capacidad (kVA)",[1,1.5,2,3]]],std:.35,
+  qn:p=>EXT.ups.desc({kva:p.kva,kind:"Interactiva"}),price:p=>Math.round(EXT.ups.price({kva:p.kva,kind:"Interactiva"})),
+  tip:"Si se va la luz sigue alimentando por unos minutos lo que tenga en su salida. Para computadoras, router, cámaras y punto de venta."},
+ invw:{n:"Inversor con baterías",short:"Inversor",ext:"inv",sc:.6,w:120,h:114,pass:true,battery:true,cap:p=>p.kw*1000,terms:PT,d:{kw:3,bat:4,on:true},f:[["kw","Potencia (kW)",[1,3,5]],["bat","Baterías 12 V 200 Ah",[2,4]]],std:.6,
+  qn:p=>EXT.inv.desc({kw:p.kw,bat:p.bat}),price:p=>Math.round(EXT.inv.price({kw:p.kw,bat:p.bat})),
+  tip:"Respaldo para los apagones: con luz deja pasar la corriente y carga las baterías; sin luz alimenta su salida desde las baterías."},
  ac:{n:"Aire acondicionado split",short:"A/A split",w:190,h:66,V:240,terms:T3,d:{btu:"18.000 BTU"},f:[["btu","Capacidad",["12.000 BTU","18.000 BTU","24.000 BTU"]]],W:p=>({"12.000 BTU":1300,"18.000 BTU":2000,"24.000 BTU":2600})[p.btu],std:2.3},
  heater:{n:"Calentador de agua",short:"Calentador",w:76,h:130,V:240,terms:T3,d:{W:4500},f:[["W","Potencia (W)",[3000,4500,5500]]],W:p=>p.W,std:1.6},
  pump:{n:"Bomba de agua 240 V",short:"Bomba",w:100,h:66,V:240,terms:T3,d:{hp:"1 HP"},f:[["hp","Potencia",["1/2 HP","1 HP","2 HP"]]],W:p=>({"1/2 HP":600,"1 HP":1100,"2 HP":2100})[p.hp],std:.25},
 };
-const LIB_WALL=[["Alimentación",["panel","feed"]],["Puntos eléctricos",["toma","toma240","inter","inter3","luz"]],["Aparatos para probar",["ac","heater","pump"]]];
+const LIB_WALL=[["Alimentación",["panel","feed"]],["Protección y respaldo",["estabw","protw","upsw","invw"]],["Puntos eléctricos",["toma","toma240","inter","inter3","luz"]],["Aparatos para probar",["ac","heater","pump"]]];
 const WALL_DEFS=`<pattern id="pBlk" width="88" height="44" patternUnits="userSpaceOnUse"><rect width="88" height="44" fill="#b9b6ae"/><path d="M0 0.5H88M0 22.5H88M0.5 0V22M44.5 22V44" stroke="#9a978f" stroke-width="2"/></pattern>
 <pattern id="pTile" width="66" height="66" patternUnits="userSpaceOnUse"><rect width="66" height="66" fill="#f3f4f1"/><path d="M0 0.5H66M0.5 0V66" stroke="#cfd3d0" stroke-width="1.5"/></pattern>
 <radialGradient id="gGlow"><stop offset="0" stop-color="#fff3b0" stop-opacity=".95"/><stop offset=".5" stop-color="#ffd84d" stop-opacity=".35"/><stop offset="1" stop-color="#ffd84d" stop-opacity="0"/></radialGradient>`;
 
 let wallMode="move",wColor="Auto",wAwg="12",pending=null,wdrag=null,reconn=null;
-const simState={running:false,trip:new Set(),burnt:new Set(),res:null,log:[],sparks:[],timer:null};
+const simState={running:false,blackout:false,trip:new Set(),burnt:new Set(),res:null,log:[],sparks:[],timer:null};
 const wallEl=$("wall");
 
 function blankWall(name="Pared 1",withPanel=true){return{name,w:6,h:2.7,finish:FINISH[0],tube:true,items:withPanel?[{id:uid++,type:"panel",x:1,y:1.6,p:{name:""}}]:[],wires:[]}}
@@ -85,6 +100,10 @@ function drawDev(type,p,st){const on=st&&(st.s==="on"||st.s==="weak"),burnt=st&&
     s+=type==="inter"?T(0,up?-26:31,up?"ON":"OFF",{fs:6.5,c:"#6a6f72"}):T(0,up?-26:31,"3V · "+(up?"1":"2"),{fs:6.5,c:"#6a6f72"});break}
   case"feed":{s=R(-32,-32,64,64,"#9aa1a6",{rx:4,s:"#6d757a"})+R(-26,-26,52,52,"#b9bfc2",{rx:3,s:"#868e92"});for(const [x,y] of [[-20,-20],[20,-20],[-20,20],[20,20]])s+=screw(x,y,3.5);
     const b=S.lc.items.find(x=>x.id===p.brk);s+=T(0,0,b?"C"+brkCalc(b).cs.join("-"):"—",{fs:11,c:"#1d2326"})+T(0,12,b?b.p.In+" A":"elige",{fs:6.5,fw:400,c:"#2a2e31"});break}
+  case"estabw":case"upsw":case"invw":{const d=DEV[type],e=EXT[d.ext],ep=Object.assign({},e.d,p,{sys:"Monofásico 120V",kind:"Interactiva",on:st?["on","bat","idle"].includes(st.s):p.on!==false});
+    const W=e.w(ep),H=e.h(ep);s=`<g transform="scale(${d.sc}) translate(${-W/2} ${-H/2})">${DRAWX[d.ext](ep,W,H)}</g>`;break}
+  case"protw":{const ok=st?st.s==="on":p.on!==false;s=R(-25,-38,50,76,"#f4f4f0",{rx:10,s:"#b9bab4"})+R(-17,-30,34,17,"#0d1a10",{rx:2})+T(0,-17.5,st?(ok?"120":"---"):"120",{fs:10,c:"#5cff7a"});
+    s+=C(-10,-4,2.6,ok?"#3bd16b":"#24452f")+C(10,-4,2.6,ok?"#5a1f1f":"#ff3b30")+R(-15,4,30,26,"#efefea",{rx:8,s:"#c4c5bf"})+R(-8,9,3,10,"#333",{rx:1})+R(5,10,3,8,"#333",{rx:1})+`<path d="M-2.5 26v-2.5a2.5 2.5 0 0 1 5 0v2.5z" fill="#333"/>`;break}
   case"luz":{if(on)s+=C(0,8,48,"url(#gGlow)");s+=R(-15,-32,30,10,"#bdb7aa",{rx:3})+R(-3,-22,6,10,"#a9a396")+R(-8,-14,16,10,"#b9b4a8",{rx:2});
     s+=C(0,8,16,burnt?"#4a4743":on?"#fff6c8":"#f2f0e6",{s:"#b9b3a0"})+`<path d="M-5 10 q2.5 -6 5 0 q2.5 6 5 0" fill="none" stroke="${on?"#ff9a1a":"#9a958a"}" stroke-width="1.4"/>`+C(0,8,16,"url(#gLens)",{op:.6});
     if(burnt)s+=`<path d="M-8 2 l6 5 -3 4 7 4" fill="none" stroke="#222" stroke-width="1.2"/>`;break}
@@ -99,7 +118,7 @@ function drawDev(type,p,st){const on=st&&(st.s==="on"||st.s==="weak"),burnt=st&&
   return s}
 
 /* ---------- wall rendering ---------- */
-function wallBadge(st,d){if(!st)return"";const map={on:["#2f9e44",`${st.v} V`],idle:["#2f9e44",`${st.v} V`],off:["#8a9195","0 V"],weak:["#d9822b",`${st.v} V · bajo`],burnt:["#c0322a","QUEMADO"]},[c,t]=map[st.s];
+function wallBadge(st,d){if(!st)return"";const map={bat:["#d9822b","BATERÍA"],on:["#2f9e44",`${st.v} V`],idle:["#2f9e44",`${st.v} V`],off:["#8a9195","0 V"],weak:["#d9822b",`${st.v} V · bajo`],burnt:["#c0322a","QUEMADO"]},[c,t]=map[st.s];
   const w=t.length*5.6+14;return`<g transform="translate(0 ${-d.h/2-15})">${R(-w/2,-9,w,17,c,{rx:8.5})}${T(0,3.5,t,{fs:8.5,c:"#fff"})}</g>`}
 function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.running,res=run?simState.res:null,terms=allTerms();
   const fill={"Frisado y pintado":"#e9e3d7","Bloque sin frisar":"url(#pBlk)","Cerámica":"url(#pTile)"}[W.finish]||"#e9e3d7";
@@ -148,11 +167,16 @@ function runSim(){if(!simState.running)return;const r=simulate(simState.trip,sim
   if(r.pending.length&&!simState.timer)simState.timer=setTimeout(()=>{simState.timer=null;if(!simState.running)return;const r2=simulate(simState.trip,simState.burnt);
     r2.pending.forEach(o=>{simState.trip.add(o.b.id);simState.log.unshift({lvl:"crit",msg:`Disparó por sobrecarga el breaker del circuito ${circLabel(o.b)} (${fmtA(o.I)} en un breaker de ${o.b.p.In} A).`})});
     if(r2.pending.length)showAlert("crit","Disparo por sobrecarga",simState.log[0].msg);runSim();renderAll()},1800)}
-function setRunning(on){simState.running=on;clearTimeout(simState.timer);simState.timer=null;simState.sparks=[];
+function setRunning(on){simState.running=on;simState.blackout=false;clearTimeout(simState.timer);simState.timer=null;simState.sparks=[];
   if(on){simState.trip.clear();simState.burnt.clear();simState.log=[];runSim();
     if(!simState.log.length){const r=simState.res,L=Object.values(r.loads),ok=L.filter(l=>l.s==="on"||l.s==="idle").length,warn=r.status.filter(s=>s.lvl==="warn"||s.lvl==="crit").length;
       showAlert(warn?"warn":"ok",warn?"Prueba en marcha, con avisos":"Prueba en marcha: todo bien",`${ok} de ${L.length} aparatos con tensión en ${S.wall.name}.${warn?` Hay ${warn} aviso${warn>1?"s":""} de norma o de carga.`:" Prueba unir una fase con el neutro para ver qué pasa."}`)}}
   else{simState.res=null;hideAlert()}renderAll()}
+function toggleBlackout(){if(!simState.running)return;simState.blackout=!simState.blackout;
+  simState.log.unshift({lvl:simState.blackout?"warn":"ok",msg:simState.blackout?"Se fue la luz (apagón simulado).":"Volvió la luz."});runSim();
+  const r=simState.res,bat=Object.entries(r.loads).filter(([id,l])=>{const it=S.wall.items.find(i=>i.id===+id);return it&&DEV[it.type].V&&(l.s==="on"||l.s==="idle")});
+  if(simState.blackout)showAlert(bat.length?"warn":"crit",bat.length?"Apagón: hay respaldo":"Apagón: todo sin luz",bat.length?`${bat.length} aparato${bat.length>1?"s siguen":" sigue"} funcionando con batería en ${S.wall.name}.`:"Ningún aparato tiene respaldo. Pon un UPS o un inversor entre la línea y los equipos que quieres mantener.");
+  else showAlert("ok","Volvió la luz","Los equipos vuelven a tomar corriente de la red.");renderAll()}
 function rearm(){simState.trip.clear();simState.burnt.clear();clearTimeout(simState.timer);simState.timer=null;simState.log.unshift({lvl:"ok",msg:"Breakers rearmados y aparatos reemplazados."});hideAlert();runSim();renderAll()}
 
 /* ---------- walls ---------- */
@@ -168,9 +192,9 @@ function devThumb(type){if(type==="panel")return`<svg viewBox="0 0 ${PW} ${lcPH(
 function renderWallLib(){const q=$("q").value.trim().toLowerCase();let h="";$("libTitle").textContent="Para la pared";$("q").placeholder="Buscar: toma, tres vías, bomba…";
   LIB_WALL.forEach(([cat,list])=>{const items=list.filter(t=>!q||(DEV[t].n+" "+cat).toLowerCase().includes(q));if(!items.length)return;
     h+=`<div class="cat">${esc(cat)}</div><div class="lib-grid">`+items.map(t=>{const d=DEV[t],here=S.walls.findIndex(w=>w.items.some(i=>i.type==="panel"));
-      const meta=t==="panel"?(here>=0?`Está en ${S.walls[here].name}`:"Tu caja de breakers"):t==="feed"?"Viene del tablero":d.price?"$ "+fmtNum(d.price,0)+" · "+fmtNum(d.std,2)+" m":"Aparato · "+d.V+" V";
-      return`<div class="li${t==="ac"?" wide":""}" tabindex="0" role="button" data-lib="w${t}">${devThumb(t)}<b>${esc(d.n)}</b><span>${meta}</span>${t==="inter3"||t==="feed"?`<span class="tag-new">Nuevo</span>`:""}</div>`}).join("")+`</div>`});
-  $("libList").innerHTML=h||`<p class="note" style="padding:8px 4px">Nada coincide con "${esc(q)}".</p>`}
+      const meta=t==="panel"?(here>=0?`Está en ${S.walls[here].name}`:"Tu caja de breakers"):t==="feed"?"Viene del tablero":d.price?"$ "+fmtNum(devPrice(d,{}),0)+" · "+fmtNum(d.std,2)+" m":"Aparato · "+d.V+" V";
+      return`<div class="li${t==="ac"?" wide":""}" tabindex="0" role="button" data-lib="w${t}">${devThumb(t)}<b>${esc(d.n)}</b><span>${meta}</span>${["inter3","feed","estabw","protw","upsw","invw"].includes(t)?`<span class="tag-new">Nuevo</span>`:""}</div>`}).join("")+`</div>`});
+  $("libList").innerHTML=h||`<p class="note" style="padding:8px 4px">Nada coincide con "${esc(q)}".</p>`;libChips()}
 function addWallItem(type,at){if(type==="panel"){const i=S.walls.findIndex(w=>w.items.some(x=>x.type==="panel"));if(i>=0){toast(i===S.wallI?"El tablero ya está en esta pared. Arrástralo para moverlo.":`El tablero está en ${S.walls[i].name}. En esta pared usa una "Llegada de circuito".`);return}}
   const d=DEV[type],y=at?at[1]:d.std;let x=at?at[0]:null;
   if(x==null){x=.6;for(let c=.6;c<S.wall.w-.4;c+=.3){if(!S.wall.items.some(i=>Math.abs(i.x-c)<.45&&Math.abs(i.y-y)<.5)){x=c;break}}}
@@ -197,7 +221,7 @@ function renderPropsWall(){const P=$("paneP"),it=S.wall.items.find(i=>i.id===sel
     if(it.type==="panel")P.innerHTML=`<div><h2>Tablero</h2><div class="meta">Centro a ${fmtM2(it.y)} del piso · ${S.lc.spaces} espacios</div></div>
       <p class="note">Es tu caja de breakers. Para cambiar los breakers ve a la vista Tablero. Los cables se conectan al tornillo de cada breaker, a la barra de neutro (izquierda) y a la barra de tierra (derecha).</p>
       ${posFields(it)}<div class="row-btns"><button class="btn danger" id="pp-del">Quitar de la pared</button></div>${sim}`;
-    else P.innerHTML=`<div><h2>${esc(d.n)}</h2><div class="meta">${d.V?d.V+" V · ":""}${d.price?"$ "+fmtNum(d.price)+" en el presupuesto":"Aparato del cliente"}</div></div>
+    else P.innerHTML=`<div><h2>${esc(d.n)}</h2><div class="meta">${d.V?d.V+" V · ":""}${d.price?"$ "+fmtNum(devPrice(d,it.p))+" en el presupuesto":"Aparato del cliente"}</div></div>
       <div class="fields"><label class="field wide"><span>Nombre</span><input class="txt" id="pp-name" value="${esc(it.p.name)}" placeholder="${esc(d.short)}"></label>
       ${it.type==="feed"?`<label class="field wide"><span>Circuito del tablero</span><select class="sel" id="pp-brk">${S.lc.items.map(b=>`<option value="${b.id}"${b.id===it.p.brk?" selected":""}>${esc(brkLabel(b))}</option>`).join("")}</select></label>`:""}
       ${(d.f||[]).map(([k,l,o])=>`<label class="field${o.length>4?" wide":""}"><span>${esc(l)}</span><select class="sel" id="pp-${k}">${o.map(v=>opt(v,it.p[k])).join("")}</select></label>`).join("")}</div>

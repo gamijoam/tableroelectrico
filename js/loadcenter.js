@@ -11,6 +11,8 @@ const LIB_LC=[
  ["3 polos · 208 V trifásico",[["Breaker 3P 30A",{poles:3,In:30}],["Breaker 3P 60A",{poles:3,In:60}],["Breaker 3P 100A",{poles:3,In:100}]]],
  ["Protección de personas",[["GFCI 20A (baños, cocina)",{poles:1,In:20,type:"GFCI"}],["AFCI 15A (cuartos)",{poles:1,In:15,type:"AFCI"}],["GFCI 2P 50A (jacuzzi)",{poles:2,In:50,type:"GFCI"}]]],
 ];
+/* Componentes DIN que se montan en el riel auxiliar de la caja de breakers */
+const LIB_AUX=[["Riel auxiliar en la caja",[["supv","Supervisor de voltaje",{sys:"Bifásico 240V"}],["supv","Supervisor trifásico",{sys:"Trifásico 208V"}],["prot","Protector de voltaje",{}],["spd","Supresor de picos",{poles:2}],["vam","Voltímetro digital",{}],["meter","Medidor de consumo",{ph:"Monofásico"}],["cont","Contactor modular",{}],["timer","Temporizador",{}],["relay","Relé de control",{}],["pilot","Piloto verde",{color:"Verde"}],["term","Bornera tierra",{color:"Verde"}]]]];
 const lcRows=()=>S.lc.spaces/2;
 const PH=()=>S.lc.sys==="3F"?["A","B","C"]:["A","B"];
 const phaseOf=slot=>PH()[slot%PH().length];

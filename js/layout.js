@@ -12,15 +12,16 @@ function applyUI(){const a=$("app");a.classList.toggle("lib-closed",!ui.lib);a.c
   if(autoFit&&S)requestAnimationFrame(()=>S&&fit())}
 function setPanel(which,open){ui[which]=open;applyUI()}
 function setFocus(on){
-  if(on){ui.prev={lib:ui.lib,side:ui.side};ui.lib=false;ui.side=false;ui.focus=true;const el=document.documentElement;
+  if(on){ui.focus=true;const el=document.documentElement;
     if(el.requestFullscreen&&!document.fullscreenElement){try{el.requestFullscreen().catch(()=>{})}catch(e){}}}
-  else{ui.focus=false;if(ui.prev){ui.lib=ui.prev.lib;ui.side=ui.prev.side;ui.prev=null}
+  else{ui.focus=false;
     if(document.fullscreenElement&&document.exitFullscreen){try{document.exitFullscreen().catch(()=>{})}catch(e){}}}
   applyUI()}
 document.addEventListener("fullscreenchange",()=>{if(!document.fullscreenElement&&ui.focus)setFocus(false)});
 $("libRail").onclick=()=>setPanel("lib",true);$("libClose").onclick=()=>setPanel("lib",false);
 $("sideRail").onclick=()=>setPanel("side",true);$("sideClose").onclick=()=>setPanel("side",false);
 $("fs").onclick=()=>setFocus(!ui.focus);
+$("fUndo").onclick=()=>undo();$("fRedo").onclick=()=>redo();$("fPng").onclick=()=>$("png").click();
 
 /* ---------- alertas sobre el área de trabajo ---------- */
 const ALERT_ICON={

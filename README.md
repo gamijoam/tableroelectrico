@@ -32,6 +32,7 @@ Cada cable une dos terminales; los terminales unidos forman una red. Una red pue
 fase (desde un breaker cerrado), neutro o tierra. Con eso detecta:
 
 - Interruptores sencillos y de tres vías (escalera); llegadas de circuito en paredes sin tablero.
+- Estabilizador, protector enchufable, UPS e inversor en línea; con "Simular apagón" los que tienen batería siguen alimentando su salida.
 - Cortocircuito fase-neutro, fase-tierra y fase-fase: dispara el breaker.
 - Sobrecarga por polo: avisa y dispara a los segundos.
 - Aparato de 120 V conectado a 240 V: se quema. Aparato de 240 V con 120 V: funciona mal.

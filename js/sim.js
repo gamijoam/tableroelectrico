@@ -31,8 +31,12 @@ function simulate(prevTrip,burnt){
   for(const it of S.wall.items){if(it.type==="inter"&&it.p.on)nets.union(`${it.id}/COM`,`${it.id}/L`);if(it.type==="inter3")nets.union(`${it.id}/COM`,`${it.id}/T${it.p.pos===2?2:1}`)}
   const feeds=S.wall.items.filter(i=>i.type==="feed");
   if(P)for(let r=1;r<lcRows();r++){nets.union(`${P.id}/N0`,`${P.id}/N${r}`);nets.union(`${P.id}/G0`,`${P.id}/G${r}`)}
-  const mainOn=!S.lc.main||S.lc.mainOn!==false;
+  const mainOn=!simState.blackout&&(!S.lc.main||S.lc.mainOn!==false);
+  const passDev=S.wall.items.filter(i=>DEV[i.type]&&DEV[i.type].pass),linked=new Set(),batOn=new Set();
+  const devOf=id=>S.wall.items.find(i=>i.id===id);
+  const phName=ph=>ph[0]==="U"?`la salida de ${devLabel(devOf(+ph.slice(1)))}`:`la fase ${ph}`;
   if(!P&&!feeds.length)res.status.push({lvl:"warn",msg:"Esta pared no tiene de dónde sacar corriente: agrega el tablero o una llegada de circuito."});
+  else if(simState.blackout)res.status.push({lvl:"warn",msg:"Apagón simulado: no llega corriente de la calle. Solo funciona lo que tenga batería."});
   else if(!mainOn)res.status.push({lvl:"warn",msg:"El breaker principal está apagado: no hay tensión en ningún circuito."});
 
   let info;
@@ -41,25 +45,37 @@ function simulate(prevTrip,burnt){
         if(mainOn&&b.p.on&&!res.trips.has(b.id)){ni.ph.add(phaseOf(b.slot+k));ni.feed.push({b,k})}}
       get(nets.find(`${P.id}/N0`)).N=true;get(nets.find(`${P.id}/G0`)).G=true}
     for(const f of feeds){const b=S.lc.items.find(x=>x.id===f.p.brk);get(nets.find(`${f.id}/N`)).N=true;get(nets.find(`${f.id}/T`)).G=true;if(!b)continue;
-      for(let k=0;k<Math.min(2,b.p.poles);k++){const ni=get(nets.find(`${f.id}/F${k+1}`));if(mainOn&&b.p.on&&!res.trips.has(b.id)){ni.ph.add(phaseOf(b.slot+k));ni.feed.push({b,k})}}}};
+      for(let k=0;k<Math.min(2,b.p.poles);k++){const ni=get(nets.find(`${f.id}/F${k+1}`));if(mainOn&&b.p.on&&!res.trips.has(b.id)){ni.ph.add(phaseOf(b.slot+k));ni.feed.push({b,k})}}}
+    for(const id of batOn){get(nets.find(`${id}/OF`)).ph.add("U"+id);get(nets.find(`${id}/ON`)).N=true}};
   const netOf=id=>info.get(nets.find(id));
   const pot=id=>{const i=netOf(id);if(!i)return null;if(i.ph.size===1)return[...i.ph][0];if(i.ph.size>1)return"X";if(i.N||i.G)return"0";return null};
   const wireIn=root=>wires.find(w=>nets.find(w.a)===root);
   const volt=(a,b)=>{if(a==null||b==null||a==="X"||b==="X"||a===b)return 0;if(a==="0"||b==="0")return 120;return S.lc.sys==="1F"?240:208};
 
-  for(let pass=0;pass<6;pass++){
+  /* Equipos en línea: con 120 V en la entrada dejan pasar la corriente; sin entrada, los que tienen batería alimentan su salida */
+  const resolvePass=()=>{for(let k=0;k<10;k++){build();let changed=false;
+    for(const it of passDev){if(linked.has(it.id)||burnt.has(it.id)||res.newBurnt.includes(it.id)||it.p.on===false)continue;const vin=volt(pot(`${it.id}/IF`),pot(`${it.id}/IN`));
+      if(vin===120){nets.union(`${it.id}/IF`,`${it.id}/OF`);nets.union(`${it.id}/IN`,`${it.id}/ON`);linked.add(it.id);batOn.delete(it.id);changed=true}
+      else if(vin>=208){res.newBurnt.push(it.id);batOn.delete(it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)} recibió ${vin} V en su entrada y se quemó. Estos equipos son de 120 V.`});changed=true}
+      else if(DEV[it.type].battery&&!res.trips.has("d"+it.id)&&!batOn.has(it.id)){batOn.add(it.id);changed=true}}
+    if(!changed)break}};
+
+  for(let pass=0;pass<6;pass++){resolvePass();
     /* 1) cortocircuitos: una red con dos fases, o fase + neutro/tierra */
     for(let guard=0;guard<20;guard++){build();let fault=null;
       for(const [root,i] of info)if(i.ph.size>=2||(i.ph.size&&(i.N||i.G))){fault={root,i};break}
       if(!fault)break;
       const fb=[...new Set(fault.i.feed.map(f=>f.b))];fb.forEach(b=>res.trips.add(b.id));
-      const what=fault.i.ph.size>=2?` entre las fases ${[...fault.i.ph].join(" y ")}`:`: la fase ${[...fault.i.ph][0]} quedó unida con ${fault.i.N?"el neutro":"la tierra"}`;
-      res.log.push({lvl:"crit",msg:`Cortocircuito${what}. Disparó ${fb.map(b=>`el breaker del circuito ${circLabel(b)} (${b.p.In} A)`).join(" y ")}.`});
+      const phs=[...fault.i.ph],bats=phs.filter(x=>x[0]==="U").map(x=>+x.slice(1));bats.forEach(id=>{res.trips.add("d"+id);batOn.delete(id)});
+      const what=phs.length>=2?`: se unieron ${phs.map(phName).join(" y ")}`:`: ${phName(phs[0])} quedó unida con ${fault.i.N?"el neutro":"la tierra"}`;
+      const who=[...fb.map(b=>`el breaker del circuito ${circLabel(b)} (${b.p.In} A)`),...bats.map(id=>`la protección interna de ${devLabel(devOf(id))}`)];
+      res.log.push({lvl:"crit",msg:`Cortocircuito${what}. Disparó ${who.join(" y ")}.`});if(!who.length)break;
       const w=wireIn(fault.root);if(w){const p=wirePath(w,S.wall.wires.indexOf(w),terms);res.sparks.push(p.mid)}
       else{const t=[...terms.values()].find(t=>nets.find(t.id)===fault.root);if(t)res.sparks.push({x:t.x,y:t.y})}}
 
     /* 2) aparatos: voltaje, estado y corriente por polo */
-    res.loads={};res.pcur={};let gfci=false;
+    res.loads={};res.pcur={};res.batW={};let gfci=false;
+    for(const it of passDev)res.loads[it.id]=(burnt.has(it.id)||res.newBurnt.includes(it.id))?{s:"burnt",v:0,I:0}:linked.has(it.id)?{s:"on",v:120,I:0}:batOn.has(it.id)?{s:"bat",v:120,I:0}:{s:"off",v:0,I:0,why:it.p.on===false?"apagado":"sin tensión en la entrada"};
     for(const it of S.wall.items){const d=DEV[it.type];if(!d||!d.V)continue;
       const [k0,k1]=d.terms.filter(t=>t[1]!=="T").map(t=>`${it.id}/${t[0]}`);
       const a=pot(k0),b=pot(k1),v=volt(a,b),W=d.W(it.p)||0;let st;
@@ -69,6 +85,7 @@ function simulate(prevTrip,burnt){
       else if(d.V===240&&v===120)st={s:"weak",v};
       else st={s:W>0?"on":"idle",v};
       st.I=st.s==="on"?W/(d.V===120?120:v):st.s==="weak"?W/4/120:0;res.loads[it.id]=st;
+      if(st.s==="on")for(const k of [k0,k1]){const i=netOf(k);if(i)for(const ph of i.ph)if(ph[0]==="U")res.batW[ph.slice(1)]=(res.batW[ph.slice(1)]||0)+W}
       if(st.I)for(const k of [k0,k1]){const i=netOf(k);if(i&&i.ph.size===1&&i.feed.length){const f=i.feed[0],key=f.b.id+"."+f.k;res.pcur[key]=(res.pcur[key]||0)+st.I}}
       /* GFCI: si el neutro del aparato regresa por la tierra, el GFCI dispara */
       if(st.I&&d.V===120){const nN=netOf(k1),nF=netOf(k0);if(nN&&nN.G&&!nN.N&&nF&&nF.feed.length){const g=nF.feed.find(f=>f.b.p.type==="GFCI");
@@ -98,10 +115,14 @@ function simulate(prevTrip,burnt){
     if(it.type==="toma"&&pot(`${it.id}/F`)==="0"&&/[ABC]/.test(pot(`${it.id}/N`)||""))res.status.push({lvl:"warn",msg:`${L}: polaridad invertida. La fase va al tornillo dorado (F) y el neutro al plateado (N).`});
     if(d.terms.some(t=>t[1]==="T")){const g=netOf(`${it.id}/T`);if(!(g&&g.G))res.status.push({lvl:"warn",msg:`${L}: sin conexión a tierra.`})}
     const nTerm=d.terms.find(t=>t[1]==="N");if(nTerm){const n=netOf(`${it.id}/${nTerm[0]}`);if(n&&n.G&&!n.N)res.status.push({lvl:"warn",msg:`${L}: el neutro está conectado a la barra de tierra, no a la de neutro.`})}
-    const st=res.loads[it.id];if(!st)continue;
+    if(d.pass)continue;const st=res.loads[it.id];if(!st)continue;
     if(st.s==="on")res.status.push({lvl:"ok",msg:`${L}: funcionando a ${st.v} V (${fmtA(st.I)}).`});
     else if(st.s==="idle")res.status.push({lvl:"ok",msg:`${L}: tiene ${st.v} V, sin aparato conectado.`});
     else if(st.s==="weak")res.status.push({lvl:"warn",msg:`${L}: recibe solo 120 V y necesita ${S.lc.sys==="1F"?240:208} V. Conéctalo a dos fases.`});
     else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: apagado (${st.why}).`})}
+  for(const it of passDev){const st=res.loads[it.id],L=devLabel(it),d=DEV[it.type];
+    if(st.s==="on")res.status.push({lvl:"ok",msg:`${L}: con 120 V en la entrada, alimentando su salida.`});
+    else if(st.s==="bat"){const w=res.batW[it.id]||0,cap=d.cap(Object.assign({},d.d,it.p));res.status.push(w>cap?{lvl:"crit",msg:`${L}: tiene ${w} W conectados y solo aguanta ${cap} W con batería.`}:{lvl:"ok",msg:`${L}: funcionando con batería (${w} W de ${cap} W).`})}
+    else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: ${st.why}.`})}
   const order={crit:0,warn:1,ok:2,off:3};res.status.sort((a,b)=>order[a.lvl]-order[b.lvl]);
   return res}

@@ -1,24 +1,30 @@
 /* ---------- library ---------- */
 const curLib=()=>S.kind==="lc"?LIB_LC:LIB_DIN;
-function libInfo(k){if(k[0]==="w"){const t=k.slice(1);return{wall:true,type:t,label:DEV[t].n,p:Object.assign({},DEV[t].d||{})}}
+function libInfo(k){if(k[0]==="a"){const [a,b]=k.slice(1).split(".").map(Number),e=LIB_AUX[a][1][b];return{aux:true,type:e[0],label:e[1],ov:e[2],p:Object.assign({},CAT[e[0]].d,e[2])}}
+  if(k[0]==="w"){const t=k.slice(1);return{wall:true,type:t,label:DEV[t].n,p:Object.assign({},DEV[t].d||{})}}
   if(k[0]==="x"){const [a,b]=k.slice(1).split(".").map(Number),e=LIB_EXT[a][1][b];return{ext:true,type:e[0],label:e[1],p:Object.assign({},EXT[e[0]].d,e[2])}}
   const [a,b]=k.split(".").map(Number),e=curLib()[a][1][b];
   if(S.kind==="lc")return{lc:true,label:e[0],p:Object.assign({},BRK.d,e[1])};
   return{lc:false,type:e[0],label:e[1],ov:e[2],p:Object.assign({},CAT[e[0]].d,e[2])}}
-function thumb(info){if(info.ext){const {w,h,svg}=drawExt(info.type,info.p);return`<svg viewBox="-3 -3 ${w+6} ${h+12}" aria-hidden="true"><g filter="url(#sh)">${svg}</g></svg>`}
+function thumb(info){if(info.aux){const {w,svg}=drawComp(info.type,info.p);return`<svg viewBox="-3 -3 ${w+6} ${CH+8}" aria-hidden="true"><g filter="url(#sh)">${svg}</g></svg>`}
+  if(info.ext){const {w,h,svg}=drawExt(info.type,info.p);return`<svg viewBox="-3 -3 ${w+6} ${h+12}" aria-hidden="true"><g filter="url(#sh)">${svg}</g></svg>`}
   if(info.lc){const h=info.p.poles*SL;return`<svg viewBox="-3 -3 ${BW+6} ${h+8}" aria-hidden="true"><g filter="url(#sh)">${brkSvg(Object.assign({},info.p,{name:info.p.type!=="Estándar"?info.p.type:""}),false,brkV(info.p))}</g></svg>`}
   const {w,svg}=drawComp(info.type,info.p);return`<svg viewBox="-3 -3 ${w+6} ${CH+8}" aria-hidden="true"><g filter="url(#sh)">${svg}</g></svg>`}
 function renderLib(){if(S.view==="wall")return renderWallLib();const q=$("q").value.trim().toLowerCase(),lib=curLib();let h="";
   $("libTitle").textContent=S.kind==="lc"?"Breakers enchufables":"Componentes riel DIN";$("q").placeholder=S.kind==="lc"?"Buscar: 20A, GFCI, 2P…":"Buscar: supervisor, contactor, relé…";
-  const groups=[...lib.map((g,ci)=>[g,ci,""]),...LIB_EXT.map((g,ci)=>[g,ci,"x"])];
-  groups.forEach(([[cat,list],ci,pre])=>{const items=list.map((e,ei)=>({k:pre+ci+"."+ei,info:libInfo(pre+ci+"."+ei)})).filter(({info})=>!q||(info.label+" "+cat+" "+(info.ext?EXT[info.type].n:info.lc?"breaker":CAT[info.type].n)).toLowerCase().includes(q));if(!items.length)return;
+  const groups=[...lib.map((g,ci)=>[g,ci,""]),...(S.kind==="lc"?LIB_AUX.map((g,ci)=>[g,ci,"a"]):[]),...LIB_EXT.map((g,ci)=>[g,ci,"x"])];
+  groups.forEach(([[cat,list],ci,pre])=>{const items=list.map((e,ei)=>({k:pre+ci+"."+ei,info:libInfo(pre+ci+"."+ei)})).filter(({info})=>!q||(info.label+" "+cat+" "+(info.ext?EXT[info.type].n:info.lc?"breaker interruptor":CAT[info.type].n)).toLowerCase().includes(q));if(!items.length)return;
    h+=`<div class="cat">${esc(cat)}</div><div class="lib-grid">`+items.map(({k,info})=>{let meta;
     if(info.ext)meta="$ "+fmtNum(EXT[info.type].price(info.p),0);
     else if(info.lc)meta=info.p.poles+(info.p.poles>1?" esp.":" esp.")+" · $ "+fmtNum(brkPrice(info.p),0);
     else{const u=CAT[info.type].u(info.p);meta=fmtM(u/2)+" mód · $ "+fmtNum(PRICE_DIN[info.type](info.p),0)}
-    const isNew=info.ext||(!info.lc&&NEW.has(info.type));
+    const isNew=info.aux||info.ext||(!info.lc&&NEW.has(info.type));
     return`<div class="li${info.lc?" wide":""}" tabindex="0" role="button" data-lib="${k}">${thumb(info)}<b>${esc(info.label)}</b><span>${meta}</span>${isNew?`<span class="tag-new">Nuevo</span>`:""}</div>`}).join("")+`</div>`});
-  $("libList").innerHTML=h||`<p class="note" style="padding:8px 4px">Nada coincide con "${esc(q)}".</p>`}
+  $("libList").innerHTML=h||`<p class="note" style="padding:8px 4px">Nada coincide con "${esc(q)}".</p>`;libChips()}
+/* Accesos rápidos a cada categoría de la biblioteca */
+function libChips(){const list=$("libList"),cats=[...list.querySelectorAll(".cat")];cats.forEach((c,i)=>c.id="libcat"+i);
+  $("libCats").innerHTML=cats.length>1?cats.map((c,i)=>`<button class="catb" data-i="${i}">${esc(c.textContent)}</button>`).join(""):"";
+  $("libCats").querySelectorAll(".catb").forEach(b=>b.onclick=()=>{const el=$("libcat"+b.dataset.i);list.scrollTo({top:el.offsetTop-6,behavior:"smooth"})})}
 
 /* ---------- side panels ---------- */
 function opt(v,cur){return`<option value="${esc(v)}"${String(v)===String(cur)?" selected":""}>${esc(v)}</option>`}
@@ -30,7 +36,7 @@ function projFields(){return`<h3>Rótulo del plano</h3><div class="fields">
    <label class="field"><span>Dibujó</span><input class="txt" id="pj-author" value="${esc(S.project.author)}" placeholder="Tu nombre"></label>
    <label class="field"><span>Fecha</span><input class="txt" id="pj-date" value="${esc(S.project.date)}"></label></div>`}
 function bindProj(){["name","client","author","date"].forEach(k=>{const el=$("pj-"+k);el.addEventListener("change",()=>mutate(()=>{S.project[k]=el.value}))})}
-function renderProps(){if(S.view==="wall")return renderPropsWall();const x=selExt();if(x)return renderPropsExt(x);S.kind==="lc"?renderPropsLC():renderPropsDIN()}
+function renderProps(){if(S.view==="wall")return renderPropsWall();const x=selExt();if(x)return renderPropsExt(x);const ax=selAux();if(ax)return renderPropsAux(ax);S.kind==="lc"?renderPropsLC():renderPropsDIN()}
 function renderPropsExt(x){const c=EXT[x.type],P=$("paneP");
   P.innerHTML=`<div><h2>${esc(c.n)}</h2><div class="meta">Equipo externo · precio sugerido ${fmtUSD(c.price(x.p))}</div></div>
    <div class="fields"><label class="field wide"><span>Nombre / qué alimenta</span><input class="txt" id="pp-name" value="${esc(x.p.name)}"></label>
@@ -42,6 +48,21 @@ function renderPropsExt(x){const c=EXT[x.type],P=$("paneP");
   c.f.forEach(([k,,o])=>$("pp-"+k).addEventListener("change",e=>{const v=typeof o[0]==="number"?Number(e.target.value):e.target.value;mutate(()=>{x.p[k]=v})}));
   if(c.st)$("pp-on").addEventListener("change",e=>mutate(()=>{x.p.on=e.target.checked}));
   $("pp-left").onclick=()=>moveExt(-1);$("pp-right").onclick=()=>moveExt(1);$("pp-dup").onclick=dup;$("pp-del").onclick=del}
+function renderPropsAux(it){const P=$("paneP"),c=CAT[it.type],u=units(it);
+  let f=`<label class="field"><span>Designación</span><input class="txt" id="pp-des" value="${esc(it.p.des)}"></label><label class="field"><span>Función</span><input class="txt" id="pp-name" value="${esc(it.p.name)}"></label>`;
+  c.f.forEach(([k,l,o])=>{f+=o==="text"?`<label class="field"><span>${esc(l)}</span><input class="txt" id="pp-${k}" value="${esc(it.p[k])}"></label>`:`<label class="field"><span>${esc(l)}</span><select class="sel" id="pp-${k}">${o.map(v=>opt(v,it.p[k])).join("")}</select></label>`});
+  P.innerHTML=`<div><h2>${esc(c.n)}</h2><div class="meta">Riel auxiliar de la caja · ${fmtM(u/2)} mód · $ ${fmtNum(PRICE_DIN[it.type](it.p))}</div></div>
+   <div class="fields">${f}</div>${c.st?`<label class="switch"><input type="checkbox" id="pp-on"${it.p.on?" checked":""}> ${esc(c.st)}</label>`:""}
+   <p class="note">${esc(c.desc(it.p))}. Va montado en el riel auxiliar dentro de la caja de breakers.</p>
+   <div class="row-btns"><button class="btn" id="pp-left">← Mover</button><button class="btn" id="pp-right">Mover →</button><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>`;
+  ["des","name"].forEach(k=>$("pp-"+k).addEventListener("change",e=>mutate(()=>{it.p[k]=e.target.value})));
+  c.f.forEach(([k,,o])=>$("pp-"+k).addEventListener("change",e=>{const v=Array.isArray(o)&&typeof o[0]==="number"?Number(e.target.value):e.target.value,old=it.p[k];it.p[k]=v;const nu=units(it);
+    const x=auxFits(it.x,nu,it.id)?it.x:auxNearest(it.x,nu,it.id);it.p[k]=old;if(x==null){toast("No entra con ese tamaño en el riel auxiliar.");renderProps();return}mutate(()=>{it.p[k]=v;it.x=x})}));
+  if(c.st)$("pp-on").addEventListener("change",e=>mutate(()=>{it.p.on=e.target.checked}));
+  $("pp-left").onclick=()=>nudgeAux(-1);$("pp-right").onclick=()=>nudgeAux(1);$("pp-dup").onclick=dup;$("pp-del").onclick=del}
+const auxFits=(x,u,ign)=>fits(0,x,u,ign,S.lc.aux,AUX_CAP,1);
+function auxNearest(x,u,ign){for(let d=0;d<=AUX_CAP;d++)for(const t of [x-d,x+d])if(auxFits(t,u,ign))return t;return null}
+function nudgeAux(d){const it=selAux();if(!it)return;const u=units(it);let x=it.x+d;while(x>=0&&x+u<=AUX_CAP&&!auxFits(x,u,it.id))x+=d;if(auxFits(x,u,it.id))mutate(()=>{it.x=x})}
 function moveExt(d){const i=S.ext.findIndex(x=>x.id===sel),j=i+d;if(i<0||j<0||j>=S.ext.length)return;mutate(()=>{const a=S.ext;[a[i],a[j]]=[a[j],a[i]]})}
 function renderPropsDIN(){const P=$("paneP"),it=selItem();
   if(!it){const rows=[...Array(S.board.rows)].map((_,r)=>{const used=S.items.filter(i=>i.row===r).reduce((a,i)=>a+units(i),0),pct=used/cap()*100;return`<div class="occ-row"><span>Fila ${r+1}</span><div class="bar"><i class="${pct>=100?"full":""}" style="width:${pct}%"></i></div><span class="meta">${fmtM(used/2)}/${S.board.mods}</span></div>`}).join("");
@@ -100,12 +121,14 @@ function quoteData(){const Q=S.quote,m=new Map(),add=(desc,cost,ref,q=1,u="")=>{
   if(S.kind==="lc"){const calc=lcCalc(),its=[...S.lc.items].sort((a,b)=>calc.per[a.id].cs[0]-calc.per[b.id].cs[0]);
    for(const b of its)add(BRK.desc(b.p),brkPrice(b.p),"C"+calc.per[b.id].cs.join("-"));
    add(lcBoxDesc(),lcBoxPrice());
+   for(const it of [...S.lc.aux].sort((a,b)=>a.x-b.x))add(CAT[it.type].desc(it.p),PRICE_DIN[it.type](it.p),it.p.des);
+   if(S.lc.aux.length)add("Riel DIN 35 mm con tapa troquelada para la caja",8);
    const cab=new Map();for(const b of its){const a=AWG[b.p.In];cab.set(a,(cab.get(a)||0)+(+Q.cableM||0)*(b.p.poles===3?4:3))}
    [...cab].filter(([,mts])=>mts>0).sort((a,b)=>parseInt(b[0])-parseInt(a[0])).forEach(([a,mts])=>add(`Cable THHN/THW cobre #${a} AWG`,AWG_P[a]||1,null,mts,"m"))}
   else{for(const it of [...S.items].sort((a,b)=>a.row-b.row||a.x-b.x))add(CAT[it.type].desc(it.p),PRICE_DIN[it.type](it.p),it.p.des);add(dinBoxDesc(),dinBoxPrice())}
   for(const x of S.ext)add(EXT[x.type].desc(x.p),Math.round(EXT[x.type].price(x.p)),x.p.name);
   const wm=new Map();let tube=0;
-  for(const wl of S.walls){for(const it of wl.items){const dv=DEV[it.type];if(dv&&dv.price)add(dv.qn,dv.price,it.p.name?`${it.p.name} (${wl.name})`:wl.name)}
+  for(const wl of S.walls){for(const it of wl.items){const dv=DEV[it.type];if(dv&&dv.price)add(devQn(dv,it.p),devPrice(dv,it.p),it.p.name?`${it.p.name} (${wl.name})`:wl.name)}
     for(const [k,m] of wallWireMeters(wl))wm.set(k,(wm.get(k)||0)+m);if(wl.tube!==false)tube+=tubeMeters(wl)}
   [...wm].sort().forEach(([k,mts])=>{const [awg,col]=k.split("|");add(`Cable THHN/THW cobre #${awg} AWG ${col.toLowerCase()} (pared)`,AWG_P[awg]||1,null,Math.round(mts*1.1*2)/2,"m")});
   if(tube>0)add('Tubo PVC 3/4" para pared',.9,null,Math.round(tube*1.1*2)/2,"m");
@@ -170,7 +193,7 @@ function renderTools(){const lc=S.kind==="lc";$("kind").value=S.kind;$("lcTools"
   $("boardTools").hidden=wall;$("wallTools").hidden=!wall;$("usage").hidden=wall;
   if(wall){$("mMove").setAttribute("aria-pressed",String(wallMode==="move"));$("mWire").setAttribute("aria-pressed",String(wallMode==="wire"));
     $("wColor").value=wColor;$("wAwg").value=wAwg;$("wSize").value=S.wall.w+"x"+S.wall.h;$("wFinish").value=S.wall.finish;$("wSel").innerHTML=S.walls.map((w,i)=>`<option value="${i}">${esc(w.name)}</option>`).join("");$("wSel").value=S.wallI;$("wTube").checked=S.wall.tube!==false;
-    $("play").textContent=simState.running?"■ Detener":"▶ Probar";$("play").classList.toggle("running",simState.running);$("rearm").hidden=!simState.running;
+    $("play").textContent=simState.running?"■ Detener":"▶ Probar";$("blackout").hidden=!simState.running;$("blackout").textContent=simState.blackout?"Volver la luz":"Simular apagón";$("blackout").classList.toggle("primary",simState.blackout);$("play").classList.toggle("running",simState.running);$("rearm").hidden=!simState.running;
     $("hint").innerHTML=reconn?"Toca o suelta sobre el terminal nuevo para ese extremo del cable · <kbd>Esc</kbd> cancela":pending?"Ahora toca el segundo terminal para tender el cable · <kbd>Esc</kbd> cancela"
      :"<b>Mover</b>: arrastra los dispositivos · toca un terminal y luego otro para tender un cable · <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> mueven 5 cm · <kbd>Supr</kbd> borra · <b>Probar</b> energiza la pared"}
   $("total").textContent=fmtUSD(quoteData().total);

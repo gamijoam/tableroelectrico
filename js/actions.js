@@ -2,6 +2,8 @@
 function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2800)}
 function addFromLib(k,pos){const info=libInfo(k);
   if(info.wall){addWallItem(info.type,pos);return}
+  if(info.aux){const u=CAT[info.type].u(info.p),x=pos&&pos.x!=null?pos.x:auxNearest(0,u,null);if(x==null){toast("El riel auxiliar está lleno. Quita algún componente o usa un tablero DIN aparte.");return}
+   const it={id:uid++,type:info.type,row:0,x,p:Object.assign({},info.p,{des:nextDes(info.type),name:""})};mutate(()=>{S.lc.aux.push(it)});sel=it.id;renderAll();if(autoFit)fit();return}
   if(info.ext){const x={id:uid++,type:info.type,p:Object.assign({},info.p,{name:""})};mutate(()=>{S.ext.push(x)});sel=x.id;renderAll();if(autoFit)fit();toast(`${EXT[info.type].n} agregado debajo del tablero.`);return}
   if(info.lc){const n=info.p.poles;if(n===3&&S.lc.sys==="1F"){toast("Los breakers de 3 polos necesitan una caja trifásica 208Y/120 V. Cambia el sistema arriba.");return}
    pos=pos||lfirstFree(n);if(!pos){toast("No quedan espacios libres: elige una caja con más espacios.");return}
@@ -21,12 +23,13 @@ function setPropLC(id,k,v){const b=S.lc.items.find(i=>i.id===id);if(k!=="poles")
 function nudge(d){const it=S.items.find(i=>i.id===sel);if(!it)return;let x=it.x+d;const u=units(it);while(x>=0&&x+u<=cap()&&!fits(it.row,x,u,it.id))x+=d;if(fits(it.row,x,u,it.id))mutate(()=>{it.x=x})}
 function nudgeLC(d){const b=S.lc.items.find(i=>i.id===sel);if(!b)return;let s=b.slot+d;while(s>=0&&s+b.p.poles<=lcRows()&&!lfits(b.side,s,b.p.poles,b.id))s+=d;if(lfits(b.side,s,b.p.poles,b.id))mutate(()=>{b.slot=s})}
 function switchSide(){const b=S.lc.items.find(i=>i.id===sel);if(!b)return;const side=b.side==="L"?"R":"L",s=lnearest(side,b.slot,b.p.poles,b.id);if(s==null){toast("El otro lado no tiene espacio para este breaker.");return}mutate(()=>{b.side=side;b.slot=s})}
-function dup(){const xe=selExt();if(xe){const i=S.ext.indexOf(xe),n={id:uid++,type:xe.type,p:Object.assign({},xe.p)};mutate(()=>{S.ext.splice(i+1,0,n)});sel=n.id;renderAll();return}
+function dup(){const ax=selAux();if(ax){const u=units(ax),x=auxNearest(ax.x+u,u,null);if(x==null){toast("No queda lugar en el riel auxiliar.");return}const n={id:uid++,type:ax.type,row:0,x,p:Object.assign({},ax.p,{des:nextDes(ax.type)})};mutate(()=>{S.lc.aux.push(n)});sel=n.id;renderAll();return}
+  const xe=selExt();if(xe){const i=S.ext.indexOf(xe),n={id:uid++,type:xe.type,p:Object.assign({},xe.p)};mutate(()=>{S.ext.splice(i+1,0,n)});sel=n.id;renderAll();return}
   if(S.kind==="lc"){const b=S.lc.items.find(i=>i.id===sel);if(!b)return;let s=lnearest(b.side,b.slot+b.p.poles,b.p.poles,null),pos=s!=null?{side:b.side,slot:s}:lfirstFree(b.p.poles);if(!pos){toast("No quedan espacios para duplicarlo.");return}
    const n={id:uid++,side:pos.side,slot:pos.slot,p:Object.assign({},b.p)};mutate(()=>{S.lc.items.push(n)});sel=n.id;renderAll();return}
   const it=S.items.find(i=>i.id===sel);if(!it)return;const u=units(it);let x=nearest(it.row,it.x+u,u,null),pos=x!=null?{row:it.row,x}:firstFree(u,it.row);if(!pos){toast("No queda lugar para duplicarlo.");return}
   const n={id:uid++,type:it.type,row:pos.row,x:pos.x,p:Object.assign({},it.p,{des:nextDes(it.type)})};mutate(()=>{S.items.push(n)});sel=n.id;renderAll()}
-function del(){if(!sel)return;const id=sel;sel=null;mutate(()=>{if(S.ext.some(i=>i.id===id))S.ext=S.ext.filter(i=>i.id!==id);else if(S.kind==="lc")S.lc.items=S.lc.items.filter(i=>i.id!==id);else S.items=S.items.filter(i=>i.id!==id)})}
+function del(){if(!sel)return;const id=sel;sel=null;mutate(()=>{if(S.lc.aux.some(i=>i.id===id))S.lc.aux=S.lc.aux.filter(i=>i.id!==id);else if(S.ext.some(i=>i.id===id))S.ext=S.ext.filter(i=>i.id!==id);else if(S.kind==="lc")S.lc.items=S.lc.items.filter(i=>i.id!==id);else S.items=S.items.filter(i=>i.id!==id)})}
 function resize(rows,mods){const items=JSON.parse(JSON.stringify(S.items)).sort((a,b)=>a.row-b.row||a.x-b.x),c=mods*2,keep=[],out=[];
   for(const i of items)(fits(i.row,i.x,units(i),i.id,keep,c,rows)?keep:out).push(i);
   for(const i of out){let ok=false;for(let r=0;r<rows&&!ok;r++)for(let x=0;x+units(i)<=c;x++)if(fits(r,x,units(i),i.id,keep,c,rows)){i.row=r;i.x=x;keep.push(i);ok=true;break}
@@ -44,6 +47,8 @@ function copyText(t,msg){try{navigator.clipboard.writeText(t).then(()=>toast(msg
 let drag=null;const ghost=$("ghost");
 function toBoard(e){const pt=board.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const m=board.getScreenCTM();if(!m)return null;const q=pt.matrixTransform(m.inverse());return{x:q.x-dims().encX,y:q.y}}
 function target(e){const q=toBoard(e);if(!q)return null;
+  if(drag.aux){const y0=auxY();if(q.y<y0-40||q.y>y0+AUXH||q.x<AUX_X0-60||q.x>AUX_X0+AUX_CAP*U+60)return null;let x=Math.round((q.x-drag.grab-AUX_X0)/U);x=Math.max(0,Math.min(AUX_CAP-drag.u,x));
+   const ign=drag.kind==="move"?drag.id:null,nx=auxFits(x,drag.u,ign)?x:auxNearest(x,drag.u,ign);return nx==null?{aux:true,x,ok:false}:{aux:true,x:nx,ok:true}}
   if(drag.lc){const n=drag.n;if(q.x<XL-50||q.x>XR+BW+50||q.y<LY0-30||q.y>LY0+lcRows()*SL+30)return null;
    if(n===3&&S.lc.sys==="1F")return{side:q.x<CX?"L":"R",slot:Math.max(0,Math.min(lcRows()-n,Math.floor((q.y-LY0)/SL)-drag.grab)),ok:false};
    const side=q.x<CX?"L":"R";let slot=Math.floor((q.y-LY0)/SL)-drag.grab;slot=Math.max(0,Math.min(lcRows()-n,slot));const ign=drag.kind==="move"?drag.id:null;
@@ -52,14 +57,18 @@ function target(e){const q=toBoard(e);if(!q)return null;
   let x=Math.round((q.x-drag.grab-SIDE)/U);x=Math.max(0,Math.min(cap()-drag.u,x));const ign=drag.kind==="move"?drag.id:null;const nx=fits(r,x,drag.u,ign)?x:nearest(r,x,drag.u,ign);
   return nx==null?{row:r,x,ok:false}:{row:r,x:nx,ok:true}}
 function showPreview(t){const pv=$("pv");if(!pv)return;if(!t){pv.innerHTML="";return}const col=t.ok?"#2f9e44":"#d23a2f";
+  if(drag.aux){const p=drag.kind==="new"?drag.p:S.lc.aux.find(i=>i.id===drag.id).p,{w,svg}=drawComp(drag.type,p);
+   pv.innerHTML=`<g transform="translate(${AUX_X0+t.x*U} ${auxY()+40})" opacity=".75">${svg}<rect x="-3" y="-3" width="${w+6}" height="${CH+6}" rx="5" fill="${col}" fill-opacity=".12" stroke="${col}" stroke-width="2" stroke-dasharray="6 4"/></g>`;return}
   if(drag.lc){const p=drag.kind==="new"?drag.p:S.lc.items.find(i=>i.id===drag.id).p,h=p.poles*SL,x=t.side==="L"?XL:XR,V=p.poles===1?120:(S.lc.sys==="1F"?240:208);
    pv.innerHTML=`<g transform="translate(${x} ${LY0+t.slot*SL})" opacity=".8">${brkSvg(p,t.side==="R",V)}${R(-3,0,BW+6,h,col,{rx:6,op:.15})}${R(-3,0,BW+6,h,"none",{rx:6,s:col,sw:2,da:"6 4"})}</g>`;return}
   const p=drag.kind==="new"?drag.p:S.items.find(i=>i.id===drag.id).p;const {w,svg}=drawComp(drag.type,p);
   pv.innerHTML=`<g transform="translate(${SIDE+t.x*U} ${TOP+t.row*ROW_H+COMP_Y})" opacity=".75">${svg}<rect x="-3" y="-3" width="${w+6}" height="${CH+6}" rx="5" fill="${col}" fill-opacity=".12" stroke="${col}" stroke-width="2" stroke-dasharray="6 4"/></g>`}
-$("libList").addEventListener("pointerdown",e=>{const li=e.target.closest(".li");if(!li||e.button>0)return;const k=li.dataset.lib,info=libInfo(k);
+$("libList").addEventListener("pointerdown",e=>{const li=e.target.closest(".li");if(!li||e.button>0)return;if(e.pointerType==="mouse")e.preventDefault();const k=li.dataset.lib,info=libInfo(k);
   const base={kind:"new",k,p:info.p,label:info.label,sx:e.clientX,sy:e.clientY,moving:false,touch:e.pointerType==="touch"};
-  drag=info.wall?Object.assign(base,{wall:true}):info.ext?Object.assign(base,{ext:true}):info.lc?Object.assign(base,{lc:true,n:info.p.poles,grab:0}):Object.assign(base,{type:info.type,u:CAT[info.type].u(info.p),grab:CAT[info.type].u(info.p)*U/2})});
+  drag=info.aux?Object.assign(base,{aux:true,type:info.type,u:CAT[info.type].u(info.p),grab:CAT[info.type].u(info.p)*U/2}):info.wall?Object.assign(base,{wall:true}):info.ext?Object.assign(base,{ext:true}):info.lc?Object.assign(base,{lc:true,n:info.p.poles,grab:0}):Object.assign(base,{type:info.type,u:CAT[info.type].u(info.p),grab:CAT[info.type].u(info.p)*U/2})});
 board.addEventListener("pointerdown",e=>{const ex=e.target.closest(".ex");if(ex){sel=+ex.dataset.id;renderAll();return}
+  const sl=e.target.closest(".slot");if(sl){addFromLib("0.1",{side:sl.dataset.side,slot:+sl.dataset.slot});return}
+  const ax=e.target.closest(".ax");if(ax){const it=S.lc.aux.find(i=>i.id===+ax.dataset.id),q=toBoard(e);sel=it.id;drag={kind:"move",aux:true,id:it.id,type:it.type,u:units(it),grab:q.x-(AUX_X0+it.x*U),sx:e.clientX,sy:e.clientY,moving:false};try{board.setPointerCapture(e.pointerId)}catch(_){}renderAll();return}
   const g=e.target.closest(".it");
   if(g){const id=+g.dataset.id,q=toBoard(e);sel=id;
    if(S.kind==="lc"){const b=S.lc.items.find(i=>i.id===id);drag={kind:"move",lc:true,id,n:b.p.poles,grab:Math.max(0,Math.min(b.p.poles-1,Math.floor((q.y-LY0-b.slot*SL)/SL))),sx:e.clientX,sy:e.clientY,moving:false}}
@@ -68,21 +77,23 @@ board.addEventListener("pointerdown",e=>{const ex=e.target.closest(".ex");if(ex)
   const r=e.target.closest(".row-hit");if(r){activeRow=+r.dataset.row;sel=null;renderAll();return}
   if(sel){sel=null;renderAll()}});
 window.addEventListener("pointermove",e=>{if(!drag)return;if(!drag.moving){if(drag.touch&&drag.kind==="new")return;if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<5)return;drag.moving=true;
-   if(drag.kind==="new"){ghost.textContent=drag.label;ghost.hidden=false}else renderBoard()}
+   if(drag.kind==="new"){ghost.textContent=drag.label;ghost.hidden=false;if(drag.aux)renderBoard()}else renderBoard()}
   if(drag.kind==="new"){ghost.style.left=e.clientX+"px";ghost.style.top=e.clientY+"px"}
   if(drag.ext||drag.wall)return;const t=target(e);drag.t=t;showPreview(t);if(drag.kind==="new")ghost.hidden=!!t});
 window.addEventListener("pointerup",e=>{if(!drag)return;const d=drag;drag=null;ghost.hidden=true;
   if(d.wall){if(!d.moving){addFromLib(d.k);return}const r=wallEl.getBoundingClientRect();if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom){const q=toWall(e);addWallItem(d.k.slice(1),fromPx(q.x,q.y))}return}
   if(d.ext){const r=$("stage").getBoundingClientRect();if(!d.moving||(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom))addFromLib(d.k);return}
   if(d.kind==="new"){if(!d.moving){addFromLib(d.k);return}const t=d.t;
-   if(t&&t.ok)addFromLib(d.k,d.lc?{side:t.side,slot:t.slot}:{row:t.row,x:t.x});
-   else{showPreview(null);if(t)toast(d.lc&&d.n===3&&S.lc.sys==="1F"?"Los breakers de 3 polos necesitan una caja trifásica.":"Ese lugar está ocupado.")}return}
+   if(t&&t.ok)addFromLib(d.k,d.aux?{x:t.x}:d.lc?{side:t.side,slot:t.slot}:{row:t.row,x:t.x});
+   else{showPreview(null);if(d.aux)renderBoard();if(t)toast(d.lc&&d.n===3&&S.lc.sys==="1F"?"Los breakers de 3 polos necesitan una caja trifásica.":"Ese lugar está ocupado.")}return}
   if(!d.moving)return;const t=d.t;
+  if(d.aux){const it=S.lc.aux.find(i=>i.id===d.id);if(t&&t.ok&&t.x!==it.x)mutate(()=>{it.x=t.x});else renderBoard();return}
   if(d.lc){const b=S.lc.items.find(i=>i.id===d.id);if(t&&t.ok&&(t.side!==b.side||t.slot!==b.slot))mutate(()=>{b.side=t.side;b.slot=t.slot});else renderBoard();return}
   const it=S.items.find(i=>i.id===d.id);if(t&&t.ok&&(t.row!==it.row||t.x!==it.x)){activeRow=t.row;mutate(()=>{it.row=t.row;it.x=t.x})}else renderBoard()});
 window.addEventListener("pointercancel",()=>{if(drag){drag=null;ghost.hidden=true;renderBoard()}});
 $("libList").addEventListener("keydown",e=>{const li=e.target.closest(".li");if(li&&(e.key==="Enter"||e.key===" ")){e.preventDefault();addFromLib(li.dataset.lib)}});
 board.addEventListener("dblclick",e=>{const ex=e.target.closest(".ex");if(ex){const x=S.ext.find(i=>i.id===+ex.dataset.id);if(x&&EXT[x.type].st)mutate(()=>{x.p.on=!x.p.on});return}
+  const axd=e.target.closest(".ax");if(axd){const it=S.lc.aux.find(i=>i.id===+axd.dataset.id);if(it&&CAT[it.type].st)mutate(()=>{it.p.on=!it.p.on});return}
   if(e.target.closest(".main")){mutate(()=>{S.lc.mainOn=S.lc.mainOn===false});return}
   const g=e.target.closest(".it");if(!g)return;const it=curItems().find(i=>i.id===+g.dataset.id);if(S.kind==="lc"||CAT[it.type].st)mutate(()=>{it.p.on=!it.p.on})});
 document.addEventListener("keydown",e=>{const tag=(e.target.tagName||"").toLowerCase();if(tag==="input"||tag==="textarea"||tag==="select")return;
@@ -93,6 +104,7 @@ document.addEventListener("keydown",e=>{const tag=(e.target.tagName||"").toLower
   if(S.view==="wall"){wallKey(e);return}
   if(!sel)return;const lc=S.kind==="lc";
   if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();del()}
+  else if(selAux()&&(e.key==="ArrowLeft"||e.key==="ArrowRight")){e.preventDefault();nudgeAux(e.key==="ArrowLeft"?-1:1)}
   else if(selExt()&&(e.key==="ArrowLeft"||e.key==="ArrowRight")){e.preventDefault();moveExt(e.key==="ArrowLeft"?-1:1)}
   else if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();lc?switchSide():nudge(e.key==="ArrowLeft"?-1:1)}
   else if(lc&&(e.key==="ArrowUp"||e.key==="ArrowDown")){e.preventDefault();nudgeLC(e.key==="ArrowUp"?-1:1)}
@@ -152,3 +164,4 @@ $("wFinish").onchange=e=>mutate(()=>{S.wall.finish=e.target.value});
 $("play").onclick=()=>setRunning(!simState.running);$("rearm").onclick=rearm;
 $("wSel").onchange=e=>selectWall(+e.target.value);$("wAdd").onclick=addWall;
 $("wTube").onchange=e=>mutate(()=>{S.wall.tube=e.target.checked});
+$("blackout").onclick=toggleBlackout;

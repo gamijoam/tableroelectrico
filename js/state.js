@@ -4,20 +4,21 @@ const KEY="taller-tableros-v2", OLDKEY="taller-tableros-v1";
 const today=()=>new Date().toLocaleDateString("es-VE");
 const proj=(name,client)=>({name,client,author:"",date:today()});
 const defQuote=()=>({over:{},point:12,cableM:15,per:10,board:40,ext:35,margin:15,iva:16,ivaOn:false,rate:0,valid:7});
-function blankAll(){return{kind:"lc",project:proj("Tablero nuevo",""),board:{rows:2,mods:18,style:"metal"},items:[],lc:{spaces:20,sys:"1F",main:100,mainOn:true,items:[]},ext:[],quote:defQuote(),view:"board",walls:[blankWall()],wallI:0}}
+function blankAll(){return{kind:"lc",project:proj("Tablero nuevo",""),board:{rows:2,mods:18,style:"metal"},items:[],lc:{spaces:20,sys:"1F",main:100,mainOn:true,items:[],aux:[]},ext:[],quote:defQuote(),view:"board",walls:[blankWall()],wallI:0}}
 function blankState(rows=2,mods=18){return{kind:"din",project:proj("Tablero nuevo",""),board:{rows,mods,style:"metal"},items:[],ext:[]}}
 function xk(type,name,ov={}){return{id:uid++,type,p:Object.assign({},EXT[type].d,ov,{name})}}
 function mk(type,row,x,des,name,ov={}){return{id:uid++,type,row,x,p:Object.assign({},CAT[type].d,ov,{des,name})}}
 function lk(side,slot,poles,In,name,W,type="Estándar"){return{id:uid++,side,slot,p:Object.assign({},BRK.d,{poles,In,name,W,type})}}
 const TPL={
- casaVE(){const o={kind:"lc",project:proj("Casa unifamiliar — Tablero principal","Familia Pérez · Urb. La Trigaleña"),lc:{spaces:20,sys:"1F",main:100,mainOn:true,items:[
+ casaVE(){const o={kind:"lc",project:proj("Casa unifamiliar — Tablero principal","Familia Pérez · Urb. La Trigaleña"),lc:{spaces:24,sys:"1F",main:100,mainOn:true,items:[
   lk("L",0,1,20,"Iluminación sala y comedor",700),lk("R",0,1,20,"Iluminación cuartos",600),
   lk("L",1,1,20,"Tomas cocina",1500,"GFCI"),lk("R",1,1,20,"Nevera",700),
   lk("L",2,1,20,"Tomas sala",1200),lk("R",2,1,20,"Baños",1500,"GFCI"),
   lk("L",3,1,20,"Tomas cuartos",1000),lk("R",3,1,20,"Lavadora",1000),
   lk("L",4,2,30,"Calentador de agua",4500),lk("R",4,2,20,"A/A 18.000 BTU sala",2000),
   lk("L",6,2,40,"Cocina eléctrica",8000),lk("R",6,2,20,"A/A 12.000 BTU cuarto",1300),
-  lk("L",8,1,15,"Cuarto de los niños",600,"AFCI"),lk("R",8,2,20,"Bomba de agua 1 HP",1100)]},
+  lk("L",8,1,15,"Cuarto de los niños",600,"AFCI"),lk("R",8,2,20,"Bomba de agua 1 HP",1100)],
+  aux:[mk("prot",0,0,"PV1","Protector general",{In:63}),mk("spd",0,4,"DPS1","Picos"),mk("supv",0,8,"SV1","A/A y bomba",{sys:"Bifásico 240V"}),mk("pilot",0,12,"H1","Hay luz",{color:"Verde"})]},
   ext:[xk("inv","Respaldo: luces, nevera, router",{kw:3,bat:4}),xk("estab","Línea de A/A",{kva:5,sys:"Bifásico 240V"})]};o.walls=[demoWall(o.lc.items),demoStairs(o.lc.items)];o.wallI=0;return o},
  localVE(){return{kind:"lc",project:proj("Panadería — Tablero general","Panadería El Trigal · Valencia"),lc:{spaces:30,sys:"3F",main:200,mainOn:true,items:[
   lk("L",0,3,60,"A/A central 5 TR",15000),lk("R",0,3,40,"Horno industrial",9000),
@@ -62,9 +63,10 @@ function demoStairs(items){const W=blankWall("Pasillo (escalera)",false),b=items
   wire(`${fd.id}/F1`,`${a.id}/COM`,"Negro");wire(`${a.id}/T1`,`${z.id}/T1`,"Amarillo");wire(`${a.id}/T2`,`${z.id}/T2`,"Amarillo");wire(`${z.id}/COM`,`${lz.id}/F`,"Rojo");wire(`${lz.id}/N`,`${fd.id}/N`,"Blanco");
   return W}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
-function syncUid(){uid=Math.max(0,...S.items.map(i=>i.id),...S.lc.items.map(i=>i.id),...S.ext.map(i=>i.id),...S.walls.flatMap(w=>w.items.map(i=>i.id)),...S.walls.flatMap(w=>w.wires.map(i=>i.id)))+1}
+function syncUid(){uid=Math.max(0,...S.items.map(i=>i.id),...S.lc.items.map(i=>i.id),...S.lc.aux.map(i=>i.id),...S.ext.map(i=>i.id),...S.walls.flatMap(w=>w.items.map(i=>i.id)),...S.walls.flatMap(w=>w.wires.map(i=>i.id)))+1}
 function normalize(v){if(!v||typeof v!=="object")return null;const b=blankAll();
   if(!v.kind)v.kind="din";v.project=Object.assign(b.project,v.project||{});if(!v.board)v.board=b.board;if(!Array.isArray(v.items))v.items=[];
+  if(v.lc&&!Array.isArray(v.lc.aux))v.lc.aux=[];if(v.lc)v.lc.aux=v.lc.aux.filter(i=>i&&CAT[i.type]&&i.p&&Number.isInteger(i.x)&&Number.isInteger(i.id));
   v.ext=Array.isArray(v.ext)?v.ext.filter(x=>x&&EXT[x.type]&&x.p&&Number.isInteger(x.id)):[];
   v.quote=Object.assign(defQuote(),v.quote||{});v.view=v.view==="wall"?"wall":"board";
   const okW=w=>w&&w.w>0&&w.h>0&&Array.isArray(w.items)&&Array.isArray(w.wires)&&w.items.every(i=>DEV[i.type]&&Number.isInteger(i.id)&&i.p);
@@ -84,7 +86,8 @@ function mutate(fn){const before=JSON.stringify(S);const r=fn();if(r===false)ret
 function undo(){if(!hist.length)return;fut.push(JSON.stringify(S));const k=S.kind;S=linkWall(JSON.parse(hist.pop()));fixSel();save();renderAll();if(k!==S.kind){renderLib();fit()}}
 function redo(){if(!fut.length)return;hist.push(JSON.stringify(S));const k=S.kind;S=linkWall(JSON.parse(fut.pop()));fixSel();save();renderAll();if(k!==S.kind){renderLib();fit()}}
 const curItems=()=>S.kind==="lc"?S.lc.items:S.items;
-const selItem=()=>curItems().find(i=>i.id===sel)||S.ext.find(i=>i.id===sel);
+const selItem=()=>curItems().find(i=>i.id===sel)||S.ext.find(i=>i.id===sel)||(S.kind==="lc"&&S.lc.aux.find(i=>i.id===sel))||undefined;
+const selAux=()=>S.kind==="lc"?S.lc.aux.find(i=>i.id===sel):undefined;
 const selExt=()=>S.ext.find(i=>i.id===sel);
 function fixSel(){if(sel&&!selItem())sel=null;if(activeRow>=S.board.rows)activeRow=0}
 
@@ -93,7 +96,7 @@ const cap=()=>S.board.mods*2;
 function fits(row,x,u,ign,items=S.items,c=cap(),rows=S.board.rows){if(row<0||row>=rows||x<0||x+u>c)return false;return !items.some(i=>i.id!==ign&&i.row===row&&x<i.x+units(i)&&i.x<x+u)}
 function nearest(row,x,u,ign){const c=cap();for(let d=0;d<=c;d++){for(const t of [x-d,x+d])if(fits(row,t,u,ign))return t}return null}
 function firstFree(u,pref,ign){const rows=S.board.rows;for(let k=0;k<rows;k++){const r=(pref+k)%rows;for(let x=0;x+u<=cap();x++)if(fits(r,x,u,ign))return{row:r,x}}return null}
-function nextDes(type){const pre=CAT[type].pre;if(!pre)return"";let m=0;for(const i of S.items){const d=String(i.p.des||"");if(d.startsWith(pre)&&/^\d+$/.test(d.slice(pre.length))){const n=parseInt(d.slice(pre.length),10);if(n>m)m=n}}return pre+(m+1)}
+function nextDes(type){const pre=CAT[type].pre;if(!pre)return"";let m=0;for(const i of [...S.items,...S.lc.aux]){const d=String(i.p.des||"");if(d.startsWith(pre)&&/^\d+$/.test(d.slice(pre.length))){const n=parseInt(d.slice(pre.length),10);if(n>m)m=n}}return pre+(m+1)}
 /* ---------- load-center placement ---------- */
 function lfits(side,slot,n,ign,items=S.lc.items,rows=lcRows(),sys=S.lc.sys){if(n===3&&sys==="1F")return false;if(slot<0||slot+n>rows)return false;return !items.some(b=>b.id!==ign&&b.side===side&&slot<b.slot+b.p.poles&&b.slot<slot+n)}
 function lnearest(side,slot,n,ign){for(let d=0;d<=lcRows();d++)for(const t of [slot-d,slot+d])if(lfits(side,t,n,ign))return t;return null}
