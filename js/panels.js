@@ -198,12 +198,12 @@ function renderTools(){const lc=S.kind==="lc";$("kind").value=S.kind;$("lcTools"
   $("hint").innerHTML=lc?"Toca un espacio con <b>+</b> para poner un breaker · toca un breaker para cambiar su amperaje o eliminarlo · arrástralo para moverlo · <kbd>Doble clic</kbd> ON/OFF · <kbd>↑</kbd><kbd>↓</kbd> mueven · <kbd>←</kbd><kbd>→</kbd> cambian de lado · <kbd>Supr</kbd> borra"
    :"Arrastra componentes al riel o toca uno para sumarlo a la fila activa · <kbd>Doble clic</kbd> enciende/apaga · <kbd>←</kbd><kbd>→</kbd> mueven · <kbd>Supr</kbd> borra";
   const wall=S.view==="wall";$("vBoard").setAttribute("aria-pressed",String(!wall));$("vWall").setAttribute("aria-pressed",String(wall));
-  $("boardTools").hidden=wall;$("wallTools").hidden=!wall;$("usage").hidden=wall;
+  $("boardTools").hidden=wall;$("goWire").hidden=wall;$("wallTools").hidden=!wall;$("usage").hidden=wall;
   if(wall){$("mMove").setAttribute("aria-pressed",String(wallMode==="move"));$("mWire").setAttribute("aria-pressed",String(wallMode==="wire"));
     $("wColor").value=wColor;$("wAwg").value=wAwg;$("wSize").value=S.wall.w+"x"+S.wall.h;$("wFinish").value=S.wall.finish;$("wSel").innerHTML=S.walls.map((w,i)=>`<option value="${i}">${esc(w.name)}</option>`).join("");$("wSel").value=S.wallI;$("wTube").checked=S.wall.tube!==false;
     $("play").textContent=simState.running?"■ Detener":"▶ Probar";$("blackout").hidden=!simState.running;$("blackout").textContent=simState.blackout?"Volver la luz":"Simular apagón";$("blackout").classList.toggle("primary",simState.blackout);$("play").classList.toggle("running",simState.running);$("rearm").hidden=!simState.running;
     $("hint").innerHTML=reconn?"Toca o suelta sobre el terminal nuevo para ese extremo del cable · <kbd>Esc</kbd> cancela":pending?"Ahora toca el segundo terminal para tender el cable · <kbd>Esc</kbd> cancela"
-     :"<b>Mover</b>: arrastra los dispositivos · toca un terminal y luego otro para tender un cable · <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> mueven 5 cm · <kbd>Supr</kbd> borra · <b>Probar</b> energiza la pared"}
+     :(wallMode==="wire"?"<b>Cablear</b>: toca un tornillo y luego otro para tender un cable":"<b>Mover</b>: arrastra los dispositivos · toca un terminal y luego otro para tender un cable")+" · <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> mueven 5 cm · <kbd>Supr</kbd> borra · <b>Probar</b> energiza la pared"}
   $("total").textContent=fmtUSD(quoteData().total);
   $("undo").disabled=!hist.length;$("redo").disabled=!fut.length}
 function renderAll(){if(S.view==="wall"&&simState.running&&!wdrag)runSim();renderBoard();renderProps();renderQuote();renderTools();renderSelBar()}

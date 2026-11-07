@@ -155,6 +155,9 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
   const sw=!forExport&&valid.find(([w])=>w.id===sel);
   if(sw){for(const end of ["a","b"]){const t=terms.get(sw[0][end]),act=reconn&&reconn.end===end;s+=`<g class="wh" data-end="${end}"><circle cx="${t.x}" cy="${t.y}" r="9" fill="${act?"#1c74e0":"#fff"}" stroke="#1c74e0" stroke-width="2.5"/><circle cx="${t.x}" cy="${t.y}" r="3" fill="${act?"#fff":"#1c74e0"}"/><title>Arrastra este extremo a otro terminal</title></g>`}}
   for(const sp of simState.sparks)s+=`<g transform="translate(${sp.x} ${sp.y})"><g class="spark">${C(0,0,26,"#fff6a8",{op:.7,flt:"blur"})}<polygon points="0,-24 6,-6 24,-8 9,4 16,22 0,10 -16,22 -9,4 -24,-8 -6,-6" fill="#ffd21f" stroke="#ff7a00" stroke-width="2"/>${C(0,0,6,"#fff")}</g></g>`;
+  if(!forExport&&W.items.filter(i=>i.type!=="panel").length===0){const cx=WM.l+ww*.62,cy=WM.t+wh*.42;
+    s+=`<g pointer-events="none">${R(cx-250,cy-74,500,148,"#ffffff",{rx:12,op:.88,s:"#1c74e0",sw:1.5,da:"6 5"})}${T(cx,cy-38,"Esta pared está vacía",{fs:17,ff:SANS,fw:700,c:"#1d2326"})}`+
+      `${T(cx,cy-8,"1. Abre «Componentes» y arrastra tomas, interruptores o bombillos aquí.",{fs:12,ff:SANS,fw:400,c:"#3a3530"})}${T(cx,cy+14,"2. Toca un tornillo y luego otro para tender cada cable.",{fs:12,ff:SANS,fw:400,c:"#3a3530"})}${T(cx,cy+36,"3. Presiona «Probar» para energizar y ver qué pasa.",{fs:12,ff:SANS,fw:400,c:"#3a3530"})}</g>`}
   return s+`<g id="wpv"></g>`}
 function renderWall(){const {Wd,H}=wallDims();wallEl.setAttribute("viewBox",`0 0 ${Wd} ${H}`);wallEl.setAttribute("width",Math.round(Wd*zoom));wallEl.setAttribute("height",Math.round(H*zoom));wallEl.innerHTML=wallSvg(false);$("zval").textContent=Math.round(zoom*100)+"%"}
 

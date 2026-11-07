@@ -161,7 +161,9 @@ window.addEventListener("resize",()=>{if(autoFit)fit()});
 /* ---------- wall toolbar ---------- */
 function setView(v){if(S.view===v)return;if(v!=="wall"&&simState.running){simState.running=false;clearTimeout(simState.timer);simState.timer=null;simState.res=null}
   pending=null;reconn=null;sel=null;hideAlert();mutate(()=>{S.view=v});$("q").value="";renderLib();autoFit=true;fit()}
-$("vBoard").onclick=()=>setView("board");$("vWall").onclick=()=>setView("wall");
+$("vBoard").onclick=()=>setView("board");
+$("goWire").onclick=()=>{setView("wall");wallMode="wire";renderAll();
+  showAlert("ok","Cablear y probar","Toca un tornillo (de un breaker, de la barra de neutro N o de tierra T, o de un aparato) y luego otro para tender el cable. Las tomas, interruptores y bombillos están en Abrir componentes. Al terminar, presiona Probar.")};$("vWall").onclick=()=>setView("wall");
 $("mMove").onclick=()=>{wallMode="move";renderAll()};$("mWire").onclick=()=>{wallMode="wire";renderAll()};
 $("wColor").innerHTML=`<option value="Auto">Automático (norma)</option>`+Object.keys(WCOL).map(c=>`<option>${c}</option>`).join("");
 $("wAwg").innerHTML=Object.keys(AWG_W).map(a=>`<option value="${a}">#${a} AWG</option>`).join("");
