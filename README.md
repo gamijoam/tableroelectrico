@@ -19,6 +19,7 @@ js/panels.js        Biblioteca, panel de propiedades y presupuesto
 js/sim.js           Simulador: redes, cortocircuitos, voltajes, sobrecargas y reglas de norma
 js/wall.js          Vista Pared: varias paredes, dispositivos, cableado, tubería y panel de prueba
 js/layout.js        Paneles laterales plegables, pantalla completa y alertas de la prueba
+js/selbar.js        Barra flotante junto a lo seleccionado (amperaje, polos, encender, eliminar)
 js/actions.js       Acciones del usuario, arrastrar y soltar, modales y barra de herramientas
 js/main.js          Arranque
 ```

@@ -1,6 +1,8 @@
 /* ---------- library ---------- */
 const curLib=()=>S.kind==="lc"?LIB_LC:LIB_DIN;
-function libInfo(k){if(k[0]==="a"){const [a,b]=k.slice(1).split(".").map(Number),e=LIB_AUX[a][1][b];return{aux:true,type:e[0],label:e[1],ov:e[2],p:Object.assign({},CAT[e[0]].d,e[2])}}
+let lcBuild={poles:1,In:20,type:"Estándar"};
+function libInfo(k){if(k==="b")return{lc:true,label:`Breaker ${lcBuild.poles}P ${lcBuild.In} A${lcBuild.type!=="Estándar"?" "+lcBuild.type:""}`,p:Object.assign({},BRK.d,lcBuild)};
+  if(k[0]==="a"){const [a,b]=k.slice(1).split(".").map(Number),e=LIB_AUX[a][1][b];return{aux:true,type:e[0],label:e[1],ov:e[2],p:Object.assign({},CAT[e[0]].d,e[2])}}
   if(k[0]==="w"){const t=k.slice(1);return{wall:true,type:t,label:DEV[t].n,p:Object.assign({},DEV[t].d||{})}}
   if(k[0]==="x"){const [a,b]=k.slice(1).split(".").map(Number),e=LIB_EXT[a][1][b];return{ext:true,type:e[0],label:e[1],p:Object.assign({},EXT[e[0]].d,e[2])}}
   const [a,b]=k.split(".").map(Number),e=curLib()[a][1][b];
@@ -12,6 +14,10 @@ function thumb(info){if(info.aux){const {w,svg}=drawComp(info.type,info.p);retur
   const {w,svg}=drawComp(info.type,info.p);return`<svg viewBox="-3 -3 ${w+6} ${CH+8}" aria-hidden="true"><g filter="url(#sh)">${svg}</g></svg>`}
 function renderLib(){if(S.view==="wall")return renderWallLib();const q=$("q").value.trim().toLowerCase(),lib=curLib();let h="";
   $("libTitle").textContent=S.kind==="lc"?"Breakers enchufables":"Componentes riel DIN";$("q").placeholder=S.kind==="lc"?"Buscar: 20A, GFCI, 2P…":"Buscar: supervisor, contactor, relé…";
+  if(S.kind==="lc"&&!q){if(lcBuild.poles===3&&S.lc.sys==="1F")lcBuild.poles=2;const bi=libInfo("b"),sel3=(id,lab,opts,cur,fmt=v=>v)=>`<label class="field"><span>${lab}</span><select class="sel" id="${id}">${opts.map(v=>`<option value="${v}"${String(v)===String(cur)?" selected":""}>${fmt(v)}</option>`).join("")}</select></label>`;
+    h+=`<div class="cat">Arma tu breaker</div><div class="builder"><div class="fields">${sel3("bd-po","Polos",S.lc.sys==="1F"?[1,2]:[1,2,3],lcBuild.poles,v=>v+(v>1?" polos":" polo"))}${sel3("bd-in","Amperaje",BRK_IN,lcBuild.In,v=>v+" A")}${sel3("bd-ty","Tipo",["Estándar","GFCI","AFCI"],lcBuild.type)}</div>
+     <div class="li wide" tabindex="0" role="button" data-lib="b">${thumb(bi)}<b>${esc(bi.label)}</b><span>Arrástralo a la caja o tócalo · $ ${fmtNum(brkPrice(bi.p),0)}</span></div>
+     <p class="note">También puedes tocar cualquier espacio con <b>+</b> en la caja: se pone este breaker ahí.</p></div>`}
   const groups=[...lib.map((g,ci)=>[g,ci,""]),...(S.kind==="lc"?LIB_AUX.map((g,ci)=>[g,ci,"a"]):[]),...LIB_EXT.map((g,ci)=>[g,ci,"x"])];
   groups.forEach(([[cat,list],ci,pre])=>{const items=list.map((e,ei)=>({k:pre+ci+"."+ei,info:libInfo(pre+ci+"."+ei)})).filter(({info})=>!q||(info.label+" "+cat+" "+(info.ext?EXT[info.type].n:info.lc?"breaker interruptor":CAT[info.type].n)).toLowerCase().includes(q));if(!items.length)return;
    h+=`<div class="cat">${esc(cat)}</div><div class="lib-grid">`+items.map(({k,info})=>{let meta;
@@ -20,7 +26,8 @@ function renderLib(){if(S.view==="wall")return renderWallLib();const q=$("q").va
     else{const u=CAT[info.type].u(info.p);meta=fmtM(u/2)+" mód · $ "+fmtNum(PRICE_DIN[info.type](info.p),0)}
     const isNew=info.aux||info.ext||(!info.lc&&NEW.has(info.type));
     return`<div class="li${info.lc?" wide":""}" tabindex="0" role="button" data-lib="${k}">${thumb(info)}<b>${esc(info.label)}</b><span>${meta}</span>${isNew?`<span class="tag-new">Nuevo</span>`:""}</div>`}).join("")+`</div>`});
-  $("libList").innerHTML=h||`<p class="note" style="padding:8px 4px">Nada coincide con "${esc(q)}".</p>`;libChips()}
+  $("libList").innerHTML=h||`<p class="note" style="padding:8px 4px">Nada coincide con "${esc(q)}".</p>`;libChips();
+  [["bd-po","poles",Number],["bd-in","In",Number],["bd-ty","type",String]].forEach(([id,k,f])=>{const el=$(id);if(el)el.onchange=()=>{lcBuild[k]=f(el.value);renderLib()}})}
 /* Accesos rápidos a cada categoría de la biblioteca */
 function libChips(){const list=$("libList"),cats=[...list.querySelectorAll(".cat")];cats.forEach((c,i)=>c.id="libcat"+i);
   $("libCats").innerHTML=cats.length>1?cats.map((c,i)=>`<button class="catb" data-i="${i}">${esc(c.textContent)}</button>`).join(""):"";
@@ -86,7 +93,8 @@ function renderPropsLC(){const P=$("paneP"),b=selItem(),calc=lcCalc(),L=S.lc;
    const bars=Object.entries(calc.amps).map(([k,a])=>`<div class="occ-row"><span>Fase ${k}</span><div class="bar"><i class="${L.main&&a>L.main*.8?"full":""}" style="width:${a/mx*100}%"></i></div><span class="meta">${fmtA(a)}</span></div>`).join("");
    const imbSt=calc.imb>20?"warn":"ok",mainSt=!L.main?null:calc.max>L.main?"crit":calc.max>L.main*.8?"warn":"ok";
    const alerts=L.items.map(x=>({x,c:calc.per[x.id]})).filter(o=>o.c.st!=="ok").sort((a,b)=>a.c.cs[0]-b.c.cs[0]);
-   P.innerHTML=`<h2>${esc(S.project.name)}</h2>
+   P.innerHTML=`<h2>${esc(S.project.name)}</h2>${L.items.length?"":`<p class="note">La caja está vacía. Toca un espacio con <b>+</b> o arrastra breakers desde la biblioteca, con el amperaje que quieras.</p>`}
+   <div class="row-btns"><button class="btn" id="lc-new">Vaciar o cambiar la caja</button></div>
    <div class="calc"><div class="kv"><span>Carga instalada</span><b>${(calc.W/1000).toFixed(1).replace(".",",")} kW</b></div>
    <div class="kv"><span>Espacios usados</span><b>${used} / ${L.spaces}</b></div>
    ${L.main?`<div class="kv"><span>Principal ${L.main} A</span><b><span class="pill ${mainSt}">${mainSt==="ok"?"Alcanza":mainSt==="warn"?"Al límite":"Insuficiente"}</span></b></div>`:""}</div>
@@ -94,7 +102,7 @@ function renderPropsLC(){const P=$("paneP"),b=selItem(),calc=lcCalc(),L=S.lc;
    <p class="note"><span class="pill ${imbSt}">Desbalance ${Math.round(calc.imb)}%</span> ${imbSt==="ok"?"Las fases están parejas.":"Pasa algún circuito de 120 V a un espacio de la fase con menos carga."}</p>
    ${alerts.length?`<h3>Circuitos a revisar</h3><ul class="alerts">${alerts.map(o=>`<li><button class="${o.c.st}" data-goto="${o.x.id}">Circ. ${o.c.cs.join("-")} · ${esc(o.x.p.name||"Sin nombre")}: ${fmtA(o.c.I)} en ${o.x.p.In} A${o.c.sug?` → usar ${o.c.sug} A`:""}</button></li>`).join("")}</ul>`:""}
    <p class="note">Toca un breaker para editar su carga. Cálculo simplificado: 80% de la capacidad del breaker para carga continua y cable de cobre THHN/THW a 75 °C.</p>
-   ${projFields()}`;bindProj();P.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>{sel=+el.dataset.goto;renderAll()});return}
+   ${projFields()}`;$("lc-new").onclick=()=>$("new").click();bindProj();P.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>{sel=+el.dataset.goto;renderAll()});return}
   const c=calc.per[b.id],p=b.p;
   P.innerHTML=`<div><h2>${esc(BRK.n)} ${p.poles}P</h2><div class="meta">Circuito ${c.cs.join("-")} · fase ${c.ph.join("-")} · ${c.V} V</div></div>
    <div class="fields"><label class="field wide"><span>Nombre del circuito</span><input class="txt" id="pp-name" value="${esc(p.name)}" placeholder="Ej.: Tomas cocina"></label>
@@ -187,7 +195,7 @@ function quoteImage(){const d=quoteData(),Q=S.quote,P=S.project,W=820,D=dims(),F
 function renderTools(){const lc=S.kind==="lc";$("kind").value=S.kind;$("lcTools").hidden=!lc;$("dinTools").hidden=lc;
   if(lc){$("usage").textContent=`${S.lc.items.reduce((a,x)=>a+x.p.poles,0)} / ${S.lc.spaces} esp.`;$("spaces").value=S.lc.spaces;$("sys").value=S.lc.sys;$("main").value=S.lc.main}
   else{const used=S.items.reduce((a,i)=>a+units(i),0);$("usage").textContent=`${fmtM(used/2)} / ${S.board.rows*S.board.mods} mód`;$("rows").value=S.board.rows;$("mods").value=S.board.mods;$("style").value=S.board.style}
-  $("hint").innerHTML=lc?"Arrastra breakers a cualquier espacio o toca uno para sumarlo al primer espacio libre · <kbd>Doble clic</kbd> ON/OFF · <kbd>↑</kbd><kbd>↓</kbd> mueven · <kbd>←</kbd><kbd>→</kbd> cambian de lado · <kbd>Supr</kbd> borra"
+  $("hint").innerHTML=lc?"Toca un espacio con <b>+</b> para poner un breaker · toca un breaker para cambiar su amperaje o eliminarlo · arrástralo para moverlo · <kbd>Doble clic</kbd> ON/OFF · <kbd>↑</kbd><kbd>↓</kbd> mueven · <kbd>←</kbd><kbd>→</kbd> cambian de lado · <kbd>Supr</kbd> borra"
    :"Arrastra componentes al riel o toca uno para sumarlo a la fila activa · <kbd>Doble clic</kbd> enciende/apaga · <kbd>←</kbd><kbd>→</kbd> mueven · <kbd>Supr</kbd> borra";
   const wall=S.view==="wall";$("vBoard").setAttribute("aria-pressed",String(!wall));$("vWall").setAttribute("aria-pressed",String(wall));
   $("boardTools").hidden=wall;$("wallTools").hidden=!wall;$("usage").hidden=wall;
@@ -198,4 +206,4 @@ function renderTools(){const lc=S.kind==="lc";$("kind").value=S.kind;$("lcTools"
      :"<b>Mover</b>: arrastra los dispositivos · toca un terminal y luego otro para tender un cable · <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> mueven 5 cm · <kbd>Supr</kbd> borra · <b>Probar</b> energiza la pared"}
   $("total").textContent=fmtUSD(quoteData().total);
   $("undo").disabled=!hist.length;$("redo").disabled=!fut.length}
-function renderAll(){if(S.view==="wall"&&simState.running&&!wdrag)runSim();renderBoard();renderProps();renderQuote();renderTools()}
+function renderAll(){if(S.view==="wall"&&simState.running&&!wdrag)runSim();renderBoard();renderProps();renderQuote();renderTools();renderSelBar()}

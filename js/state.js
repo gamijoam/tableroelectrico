@@ -79,7 +79,7 @@ function normalize(v){if(!v||typeof v!=="object")return null;const b=blankAll();
   const okLc=SPACES.includes(v.lc.spaces)&&Array.isArray(v.lc.items)&&v.lc.items.every(i=>i.p&&(i.side==="L"||i.side==="R")&&Number.isInteger(i.slot));
   return okDin&&okLc?v:null}
 function load(){try{const t=localStorage.getItem(KEY);if(t){const v=normalize(JSON.parse(t));if(v){S=v;syncUid();return}}}catch(e){}
-  S=linkWall(Object.assign(blankAll(),TPL.casaVE()));
+  S=linkWall(blankAll());
   try{const o=localStorage.getItem(OLDKEY);if(o){const v=JSON.parse(o);if(v&&v.board&&Array.isArray(v.items)&&v.items.every(i=>CAT[i.type])){S.board=v.board;S.items=v.items}}}catch(e){}
   syncUid()}
 function mutate(fn){const before=JSON.stringify(S);const r=fn();if(r===false)return false;hist.push(before);if(hist.length>100)hist.shift();fut=[];save();renderAll();return true}

@@ -7,7 +7,7 @@ const PRICE_DIN={
  meter:p=>p.ph==="Trifásico"?65:25,psu:p=>p.A==="4.5A"?55:p.A==="2.5A"?35:28,socket:()=>12,term:()=>1.2,blank:()=>1.5};
 function brkPrice(p){let v={1:6,2:14,3:45}[p.poles]+Math.max(0,p.In-30)*{1:.25,2:.4,3:.9}[p.poles];if(p.type==="GFCI")v+=p.poles===1?38:80;if(p.type==="AFCI")v+=38;return Math.round(v*2)/2}
 const LC_BOX={4:18,8:30,12:45,16:60,20:75,24:90,30:120,32:130,40:170,42:185},MAIN_P={0:0,60:45,100:70,125:95,150:130,200:180,225:220};
-const AWG_P={"14":.35,"12":.5,"10":.8,"8":1.3,"6":2.1,"4":3.3,"3":4.1,"1":6,"1/0":7.5,"3/0":11,"4/0":14};
+const AWG_P={"2":5,"14":.35,"12":.5,"10":.8,"8":1.3,"6":2.1,"4":3.3,"3":4.1,"1":6,"1/0":7.5,"3/0":11,"4/0":14};
 const fmtNum=(n,d=2)=>(+n||0).toLocaleString("es-VE",{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmtUSD=n=>"$ "+fmtNum(n);
 const fmtBs=n=>"Bs "+fmtNum(n);

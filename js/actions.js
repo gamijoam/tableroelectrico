@@ -6,6 +6,7 @@ function addFromLib(k,pos){const info=libInfo(k);
    const it={id:uid++,type:info.type,row:0,x,p:Object.assign({},info.p,{des:nextDes(info.type),name:""})};mutate(()=>{S.lc.aux.push(it)});sel=it.id;renderAll();if(autoFit)fit();return}
   if(info.ext){const x={id:uid++,type:info.type,p:Object.assign({},info.p,{name:""})};mutate(()=>{S.ext.push(x)});sel=x.id;renderAll();if(autoFit)fit();toast(`${EXT[info.type].n} agregado debajo del tablero.`);return}
   if(info.lc){const n=info.p.poles;if(n===3&&S.lc.sys==="1F"){toast("Los breakers de 3 polos necesitan una caja trifásica 208Y/120 V. Cambia el sistema arriba.");return}
+   if(pos&&!lfits(pos.side,pos.slot,n,null)){const s=lnearest(pos.side,pos.slot,n,null);if(s==null){toast(`No hay ${n} espacios seguidos libres en ese lado.`);return}pos={side:pos.side,slot:s}}
    pos=pos||lfirstFree(n);if(!pos){toast("No quedan espacios libres: elige una caja con más espacios.");return}
    const b={id:uid++,side:pos.side,slot:pos.slot,p:Object.assign({},info.p,{name:""})};mutate(()=>{S.lc.items.push(b)});sel=b.id;renderAll();return}
   const u=CAT[info.type].u(info.p);pos=pos||firstFree(u,activeRow);if(!pos){toast("No queda lugar: suma una fila o más módulos por fila.");return}
@@ -67,7 +68,7 @@ $("libList").addEventListener("pointerdown",e=>{const li=e.target.closest(".li")
   const base={kind:"new",k,p:info.p,label:info.label,sx:e.clientX,sy:e.clientY,moving:false,touch:e.pointerType==="touch"};
   drag=info.aux?Object.assign(base,{aux:true,type:info.type,u:CAT[info.type].u(info.p),grab:CAT[info.type].u(info.p)*U/2}):info.wall?Object.assign(base,{wall:true}):info.ext?Object.assign(base,{ext:true}):info.lc?Object.assign(base,{lc:true,n:info.p.poles,grab:0}):Object.assign(base,{type:info.type,u:CAT[info.type].u(info.p),grab:CAT[info.type].u(info.p)*U/2})});
 board.addEventListener("pointerdown",e=>{const ex=e.target.closest(".ex");if(ex){sel=+ex.dataset.id;renderAll();return}
-  const sl=e.target.closest(".slot");if(sl){addFromLib("0.1",{side:sl.dataset.side,slot:+sl.dataset.slot});return}
+  const sl=e.target.closest(".slot");if(sl){addFromLib("b",{side:sl.dataset.side,slot:+sl.dataset.slot});return}
   const ax=e.target.closest(".ax");if(ax){const it=S.lc.aux.find(i=>i.id===+ax.dataset.id),q=toBoard(e);sel=it.id;drag={kind:"move",aux:true,id:it.id,type:it.type,u:units(it),grab:q.x-(AUX_X0+it.x*U),sx:e.clientX,sy:e.clientY,moving:false};try{board.setPointerCapture(e.pointerId)}catch(_){}renderAll();return}
   const g=e.target.closest(".it");
   if(g){const id=+g.dataset.id,q=toBoard(e);sel=id;
@@ -124,7 +125,14 @@ $("file").onclick=()=>{openModal(`<h2>Guardar o abrir un tablero</h2><p class="n
   <div class="row-btns"><button class="btn primary" id="j-copy">Copiar</button><button class="btn" id="j-load">Abrir desde texto</button><button class="btn" data-close>Cerrar</button></div>`);
   $("j-copy").onclick=()=>{const t=$("json");t.select();copyText(t.value,"Tablero copiado")};
   $("j-load").onclick=()=>{try{const v=normalize(JSON.parse($("json").value));if(!v)throw 0;mutate(()=>{S=v});syncUid();sel=null;closeModal();renderLib();fit();toast("Tablero abierto")}catch(_){toast("El texto no es un tablero válido. Pega el contenido completo que copiaste.")}}};
-$("new").onclick=()=>{const what=S.view==="wall"?"la pared (se quedan el tablero y sus breakers)":S.kind==="lc"?"la caja de breakers":"el tablero DIN";openModal(`<h2>¿Empezar de cero?</h2><p class="note">Se vacía ${what} actual. Puedes recuperarlo con Deshacer.</p><div class="row-btns"><button class="btn primary" id="n-ok">Vaciar</button><button class="btn" data-close>Cancelar</button></div>`);
+$("new").onclick=()=>{if(S.view==="board"&&S.kind==="lc"){const L=S.lc;
+    openModal(`<h2>Caja de breakers vacía</h2><p class="note">Se quitan todos los breakers, el riel auxiliar, los equipos y las paredes. Puedes recuperarlo con Deshacer.</p>
+     <div class="fields"><label class="field"><span>Espacios</span><select class="sel" id="n-sp">${SPACES.map(v=>`<option value="${v}"${v===L.spaces?" selected":""}>${v}</option>`).join("")}</select></label>
+     <label class="field"><span>Principal</span><select class="sel" id="n-main">${MAINS.map(v=>`<option value="${v}"${v===L.main?" selected":""}>${v?v+" A":"Sin principal"}</option>`).join("")}</select></label>
+     <label class="field wide"><span>Sistema</span><select class="sel" id="n-sys"><option value="1F"${L.sys==="1F"?" selected":""}>120/240 V monofásico</option><option value="3F"${L.sys==="3F"?" selected":""}>208Y/120 V trifásico</option></select></label></div>
+     <div class="row-btns"><button class="btn primary" id="n-lc">Crear caja vacía</button><button class="btn" data-close>Cancelar</button></div>`);
+    $("n-lc").onclick=()=>{const sp=+$("n-sp").value,mn=+$("n-main").value,sy=$("n-sys").value;mutate(()=>{S.lc={spaces:sp,sys:sy,main:mn,mainOn:true,items:[],aux:[]};S.ext=[];S.walls=[blankWall()];S.wallI=0;S.project=proj("Tablero nuevo","")});sel=null;closeModal();renderLib();autoFit=true;fit();toast("Caja vacía lista: toca un espacio con + o arrastra breakers desde la biblioteca.")};return}
+  const what=S.view==="wall"?"la pared (se quedan el tablero y sus breakers)":S.kind==="lc"?"la caja de breakers":"el tablero DIN";openModal(`<h2>¿Empezar de cero?</h2><p class="note">Se vacía ${what} actual. Puedes recuperarlo con Deshacer.</p><div class="row-btns"><button class="btn primary" id="n-ok">Vaciar</button><button class="btn" data-close>Cancelar</button></div>`);
   $("n-ok").onclick=()=>{mutate(()=>{if(S.view==="wall"){S.wall.items=S.wall.items.filter(i=>i.type==="panel");S.wall.wires=[];return}if(S.kind==="lc")S.lc.items=[];else S.items=[];S.ext=[];S.project=proj("Tablero nuevo","")});sel=null;activeRow=0;closeModal();fit()}};
 $("tpl").onchange=e=>{const k=e.target.value;e.target.value="";if(!TPL[k])return;mutate(()=>{S=linkWall(Object.assign(JSON.parse(JSON.stringify(S)),TPL[k]()))});syncUid();sel=null;activeRow=0;autoFit=true;renderLib();fit();toast("Plantilla cargada. Deshacer vuelve al tablero anterior.")};
 
