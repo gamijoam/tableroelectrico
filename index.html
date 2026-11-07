@@ -1,0 +1,111 @@
+<title>Taller de Tableros</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="defs"></defs></svg>
+
+<div class="app lib-closed side-closed" id="app">
+  <header>
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="7" y="2" width="20" height="30" rx="3" fill="var(--accent)"/><rect x="12" y="9" width="10" height="13" rx="2" fill="var(--panel)"/><rect x="13.5" y="10.5" width="7" height="6" rx="1" fill="var(--fg)"/><rect x="7" y="25" width="20" height="2" fill="var(--panel)" opacity=".5"/></svg>
+      <div><h1>Taller de Tableros</h1><small>Cajas de breakers y tableros sobre riel DIN</small></div>
+    </div>
+    <div class="actions">
+      <select class="sel" id="tpl" aria-label="Cargar plantilla">
+        <option value="">Plantillas…</option>
+        <optgroup label="Caja de breakers">
+          <option value="casaVE">Casa 120/240 V · 20 espacios</option>
+          <option value="localVE">Local comercial 208Y/120 V · 30 espacios</option>
+        </optgroup>
+        <optgroup label="Riel DIN">
+          <option value="motor">Arranque de bomba trifásica</option>
+          <option value="local">Tablero de control comercial</option>
+          <option value="casa">Tablero DIN residencial</option>
+        </optgroup>
+      </select>
+      <button class="btn" id="undo" title="Deshacer (Ctrl+Z)">Deshacer</button>
+      <button class="btn" id="redo" title="Rehacer (Ctrl+Shift+Z)">Rehacer</button>
+      <button class="btn" id="file">Guardar / abrir</button>
+      <button class="btn" id="new">Nuevo</button>
+      <button class="btn primary" id="png">Exportar imagen</button>
+    </div>
+  </header>
+
+  <aside id="lib">
+    <button class="rail" id="libRail" aria-expanded="false" aria-controls="libList"><span>Componentes</span></button>
+    <div class="lib-head">
+      <div class="pane-head"><span class="label" id="libTitle">Componentes</span><button class="icon-btn" id="libClose" aria-label="Guardar el panel de componentes" title="Guardar panel">«</button></div>
+      <input class="txt" id="q" type="search" placeholder="Buscar…" aria-label="Buscar componentes">
+    </div>
+    <div class="lib-list" id="libList"></div>
+  </aside>
+
+  <section id="stagewrap">
+    <div class="tools">
+      <span class="seg" role="group" aria-label="Vista"><button class="segb" id="vBoard" aria-pressed="true">Tablero</button><button class="segb" id="vWall" aria-pressed="false">Pared</button></span>
+      <span class="tgroup" id="boardTools">
+      <label>Tipo <select class="sel" id="kind"><option value="lc">Caja de breakers</option><option value="din">Riel DIN</option></select></label>
+      <span class="tgroup" id="lcTools">
+        <label>Espacios <select class="sel" id="spaces"></select></label>
+        <label>Sistema <select class="sel" id="sys"><option value="1F">120/240 V monofásico</option><option value="3F">208Y/120 V trifásico</option></select></label>
+        <label>Principal <select class="sel" id="main"></select></label>
+      </span>
+      <span class="tgroup" id="dinTools">
+        <label>Filas <select class="sel" id="rows"></select></label>
+        <label>Módulos por fila <select class="sel" id="mods"></select></label>
+        <label>Gabinete <select class="sel" id="style"><option value="metal">Metálico</option><option value="plastic">Plástico</option></select></label>
+      </span>
+      </span>
+      <span class="tgroup" id="wallTools" hidden>
+        <select class="sel" id="wSel" aria-label="Pared activa"></select><button class="btn" id="wAdd" title="Agregar otra pared">+ Pared</button>
+        <span class="seg" role="group" aria-label="Modo"><button class="segb" id="mMove" aria-pressed="true">Mover</button><button class="segb" id="mWire" aria-pressed="false">Cablear</button></span>
+        <label>Cable <select class="sel" id="wColor"></select></label>
+        <select class="sel" id="wAwg" aria-label="Calibre del cable"></select>
+        <label>Pared <select class="sel" id="wSize"></select></label>
+        <select class="sel" id="wFinish" aria-label="Acabado de la pared"></select>
+        <label class="chk"><input type="checkbox" id="wTube"> Tubería</label>
+        <button class="btn play" id="play">▶ Probar</button><button class="btn" id="rearm" hidden>Rearmar</button>
+      </span>
+      <span class="chip" id="usage"></span>
+      <span class="chip money" id="total" title="Total del presupuesto"></span>
+      <span class="sp"></span>
+      <div class="zoom"><button class="btn" id="zout" aria-label="Alejar">−</button><output id="zval">100%</output><button class="btn" id="zin" aria-label="Acercar">+</button><button class="btn" id="zfit">Ajustar</button></div>
+      <button class="btn" id="fs" aria-pressed="false">Pantalla completa</button>
+    </div>
+    <div id="stagebox"><div id="alert" hidden></div><div id="stage"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg><svg id="wall" xmlns="http://www.w3.org/2000/svg" hidden></svg></div></div>
+    <div class="hint" id="hint"></div>
+  </section>
+
+  <aside id="side">
+    <button class="rail" id="sideRail" aria-expanded="false" aria-controls="paneP"><span>Propiedades y presupuesto</span></button>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tabP" aria-selected="true">Propiedades</button>
+      <button class="tab" role="tab" id="tabB" aria-selected="false">Presupuesto $</button>
+      <button class="icon-btn" id="sideClose" aria-label="Guardar el panel de propiedades" title="Guardar panel">»</button>
+    </div>
+    <div class="pane" id="paneP"></div>
+    <div class="pane" id="paneB" hidden></div>
+  </aside>
+</div>
+
+<div id="ghost" hidden></div>
+<div id="toast" hidden></div>
+<div class="modal" id="modal" hidden><div class="dlg" id="dlg"></div></div>
+
+<!-- El orden importa: cada archivo usa lo definido en los anteriores. -->
+<script src="js/util.js"></script>
+<script src="js/din.js"></script>
+<script src="js/loadcenter.js"></script>
+<script src="js/equipment.js"></script>
+<script src="js/pricing.js"></script>
+<script src="js/state.js"></script>
+<script src="js/render.js"></script>
+<script src="js/panels.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/wall.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/main.js"></script>

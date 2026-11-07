@@ -1,0 +1,268 @@
+/* =====================================================================
+   wall.js — Vista "Pared": ubicar el tablero y los puntos eléctricos
+   sobre paredes a escala, cablearlos y probarlos con el simulador.
+   Coordenadas del modelo en metros (x desde la izquierda, y = altura
+   del centro desde el piso). Los dispositivos se dibujan más grandes
+   que su tamaño real para poder cablearlos con comodidad.
+   Un proyecto puede tener varias paredes (S.walls); S.wall es la activa.
+   ===================================================================== */
+const WK=220, WM={l:78,t:40,r:40,b:90}, PANEL_W=260;
+const WCOL={Negro:"#1f2224",Rojo:"#c8322a",Azul:"#2f6fd0",Amarillo:"#e8c22c",Blanco:"#f4f4f0",Verde:"#2f9e44"};
+const AWG_W={"14":3,"12":3.6,"10":4.3,"8":5,"6":5.8};
+const APPL120={"Nada":0,"Cargador de teléfono":20,"Televisor":150,"Licuadora":600,"Nevera":700,"Plancha":1200,"Microondas":1500,"Secador de pelo":1800,"Plancha y microondas juntos":2700};
+const APPL240={"Nada":0,"Secadora de ropa":5000,"Cocina eléctrica":8000};
+const FINISH=["Frisado y pintado","Bloque sin frisar","Cerámica"];
+const STD_H=[[0.30,"Tomas · 0,30 m"],[1.20,"Interruptores · 1,20 m"],[1.60,"Tablero · 1,60 m"],[2.20,"Apliques y A/A · 2,20 m"]];
+const T3=[["F1","F","F1"],["F2","F","F2"],["T","T","T"]];
+const DEV={
+ panel:{n:"Tablero (caja de breakers)",short:"Tablero",std:1.6},
+ feed:{n:"Llegada de circuito",short:"Llegada",qn:"Caja de paso 4×4 con tapa",w:64,h:64,terms:[["F1","F","F1"],["F2","F","F2"],["N","N","N"],["T","T","T"]],d:{brk:null},price:3,std:2.1,
+  tip:"Representa los cables que vienen del tablero por la tubería. Úsala en las paredes donde no está el tablero."},
+ toma:{n:"Tomacorriente doble 120 V",short:"Toma 120 V",qn:"Tomacorriente doble 15 A 120 V con caja",w:46,h:76,V:120,terms:[["F","F","F"],["N","N","N"],["T","T","T"]],d:{carga:"Televisor"},f:[["carga","Aparato enchufado",Object.keys(APPL120)]],W:p=>APPL120[p.carga]||0,price:4.5,std:.3},
+ toma240:{n:"Toma 240 V",short:"Toma 240 V",qn:"Tomacorriente 30 A 240 V con caja",w:52,h:76,V:240,terms:T3,d:{carga:"Secadora de ropa"},f:[["carga","Aparato enchufado",Object.keys(APPL240)]],W:p=>APPL240[p.carga]||0,price:9,std:.3},
+ inter:{n:"Interruptor sencillo",short:"Interruptor",qn:"Interruptor sencillo 15 A con caja",w:44,h:72,terms:[["COM","S","C"],["L","S","R"]],d:{on:true},price:3.5,std:1.2},
+ inter3:{n:"Interruptor de tres vías (escalera)",short:"Tres vías",qn:"Interruptor de tres vías 15 A con caja",w:44,h:72,terms:[["COM","S","C"],["T1","S","1"],["T2","S","2"]],d:{pos:1},f:[["pos","Posición",[1,2]]],price:6,std:1.2,
+  tip:"Con dos de estos prendes y apagas la misma luz desde dos sitios. Fase al común (C) del primero, los viajeros 1 y 2 entre los dos interruptores, y del común del segundo al bombillo."},
+ luz:{n:"Bombillo / aplique",short:"Bombillo",qn:"Aplique de pared con bombillo",w:56,h:64,V:120,terms:[["F","F","F"],["N","N","N"]],d:{W:60},f:[["W","Potencia (W)",[12,60,100]]],W:p=>p.W,price:6,std:2.2},
+ ac:{n:"Aire acondicionado split",short:"A/A split",w:190,h:66,V:240,terms:T3,d:{btu:"18.000 BTU"},f:[["btu","Capacidad",["12.000 BTU","18.000 BTU","24.000 BTU"]]],W:p=>({"12.000 BTU":1300,"18.000 BTU":2000,"24.000 BTU":2600})[p.btu],std:2.3},
+ heater:{n:"Calentador de agua",short:"Calentador",w:76,h:130,V:240,terms:T3,d:{W:4500},f:[["W","Potencia (W)",[3000,4500,5500]]],W:p=>p.W,std:1.6},
+ pump:{n:"Bomba de agua 240 V",short:"Bomba",w:100,h:66,V:240,terms:T3,d:{hp:"1 HP"},f:[["hp","Potencia",["1/2 HP","1 HP","2 HP"]]],W:p=>({"1/2 HP":600,"1 HP":1100,"2 HP":2100})[p.hp],std:.25},
+};
+const LIB_WALL=[["Alimentación",["panel","feed"]],["Puntos eléctricos",["toma","toma240","inter","inter3","luz"]],["Aparatos para probar",["ac","heater","pump"]]];
+const WALL_DEFS=`<pattern id="pBlk" width="88" height="44" patternUnits="userSpaceOnUse"><rect width="88" height="44" fill="#b9b6ae"/><path d="M0 0.5H88M0 22.5H88M0.5 0V22M44.5 22V44" stroke="#9a978f" stroke-width="2"/></pattern>
+<pattern id="pTile" width="66" height="66" patternUnits="userSpaceOnUse"><rect width="66" height="66" fill="#f3f4f1"/><path d="M0 0.5H66M0.5 0V66" stroke="#cfd3d0" stroke-width="1.5"/></pattern>
+<radialGradient id="gGlow"><stop offset="0" stop-color="#fff3b0" stop-opacity=".95"/><stop offset=".5" stop-color="#ffd84d" stop-opacity=".35"/><stop offset="1" stop-color="#ffd84d" stop-opacity="0"/></radialGradient>`;
+
+let wallMode="move",wColor="Auto",wAwg="12",pending=null,wdrag=null,reconn=null;
+const simState={running:false,trip:new Set(),burnt:new Set(),res:null,log:[],sparks:[],timer:null};
+const wallEl=$("wall");
+
+function blankWall(name="Pared 1",withPanel=true){return{name,w:6,h:2.7,finish:FINISH[0],tube:true,items:withPanel?[{id:uid++,type:"panel",x:1,y:1.6,p:{name:""}}]:[],wires:[]}}
+/* S.wall apunta siempre a la pared activa, sin duplicarse al guardar */
+function linkWall(v){if(Object.prototype.propertyIsEnumerable.call(v,"wall")){const w=v.wall;delete v.wall;if(w){if(!w.name)w.name="Pared 1";v.walls=[w];v.wallI=0}}
+  if(!Array.isArray(v.walls)||!v.walls.length)v.walls=[blankWall()];if(!(v.wallI>=0&&v.wallI<v.walls.length))v.wallI=0;
+  Object.defineProperty(v,"wall",{get(){return this.walls[this.wallI]},enumerable:false,configurable:true});return v}
+function wallDims(){const ww=S.wall.w*WK,wh=S.wall.h*WK;return{Wd:WM.l+ww+WM.r,H:WM.t+wh+WM.b,ww,wh}}
+const toPx=(x,y,wl=S.wall)=>[WM.l+x*WK,WM.t+wl.h*WK-y*WK];
+const fromPx=(px,py)=>[(px-WM.l)/WK,(WM.t+S.wall.h*WK-py)/WK];
+const fmtM2=m=>fmtNum(m,2)+" m";
+function itemSize(it){if(it.type==="panel"){const s=PANEL_W/PW;return{w:PANEL_W,h:lcPH()*s,s}}const d=DEV[it.type];return{w:d.w,h:d.h}}
+const brkLabel=b=>{const c=brkCalc(b);return`C${c.cs.join("-")} · ${b.p.name||"Sin nombre"} (${b.p.poles}P ${b.p.In} A)`};
+
+/* ---------- terminals ---------- */
+function itemTerms(it,wl=S.wall){const [cx,cy]=toPx(it.x,it.y,wl),out=[];
+  if(it.type==="panel"){const {w,h,s}=itemSize(it),x0=cx-w/2,y0=cy-h/2;
+    for(const b of S.lc.items)for(let k=0;k<b.p.poles;k++){const lx=b.side==="L"?XL+17:XR+BW-17,ly=LY0+(b.slot+k)*SL+SL/2;out.push({id:`${it.id}/b${b.id}.${k}`,key:`b${b.id}.${k}`,role:"F",src:true,x:x0+lx*s,y:y0+ly*s,label:"",brk:b})}
+    for(let r=0;r<lcRows();r++){const ly=y0+(LY0+r*SL+SL/2)*s;out.push({id:`${it.id}/N${r}`,key:"N"+r,role:"N",x:x0+(LPAD+17)*s,y:ly,label:""},{id:`${it.id}/G${r}`,key:"G"+r,role:"T",x:x0+(PW-LPAD-17)*s,y:ly,label:""})}
+    return out}
+  const d=DEV[it.type],n=d.terms.length,sp=18;
+  d.terms.forEach(([key,role,label],i)=>out.push({id:`${it.id}/${key}`,key,role,label,src:it.type==="feed"&&role==="F",x:cx+(i-(n-1)/2)*sp,y:cy+d.h/2+11}));return out}
+function allTerms(wl=S.wall){const m=new Map();for(const it of wl.items)for(const t of itemTerms(it,wl))m.set(t.id,Object.assign(t,{item:it}));return m}
+function termName(t){if(!t)return"?";const it=t.item;if(it.type==="panel"){if(t.brk)return`Tablero circ. ${brkCalc(t.brk).cs[+t.key.split(".")[1]]}`;return t.role==="N"?"Barra de neutro":"Barra de tierra"}return`${devLabel(it)} (${t.label})`}
+function wireEnds(w,terms){return`${termName(terms.get(w.a))} → ${termName(terms.get(w.b))}`}
+function wirePath(w,i,terms){const a=terms.get(w.a),b=terms.get(w.b);let ym;
+  if(Math.abs(a.y-b.y)<14)ym=Math.max(a.y,b.y)+22+(i%5)*5;else ym=(a.y+b.y)/2+((i%5)-2)*6;
+  const pts=[[a.x,a.y],[a.x,ym],[b.x,ym],[b.x,b.y]],len=Math.abs(ym-a.y)+Math.abs(b.x-a.x)+Math.abs(b.y-ym);
+  return{d:`M${a.x} ${a.y}V${ym}H${b.x}V${b.y}`,mid:{x:(a.x+b.x)/2,y:ym},len,pts}}
+function wallWireMeters(wl=S.wall){const terms=allTerms(wl),m=new Map();wl.wires.forEach((w,i)=>{if(!terms.has(w.a)||!terms.has(w.b))return;const k=w.awg+"|"+w.color;m.set(k,(m.get(k)||0)+wirePath(w,i,terms).len/WK)});return m}
+/* Tubería: tramos únicos recorridos por los cables, muestreados cada 5 cm */
+function tubeMeters(wl=S.wall){const terms=allTerms(wl),cells=new Set(),st=WK*.05;
+  wl.wires.forEach((w,i)=>{if(!terms.has(w.a)||!terms.has(w.b))return;const p=wirePath(w,i,terms).pts;
+    for(let k=0;k<3;k++){const [x1,y1]=p[k],[x2,y2]=p[k+1],n=Math.max(1,Math.round(Math.hypot(x2-x1,y2-y1)/st));for(let j=0;j<=n;j++)cells.add(Math.round((x1+(x2-x1)*j/n)/st)+","+Math.round((y1+(y2-y1)*j/n)/st))}});
+  return cells.size*.05}
+function autoColor(ta,tb){const r=[ta.role,tb.role];if(r.includes("T"))return"Verde";if(r.includes("N"))return"Blanco";
+  if(ta.role==="S"&&tb.role==="S")return"Amarillo";if(r.includes("S"))return(ta.src||tb.src)?"Negro":"Rojo";return"Negro"}
+
+/* ---------- device drawings (origin = center) ---------- */
+function drawDev(type,p,st){const on=st&&(st.s==="on"||st.s==="weak"),burnt=st&&st.s==="burnt";let s="";
+  switch(type){
+  case"toma":{s=R(-23,-38,46,76,"#f7f7f3",{rx:6,s:"#b9bab4"})+C(0,0,2.2,"#c8c8c2");
+    for(const y of [-18,18])s+=R(-15,y-13,30,26,"#efefea",{rx:8,s:"#c4c5bf"})+R(-8,y-8,3,10,"#333",{rx:1})+R(5,y-7,3,8,"#333",{rx:1})+`<path d="M-2.5 ${y+9}v-2.5a2.5 2.5 0 0 1 5 0v2.5z" fill="#333"/>`;
+    if(p.carga&&p.carga!=="Nada")s+=R(-10,8,20,18,"#2b2e31",{rx:4})+`<path d="M10 17 q22 0 24 26" fill="none" stroke="#2b2e31" stroke-width="3"/>`;break}
+  case"toma240":{s=R(-26,-38,52,76,"#f7f7f3",{rx:6,s:"#b9bab4"})+C(0,-6,18,"#efefea",{s:"#c4c5bf"})+R(-12,-15,4,12,"#333",{rx:1})+R(8,-15,4,12,"#333",{rx:1})+R(-2,1,4,10,"#333",{rx:1})+T(0,28,"240 V",{fs:7,fw:400});
+    if(p.carga&&p.carga!=="Nada")s+=R(-15,-21,30,30,"#2b2e31",{rx:6})+`<path d="M15 -6 q24 0 26 40" fill="none" stroke="#2b2e31" stroke-width="4"/>`;break}
+  case"inter":case"inter3":{const up=type==="inter"?p.on:p.pos!==2;s=R(-22,-36,44,72,"#f7f7f3",{rx:6,s:"#b9bab4"})+R(-12,-23,24,46,"#e9e9e4",{rx:4,s:"#c4c5bf"})+R(-9,-20,18,40,"#fbfbf8",{rx:3,s:"#c9cac4"})+R(-9,up?-20:0,18,20,"#dcdcd6",{rx:3});
+    s+=type==="inter"?T(0,up?-26:31,up?"ON":"OFF",{fs:6.5,c:"#6a6f72"}):T(0,up?-26:31,"3V · "+(up?"1":"2"),{fs:6.5,c:"#6a6f72"});break}
+  case"feed":{s=R(-32,-32,64,64,"#9aa1a6",{rx:4,s:"#6d757a"})+R(-26,-26,52,52,"#b9bfc2",{rx:3,s:"#868e92"});for(const [x,y] of [[-20,-20],[20,-20],[-20,20],[20,20]])s+=screw(x,y,3.5);
+    const b=S.lc.items.find(x=>x.id===p.brk);s+=T(0,0,b?"C"+brkCalc(b).cs.join("-"):"—",{fs:11,c:"#1d2326"})+T(0,12,b?b.p.In+" A":"elige",{fs:6.5,fw:400,c:"#2a2e31"});break}
+  case"luz":{if(on)s+=C(0,8,48,"url(#gGlow)");s+=R(-15,-32,30,10,"#bdb7aa",{rx:3})+R(-3,-22,6,10,"#a9a396")+R(-8,-14,16,10,"#b9b4a8",{rx:2});
+    s+=C(0,8,16,burnt?"#4a4743":on?"#fff6c8":"#f2f0e6",{s:"#b9b3a0"})+`<path d="M-5 10 q2.5 -6 5 0 q2.5 6 5 0" fill="none" stroke="${on?"#ff9a1a":"#9a958a"}" stroke-width="1.4"/>`+C(0,8,16,"url(#gLens)",{op:.6});
+    if(burnt)s+=`<path d="M-8 2 l6 5 -3 4 7 4" fill="none" stroke="#222" stroke-width="1.2"/>`;break}
+  case"ac":{s=R(-95,-33,190,66,"#f8f9f8",{rx:14,s:"#c8ccc9"})+R(-88,8,176,2,"#dfe2df")+R(-80,16,160,9,"#d6dad6",{rx:4})+C(72,-14,3.2,on?"#4fd1ff":"#cfd3d0")+T(54,-11,on?"24°":"",{fs:8,c:"#4fa8d8"});
+    if(on)for(const x of [-66,-40,40,66])s+=`<path class="flow" d="M${x} 28 q8 14 0 28" fill="none" stroke="#7cc4ef" stroke-width="2.5" stroke-linecap="round"/>`;break}
+  case"heater":{s=R(-20,-76,6,14,"#c88a4a")+R(14,-76,6,14,"#2f6fd0")+R(-38,-65,76,130,"#f4f4f1",{rx:18,s:"#bfc2bd"})+R(-38,-65,76,16,"#d8dad6",{rx:10})+R(-24,-22,48,36,"#e8e9e5",{rx:3,s:"#cfd1cc"});
+    s+=T(0,-7,"CALENTADOR",{fs:6})+T(0,7,p.W+" W",{fs:7.5});if(on)s+=C(0,30,11,"#ff6b5e",{op:.5,flt:"blur"});s+=C(0,30,5,on?"#ff4b3b":"#5a1f1f");break}
+  case"pump":{s=R(-50,24,100,8,"#3a3e41",{rx:2})+R(-44,-22,54,46,"#2f6fd0",{rx:10,s:"#1d4d94"});for(let k=0;k<5;k++)s+=R(-38+k*9,-22,3,46,"#2a5fb5");
+    s+=R(20,-38,14,18,"#aab0b4",{rx:2})+C(28,0,20,"#9aa1a6",{s:"#5f666b"})+`<g class="${on?"spin":""}"><path d="M28 -13V13M15 0H41M19 -9L37 9M19 9L37 -9" stroke="#3a3f43" stroke-width="2.6" stroke-linecap="round"/></g>`+C(28,0,4,"#5f666b")+T(-17,4,p.hp,{fs:8,c:"#fff"});break}
+  }
+  if(burnt){const d=DEV[type];s+=R(-d.w/2,-d.h/2,d.w,d.h,"#2b1d10",{rx:6,op:.35})+`<g class="smoke">${C(-6,-d.h/2-8,7,"#7d7a76",{op:.55})}${C(5,-d.h/2-16,9,"#8f8c88",{op:.45})}${C(-2,-d.h/2-28,11,"#a3a09c",{op:.35})}</g>`}
+  return s}
+
+/* ---------- wall rendering ---------- */
+function wallBadge(st,d){if(!st)return"";const map={on:["#2f9e44",`${st.v} V`],idle:["#2f9e44",`${st.v} V`],off:["#8a9195","0 V"],weak:["#d9822b",`${st.v} V · bajo`],burnt:["#c0322a","QUEMADO"]},[c,t]=map[st.s];
+  const w=t.length*5.6+14;return`<g transform="translate(0 ${-d.h/2-15})">${R(-w/2,-9,w,17,c,{rx:8.5})}${T(0,3.5,t,{fs:8.5,c:"#fff"})}</g>`}
+function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.running,res=run?simState.res:null,terms=allTerms();
+  const fill={"Frisado y pintado":"#e9e3d7","Bloque sin frisar":"url(#pBlk)","Cerámica":"url(#pTile)"}[W.finish]||"#e9e3d7";
+  let s=`<defs>${WALL_DEFS}</defs>`+R(0,0,Wd,H,"#f1f2ef")+R(WM.l-12,WM.t-10,ww+24,10,"#d3cec4")+R(WM.l,WM.t,ww,wh,fill)+R(WM.l,WM.t+wh-12,ww,12,"#d6d0c4")+R(WM.l-12,WM.t+wh,ww+24,16,"#8b6f55");
+  s+=T(WM.l,WM.t-16,W.name,{fs:12,a:"start",ff:SANS,fw:700,c:"#3a3530"});
+  /* rulers */
+  s+=R(WM.l-34,WM.t,1.2,wh,"#6b6660");for(let m=0;m<=W.h+1e-6;m+=.5){const y=WM.t+wh-m*WK;s+=R(WM.l-40,y,12,1.2,"#6b6660")+T(WM.l-44,y+3.5,fmtNum(m,m%1?1:0)+" m",{fs:8.5,a:"end",fw:400,c:"#5b5650",ff:SANS})}
+  const ry=WM.t+wh+40;s+=R(WM.l,ry,ww,1.2,"#6b6660");for(let m=0;m<=W.w+1e-6;m+=1){const x=WM.l+m*WK;s+=R(x,ry-6,1.2,12,"#6b6660")+T(x,ry+20,m+" m",{fs:8.5,fw:400,c:"#5b5650",ff:SANS})}
+  s+=T(WM.l+ww/2,ry+38,`${W.name} · ${fmtNum(W.w)} × ${fmtNum(W.h)} m · ${W.finish.toLowerCase()} · dispositivos dibujados más grandes para cablear`,{fs:9,fw:400,c:"#5b5650",ff:SANS});
+  for(const [m,l] of STD_H)if(m<W.h){const y=WM.t+wh-m*WK;s+=`<line x1="${WM.l}" y1="${y}" x2="${WM.l+ww}" y2="${y}" stroke="#7a6f60" stroke-width="1" stroke-dasharray="4 6" opacity=".45"/>`+T(WM.l+ww-8,y-5,l,{fs:8.5,a:"end",fw:400,c:"#7a6f60",ff:SANS})}
+  /* conduit under the wires */
+  const valid=W.wires.map((w,i)=>[w,i]).filter(([w])=>terms.has(w.a)&&terms.has(w.b));
+  if(W.tube!==false){let t1="",t2="";for(const [w,i] of valid){const d=wirePath(w,i,terms).d;t1+=`<path d="${d}" fill="none" stroke="#b9bcb6" stroke-width="17" stroke-linejoin="round" stroke-linecap="round"/>`;t2+=`<path d="${d}" fill="none" stroke="#e2e4df" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"/>`}s+=`<g opacity=".9">${t1}${t2}</g>`}
+  /* items */
+  for(const it of W.items){const [cx,cy]=toPx(it.x,it.y),{w,h}=itemSize(it);let g;
+    if(it.type==="panel"){const sc=PANEL_W/PW;g=`<svg x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" viewBox="0 0 ${PW} ${lcPH()}">${lcPanelSvg({wall:true,trip:simState.trip})}</svg>`;
+      if(!forExport){for(const b of S.lc.items){const x=(b.side==="L"?XL:XR)*sc-w/2,y=(LY0+b.slot*SL)*sc-h/2;g+=`<rect class="wb" data-brk="${b.id}" x="${x}" y="${y}" width="${BW*sc}" height="${b.p.poles*SL*sc}" fill="#000" fill-opacity="0"><title>Circuito ${brkCalc(b).cs.join("-")}: clic para encender, apagar o rearmar</title></rect>`}
+        if(S.lc.main)g+=`<rect class="wm" x="${(CX-104)*sc-w/2}" y="${52*sc-h/2}" width="${208*sc}" height="${94*sc}" fill="#000" fill-opacity="0"><title>Principal: clic para encender o apagar</title></rect>`}}
+    else g=`<g filter="url(#sh)">${drawDev(it.type,it.p,res&&res.loads[it.id])}</g>`+(res&&res.loads[it.id]?wallBadge(res.loads[it.id],DEV[it.type]):"");
+    const lab=it.p.name||DEV[it.type].short,ly=h/2+(it.type==="panel"?16:32);
+    s+=`<g class="wi" data-id="${it.id}" transform="translate(${cx} ${cy})">${g}${T(0,ly,lab,{fs:9.5,ff:SANS,fw:600,c:"#3a3530"})}${it.id===sel&&!forExport?R(-w/2-6,-h/2-6,w+12,h+12,"none",{rx:8,s:"#1c74e0",sw:2.5}):""}</g>`}
+  /* wires */
+  for(const [w,i] of valid){const p=wirePath(w,i,terms),sw=AWG_W[w.awg]||3.6,col=WCOL[w.color]||"#1f2224",bad=res&&res.wireMsg[w.id],moving=reconn&&reconn.id===w.id;
+    s+=`<g class="ww" data-id="${w.id}"${moving?` opacity=".35"`:""}>`;if(res&&res.hot.has(w.id))s+=`<path d="${p.d}" fill="none" stroke="#ff7a1a" stroke-width="${sw+8}" opacity=".45" stroke-linejoin="round"/>`;
+    s+=`<path d="${p.d}" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="${sw+2}" stroke-linejoin="round"/><path d="${p.d}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+    if(!forExport)s+=`<path d="${p.d}" fill="none" stroke="#000" stroke-opacity="0" stroke-width="12"/>`;
+    if(bad&&!forExport)s+=C(p.mid.x,p.mid.y,7,"#f08a2b",{s:"#fff",sw:1.5})+T(p.mid.x,p.mid.y+3.5,"!",{fs:9,c:"#fff",ff:SANS,fw:700});
+    if(w.id===sel&&!forExport)s+=`<path d="${p.d}" fill="none" stroke="#1c74e0" stroke-width="2" stroke-dasharray="5 4"/>`;s+="</g>"}
+  /* terminals */
+  for(const t of terms.values()){const fillT={F:"#d9a441",S:"#d9a441",N:"#dfe3e5",T:"#2f9e44"}[t.role];
+    if(t.item.type!=="panel"){s+=C(t.x,t.y,5,fillT,{s:"#5d5548",sw:1.2})+T(t.x,t.y+15,t.label,{fs:6.5,c:"#5b5650"})}
+    if(!forExport){const hot=pending===t.id,target=reconn||pending;s+=`<circle class="wt" data-t="${t.id}" cx="${t.x}" cy="${t.y}" r="${t.item.type==="panel"?5:9}" fill="${hot?"#1c74e0":"#000"}" fill-opacity="${hot?.35:0}"${wallMode==="wire"||hot||target?` stroke="#1c74e0" stroke-width="1.4"`:""}><title>${esc(termName(t))}</title></circle>`}}
+  /* handles to move the ends of the selected wire */
+  const sw=!forExport&&valid.find(([w])=>w.id===sel);
+  if(sw){for(const end of ["a","b"]){const t=terms.get(sw[0][end]),act=reconn&&reconn.end===end;s+=`<g class="wh" data-end="${end}"><circle cx="${t.x}" cy="${t.y}" r="9" fill="${act?"#1c74e0":"#fff"}" stroke="#1c74e0" stroke-width="2.5"/><circle cx="${t.x}" cy="${t.y}" r="3" fill="${act?"#fff":"#1c74e0"}"/><title>Arrastra este extremo a otro terminal</title></g>`}}
+  for(const sp of simState.sparks)s+=`<g transform="translate(${sp.x} ${sp.y})"><g class="spark">${C(0,0,26,"#fff6a8",{op:.7,flt:"blur"})}<polygon points="0,-24 6,-6 24,-8 9,4 16,22 0,10 -16,22 -9,4 -24,-8 -6,-6" fill="#ffd21f" stroke="#ff7a00" stroke-width="2"/>${C(0,0,6,"#fff")}</g></g>`;
+  return s+`<g id="wpv"></g>`}
+function renderWall(){const {Wd,H}=wallDims();wallEl.setAttribute("viewBox",`0 0 ${Wd} ${H}`);wallEl.setAttribute("width",Math.round(Wd*zoom));wallEl.setAttribute("height",Math.round(H*zoom));wallEl.innerHTML=wallSvg(false);$("zval").textContent=Math.round(zoom*100)+"%"}
+
+/* ---------- running the test ---------- */
+const alertTitle=m=>/^Cortocircuito/.test(m)?"Cortocircuito":/sobrecarga/i.test(m)?"Disparo por sobrecarga":/quemó/.test(m)?"Aparato quemado":/GFCI/.test(m)?"Disparó el GFCI":"Atención";
+function runSim(){if(!simState.running)return;const r=simulate(simState.trip,simState.burnt);
+  r.trips.forEach(id=>simState.trip.add(id));r.newBurnt.forEach(id=>simState.burnt.add(id));r.log.forEach(e=>simState.log.unshift(e));simState.res=r;
+  if(r.sparks.length){simState.sparks=r.sparks;setTimeout(()=>{simState.sparks=[];if(S.view==="wall")renderWall()},1300)}
+  if(r.log.length){const m=r.log[r.log.length-1].msg;showAlert("crit",alertTitle(m),m,r.log.length>1?`y ${r.log.length-1} evento más`:"")}
+  if(r.pending.length&&!simState.timer)simState.timer=setTimeout(()=>{simState.timer=null;if(!simState.running)return;const r2=simulate(simState.trip,simState.burnt);
+    r2.pending.forEach(o=>{simState.trip.add(o.b.id);simState.log.unshift({lvl:"crit",msg:`Disparó por sobrecarga el breaker del circuito ${circLabel(o.b)} (${fmtA(o.I)} en un breaker de ${o.b.p.In} A).`})});
+    if(r2.pending.length)showAlert("crit","Disparo por sobrecarga",simState.log[0].msg);runSim();renderAll()},1800)}
+function setRunning(on){simState.running=on;clearTimeout(simState.timer);simState.timer=null;simState.sparks=[];
+  if(on){simState.trip.clear();simState.burnt.clear();simState.log=[];runSim();
+    if(!simState.log.length){const r=simState.res,L=Object.values(r.loads),ok=L.filter(l=>l.s==="on"||l.s==="idle").length,warn=r.status.filter(s=>s.lvl==="warn"||s.lvl==="crit").length;
+      showAlert(warn?"warn":"ok",warn?"Prueba en marcha, con avisos":"Prueba en marcha: todo bien",`${ok} de ${L.length} aparatos con tensión en ${S.wall.name}.${warn?` Hay ${warn} aviso${warn>1?"s":""} de norma o de carga.`:" Prueba unir una fase con el neutro para ver qué pasa."}`)}}
+  else{simState.res=null;hideAlert()}renderAll()}
+function rearm(){simState.trip.clear();simState.burnt.clear();clearTimeout(simState.timer);simState.timer=null;simState.log.unshift({lvl:"ok",msg:"Breakers rearmados y aparatos reemplazados."});hideAlert();runSim();renderAll()}
+
+/* ---------- walls ---------- */
+function addWall(){const n=S.walls.length+1,w=blankWall("Pared "+n,false),b=S.lc.items[0];
+  if(b)w.items.push({id:uid++,type:"feed",x:.6,y:2.1,p:{name:"",brk:b.id}});
+  mutate(()=>{S.walls.push(w);S.wallI=S.walls.length-1});sel=null;pending=null;autoFit=true;fit();toast(`${w.name} creada con una llegada de circuito para alimentarla.`)}
+function delWall(){if(S.walls.length<2)return;const i=S.wallI;mutate(()=>{S.walls.splice(i,1);S.wallI=Math.max(0,i-1)});sel=null;autoFit=true;fit()}
+function selectWall(i){pending=null;reconn=null;sel=null;mutate(()=>{S.wallI=i});autoFit=true;fit()}
+
+/* ---------- library for the wall ---------- */
+function devThumb(type){if(type==="panel")return`<svg viewBox="0 0 ${PW} ${lcPH()}" aria-hidden="true">${lcPanelSvg({wall:true})}</svg>`;const d=DEV[type],p=Object.assign({},d.d);if(type==="feed")p.brk=S.lc.items[0]&&S.lc.items[0].id;
+  return`<svg viewBox="${-d.w/2-4} ${-d.h/2-6} ${d.w+8} ${d.h+12}" aria-hidden="true"><defs>${WALL_DEFS}</defs><g filter="url(#sh)">${drawDev(type,p,null)}</g></svg>`}
+function renderWallLib(){const q=$("q").value.trim().toLowerCase();let h="";$("libTitle").textContent="Para la pared";$("q").placeholder="Buscar: toma, tres vías, bomba…";
+  LIB_WALL.forEach(([cat,list])=>{const items=list.filter(t=>!q||(DEV[t].n+" "+cat).toLowerCase().includes(q));if(!items.length)return;
+    h+=`<div class="cat">${esc(cat)}</div><div class="lib-grid">`+items.map(t=>{const d=DEV[t],here=S.walls.findIndex(w=>w.items.some(i=>i.type==="panel"));
+      const meta=t==="panel"?(here>=0?`Está en ${S.walls[here].name}`:"Tu caja de breakers"):t==="feed"?"Viene del tablero":d.price?"$ "+fmtNum(d.price,0)+" · "+fmtNum(d.std,2)+" m":"Aparato · "+d.V+" V";
+      return`<div class="li${t==="ac"?" wide":""}" tabindex="0" role="button" data-lib="w${t}">${devThumb(t)}<b>${esc(d.n)}</b><span>${meta}</span>${t==="inter3"||t==="feed"?`<span class="tag-new">Nuevo</span>`:""}</div>`}).join("")+`</div>`});
+  $("libList").innerHTML=h||`<p class="note" style="padding:8px 4px">Nada coincide con "${esc(q)}".</p>`}
+function addWallItem(type,at){if(type==="panel"){const i=S.walls.findIndex(w=>w.items.some(x=>x.type==="panel"));if(i>=0){toast(i===S.wallI?"El tablero ya está en esta pared. Arrástralo para moverlo.":`El tablero está en ${S.walls[i].name}. En esta pared usa una "Llegada de circuito".`);return}}
+  const d=DEV[type],y=at?at[1]:d.std;let x=at?at[0]:null;
+  if(x==null){x=.6;for(let c=.6;c<S.wall.w-.4;c+=.3){if(!S.wall.items.some(i=>Math.abs(i.x-c)<.45&&Math.abs(i.y-y)<.5)){x=c;break}}}
+  const it={id:uid++,type,x:+x.toFixed(2),y:+y.toFixed(2),p:Object.assign({},d.d||{},{name:""})};if(type==="feed")it.p.brk=S.lc.items[0]?S.lc.items[0].id:null;clampItem(it);
+  mutate(()=>{S.wall.items.push(it)});sel=it.id;renderAll()}
+function clampItem(it){const {w,h}=itemSize(it),hw=w/2/WK,hh=h/2/WK;it.x=Math.round(Math.max(hw,Math.min(S.wall.w-hw,it.x))*20)/20;it.y=Math.round(Math.max(hh,Math.min(S.wall.h-hh,it.y))*20)/20}
+
+/* ---------- side panel for the wall ---------- */
+function evList(list){return list.length?`<ul class="ev">${list.map(e=>`<li class="${e.lvl}"${e.wire?` data-wire="${e.wire}"`:""}>${esc(e.msg)}</li>`).join("")}</ul>`:""}
+function renderPropsWall(){const P=$("paneP"),it=S.wall.items.find(i=>i.id===sel),w=S.wall.wires.find(i=>i.id===sel),terms=allTerms(),res=simState.running?simState.res:null;
+  const sim=`<h3>Prueba</h3>${simState.running?`<p class="note">Simulación en marcha. Toca un interruptor para cambiarlo, y los breakers del tablero para apagarlos o rearmarlos.</p>`:`<p class="note">Presiona <b>Probar</b> para energizar la pared y ver qué pasa.</p>`}
+    ${simState.log.length?`<h3>Lo que pasó</h3>${evList(simState.log.slice(0,8))}`:""}${res?`<h3>Estado actual</h3>${evList(res.status)}`:""}`;
+  if(w){const ta=terms.get(w.a),tb=terms.get(w.b),i=S.wall.wires.indexOf(w),len=ta&&tb?wirePath(w,i,terms).len/WK:0;
+    P.innerHTML=`<div><h2>Cable ${esc(w.color.toLowerCase())} #${esc(w.awg)}</h2><div class="meta">${ta&&tb?esc(wireEnds(w,terms)):"Desconectado"} · ${fmtM2(len)}</div></div>
+     <div class="fields"><label class="field"><span>Color</span><select class="sel" id="pw-color">${Object.keys(WCOL).map(c=>opt(c,w.color)).join("")}</select></label><label class="field"><span>Calibre AWG</span><select class="sel" id="pw-awg">${Object.keys(AWG_W).map(a=>opt(a,w.awg)).join("")}</select></label></div>
+     <h3>Mover un extremo</h3><p class="note">Arrastra el círculo azul de cualquier punta hasta otro terminal, o toca un botón y luego el terminal nuevo.</p>
+     <div class="row-btns"><button class="btn${reconn&&reconn.end==="a"?" primary":""}" id="pw-ra">Mover: ${esc(cutText(termName(ta),22))}</button><button class="btn${reconn&&reconn.end==="b"?" primary":""}" id="pw-rb">Mover: ${esc(cutText(termName(tb),22))}</button></div>
+     ${res&&res.wireMsg[w.id]?`<ul class="ev"><li class="warn">${esc(res.wireMsg[w.id].join("; "))}</li></ul>`:""}
+     <p class="note">Norma: fases en negro, rojo o azul · neutro en blanco · tierra en verde · retorno al bombillo en rojo · viajeros de tres vías en amarillo. Calibre #14 hasta 15 A, #12 hasta 20 A, #10 hasta 30 A.</p>
+     <div class="row-btns"><button class="btn danger" id="pw-del">Eliminar cable</button></div>${sim}`;
+    $("pw-color").onchange=e=>mutate(()=>{w.color=e.target.value});$("pw-awg").onchange=e=>mutate(()=>{w.awg=e.target.value});$("pw-del").onclick=wallDelete;
+    $("pw-ra").onclick=()=>{reconn={id:w.id,end:"a",moved:false};renderAll()};$("pw-rb").onclick=()=>{reconn={id:w.id,end:"b",moved:false};renderAll()};return}
+  if(it){const d=DEV[it.type];
+    if(it.type==="panel")P.innerHTML=`<div><h2>Tablero</h2><div class="meta">Centro a ${fmtM2(it.y)} del piso · ${S.lc.spaces} espacios</div></div>
+      <p class="note">Es tu caja de breakers. Para cambiar los breakers ve a la vista Tablero. Los cables se conectan al tornillo de cada breaker, a la barra de neutro (izquierda) y a la barra de tierra (derecha).</p>
+      ${posFields(it)}<div class="row-btns"><button class="btn danger" id="pp-del">Quitar de la pared</button></div>${sim}`;
+    else P.innerHTML=`<div><h2>${esc(d.n)}</h2><div class="meta">${d.V?d.V+" V · ":""}${d.price?"$ "+fmtNum(d.price)+" en el presupuesto":"Aparato del cliente"}</div></div>
+      <div class="fields"><label class="field wide"><span>Nombre</span><input class="txt" id="pp-name" value="${esc(it.p.name)}" placeholder="${esc(d.short)}"></label>
+      ${it.type==="feed"?`<label class="field wide"><span>Circuito del tablero</span><select class="sel" id="pp-brk">${S.lc.items.map(b=>`<option value="${b.id}"${b.id===it.p.brk?" selected":""}>${esc(brkLabel(b))}</option>`).join("")}</select></label>`:""}
+      ${(d.f||[]).map(([k,l,o])=>`<label class="field${o.length>4?" wide":""}"><span>${esc(l)}</span><select class="sel" id="pp-${k}">${o.map(v=>opt(v,it.p[k])).join("")}</select></label>`).join("")}</div>
+      ${it.type==="inter"?`<label class="switch"><input type="checkbox" id="pp-on"${it.p.on?" checked":""}> Encendido</label>`:""}
+      ${d.tip?`<p class="note">${esc(d.tip)}</p>`:""}
+      ${posFields(it)}<div class="row-btns"><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>${sim}`;
+    const nm=$("pp-name");if(nm)nm.onchange=e=>mutate(()=>{it.p.name=e.target.value});
+    const pb=$("pp-brk");if(pb)pb.onchange=e=>mutate(()=>{it.p.brk=+e.target.value});
+    (d.f||[]).forEach(([k,,o])=>{$("pp-"+k).onchange=e=>{const v=typeof o[0]==="number"?Number(e.target.value):e.target.value;mutate(()=>{it.p[k]=v})}});
+    const on=$("pp-on");if(on)on.onchange=e=>mutate(()=>{it.p.on=e.target.checked});
+    ["x","y"].forEach(k=>$("pp-"+k).onchange=e=>mutate(()=>{it[k]=+e.target.value||0;clampItem(it)}));
+    const sd=$("pp-std");if(sd)sd.onclick=()=>mutate(()=>{it.y=d.std;clampItem(it)});
+    const du=$("pp-dup");if(du)du.onclick=()=>{const n={id:uid++,type:it.type,x:it.x+.4,y:it.y,p:Object.assign({},it.p)};clampItem(n);mutate(()=>{S.wall.items.push(n)});sel=n.id;renderAll()};
+    $("pp-del").onclick=wallDelete;return}
+  const nd=S.wall.items.filter(i=>i.type!=="panel").length,mts=[...wallWireMeters().values()].reduce((a,b)=>a+b,0);
+  P.innerHTML=`<div><h2>${esc(S.wall.name)}</h2><div class="meta">${nd} puntos · ${S.wall.wires.length} cables · ${fmtM2(mts)} de cable${S.wall.tube!==false?` · ${fmtM2(tubeMeters())} de tubo`:""}</div></div>
+   <div class="fields"><label class="field wide"><span>Nombre de la pared</span><input class="txt" id="pw-name" value="${esc(S.wall.name)}"></label></div>
+   <div class="row-btns"><button class="btn" id="pw-add">+ Otra pared</button>${S.walls.length>1?`<button class="btn danger" id="pw-delwall">Eliminar esta pared</button>`:""}</div>
+   <ol class="steps"><li>Arrastra tomas, interruptores y aparatos desde la biblioteca. En una pared sin tablero, pon una <b>Llegada de circuito</b>.</li><li>Toca un terminal y luego otro para tender un cable. Con color <b>Automático</b> se usa el de la norma.</li><li>Para corregir un cable, selecciónalo y arrastra su punta a otro terminal.</li><li>Presiona <b>Probar</b>. Si unes una fase con el neutro, verás el cortocircuito.</li></ol>
+   ${sim}<h3>Colores según norma</h3><div class="legend">${[["Negro","Fase"],["Rojo","Fase / retorno"],["Azul","Fase C"],["Amarillo","Viajero 3 vías"],["Blanco","Neutro"],["Verde","Tierra"]].map(([c,l])=>`<span><i style="background:${WCOL[c]}"></i>${l}</span>`).join("")}</div>`;
+  $("pw-name").onchange=e=>mutate(()=>{S.wall.name=e.target.value.trim()||S.wall.name});$("pw-add").onclick=addWall;const dw=$("pw-delwall");if(dw)dw.onclick=delWall;
+  P.querySelectorAll("[data-wire]").forEach(li=>li.onclick=()=>{sel=+li.dataset.wire;renderAll()})}
+function posFields(it){const d=DEV[it.type];return`<div class="fields"><label class="field"><span>Desde la izquierda (m)</span><input class="txt" id="pp-x" type="number" step="0.05" min="0" value="${it.x}"></label><label class="field"><span>Altura del centro (m)</span><input class="txt" id="pp-y" type="number" step="0.05" min="0" value="${it.y}"></label></div>
+  ${d.std&&Math.abs(it.y-d.std)>.01?`<div class="row-btns"><button class="btn" id="pp-std">Usar altura estándar (${fmtM2(d.std)})</button></div>`:""}`}
+function wallDelete(){if(!sel)return;const id=sel;sel=null;reconn=null;mutate(()=>{if(S.wall.wires.some(w=>w.id===id)){S.wall.wires=S.wall.wires.filter(w=>w.id!==id);return}
+  S.wall.items=S.wall.items.filter(i=>i.id!==id);S.wall.wires=S.wall.wires.filter(w=>!w.a.startsWith(id+"/")&&!w.b.startsWith(id+"/"))})}
+
+/* ---------- pointer interaction ---------- */
+function toWall(e){const pt=wallEl.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const m=wallEl.getScreenCTM();return m?pt.matrixTransform(m.inverse()):{x:0,y:0}}
+function linkOk(a,b,terms,ignoreId){if(a===b){toast("Ese es el mismo terminal.");return false}
+  if(S.wall.wires.some(w=>w.id!==ignoreId&&((w.a===a&&w.b===b)||(w.a===b&&w.b===a)))){toast("Esos dos terminales ya están unidos por otro cable.");return false}
+  const ta=terms.get(a),tb=terms.get(b);if(ta.item===tb.item&&ta.item.type!=="panel"){toast("Une terminales de dos aparatos distintos, o del aparato con el tablero.");return false}return true}
+function applyReconn(tid){const w=S.wall.wires.find(x=>x.id===reconn.id),end=reconn.end;reconn=null;if(!w){renderAll();return}
+  const other=w[end==="a"?"b":"a"];if(!linkOk(tid,other,allTerms(),w.id)){renderAll();return}
+  mutate(()=>{w[end]=tid});sel=w.id;toast("Extremo del cable movido.")}
+function terminalClick(id){if(reconn){applyReconn(id);return}const terms=allTerms();if(!pending){pending=id;sel=null;renderAll();return}
+  if(pending===id){pending=null;renderAll();return}
+  const a=pending,b=id;pending=null;if(!linkOk(a,b,terms)){renderAll();return}
+  const ta=terms.get(a),tb=terms.get(b),w={id:uid++,a,b,color:wColor==="Auto"?autoColor(ta,tb):wColor,awg:wAwg};mutate(()=>{S.wall.wires.push(w)});sel=w.id;renderAll()}
+wallEl.addEventListener("pointerdown",e=>{const hd=e.target.closest(".wh");if(hd){reconn={id:sel,end:hd.dataset.end,moved:false,sx:e.clientX,sy:e.clientY};pending=null;renderWall();return}
+  const t=e.target.closest(".wt");if(t){terminalClick(t.dataset.t);return}
+  const wb=e.target.closest(".wb");if(wb){const b=S.lc.items.find(x=>x.id===+wb.dataset.brk);if(!b)return;
+    if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste el breaker del circuito ${circLabel(b)}.`});runSim();renderAll()}else mutate(()=>{b.p.on=!b.p.on});return}
+  if(e.target.closest(".wm")){mutate(()=>{S.lc.mainOn=S.lc.mainOn===false});return}
+  const ww=e.target.closest(".ww");if(ww){sel=+ww.dataset.id;pending=null;reconn=null;renderAll();return}
+  const wi=e.target.closest(".wi");if(wi){const it=S.wall.items.find(i=>i.id===+wi.dataset.id);if(!it)return;
+    if(simState.running&&it.type==="inter"){mutate(()=>{it.p.on=!it.p.on});return}
+    if(simState.running&&it.type==="inter3"){mutate(()=>{it.p.pos=it.p.pos===2?1:2});return}
+    sel=it.id;pending=null;reconn=null;
+    if(wallMode==="move"){const q=toWall(e),[cx,cy]=toPx(it.x,it.y);wdrag={id:it.id,dx:q.x-cx,dy:q.y-cy,moved:false,before:JSON.stringify(S),sx:e.clientX,sy:e.clientY};try{wallEl.setPointerCapture(e.pointerId)}catch(_){}}
+    renderAll();return}
+  if(pending||sel||reconn){pending=null;sel=null;reconn=null;renderAll()}});
+window.addEventListener("pointermove",e=>{
+  if(wdrag){if(!wdrag.moved&&Math.hypot(e.clientX-wdrag.sx,e.clientY-wdrag.sy)<4)return;wdrag.moved=true;const it=S.wall.items.find(i=>i.id===wdrag.id),q=toWall(e),[x,y]=fromPx(q.x-wdrag.dx,q.y-wdrag.dy);
+    it.x=x;it.y=y;clampItem(it);renderWall();ghost.hidden=false;ghost.textContent=`${fmtM2(it.x)} desde la izq. · altura ${fmtM2(it.y)}`;ghost.style.left=e.clientX+"px";ghost.style.top=e.clientY+"px";return}
+  if(S.view!=="wall")return;
+  const from=reconn?(()=>{const w=S.wall.wires.find(x=>x.id===reconn.id);return w&&allTerms().get(w[reconn.end==="a"?"b":"a"])})():pending?allTerms().get(pending):null;
+  if(reconn&&!reconn.moved&&reconn.sx!=null&&Math.hypot(e.clientX-reconn.sx,e.clientY-reconn.sy)>4)reconn.moved=true;
+  const pv=$("wpv");if(!pv||!from)return;const q=toWall(e);pv.innerHTML=`<path d="M${from.x} ${from.y}L${q.x} ${q.y}" stroke="#1c74e0" stroke-width="3" stroke-dasharray="6 4" fill="none" opacity=".85"/>${C(q.x,q.y,6,"#1c74e0",{op:.6})}`});
+window.addEventListener("pointerup",e=>{
+  if(reconn&&reconn.moved){const el=document.elementFromPoint(e.clientX,e.clientY),t=el&&el.closest&&el.closest(".wt");if(t)applyReconn(t.dataset.t);else{reconn=null;toast("Suelta la punta encima de un terminal.");renderAll()}return}
+  if(reconn){reconn.sx=null;renderAll();return}
+  if(!wdrag)return;const d=wdrag;wdrag=null;ghost.hidden=true;
+  if(d.moved){hist.push(d.before);if(hist.length>100)hist.shift();fut=[];save();renderAll()}});
+function wallKey(e){const mod=e.ctrlKey||e.metaKey;if(e.key==="Escape"){pending=null;reconn=null;sel=null;renderAll();return true}
+  if(!sel)return false;if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();wallDelete();return true}
+  const it=S.wall.items.find(i=>i.id===sel);if(it&&/^Arrow/.test(e.key)){e.preventDefault();const st=.05,dx={ArrowLeft:-st,ArrowRight:st}[e.key]||0,dy={ArrowUp:st,ArrowDown:-st}[e.key]||0;mutate(()=>{it.x+=dx;it.y+=dy;clampItem(it)});return true}
+  if(mod&&e.key.toLowerCase()==="d"&&it){e.preventDefault();$("pp-dup")&&$("pp-dup").click();return true}return false}
