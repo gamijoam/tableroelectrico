@@ -22,7 +22,7 @@ function renderSelBar(){const bar=$("selbar"),t=selTarget(),dragging=(typeof dra
       ${B("sb-on",p.on?"Apagar":"Encender")}${B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
   else if(t.kind==="din"||t.kind==="ax"){const c=CAT[t.it.type];h=`<span class="sb-t">${esc(t.it.p.des||c.n)} · ${esc(c.n)}</span>${c.st?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
   else if(t.kind==="ex"){const c=EXT[t.it.type];h=`<span class="sb-t">${esc(c.n)}</span>${c.st?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
-  else if(t.kind==="wi"){const d=DEV[t.it.type];h=`<span class="sb-t">${esc(t.it.p.name||d.short)}</span>${t.it.type==="inter"?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${t.it.type!=="panel"?B("sb-dup","Duplicar"):""}${B("sb-del",t.it.type==="panel"?"Quitar":"Eliminar","danger")}`}
+  else if(t.kind==="wi"){const d=DEV[t.it.type];h=`<span class="sb-t">${esc(t.it.p.name||d.short)}</span>${t.it.type==="inter"?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${t.it.type==="panel"?B("sb-edit","Poner o quitar breakers","primary"):B("sb-dup","Duplicar")}${B("sb-del",t.it.type==="panel"?"Quitar":"Eliminar","danger")}`}
   else if(t.kind==="ww"){h=`<span class="sb-t">Cable #${t.w.awg}</span><select class="sel" id="sb-col" aria-label="Color del cable">${O(Object.keys(WCOL),t.w.color)}</select>${B("sb-del","Eliminar","danger")}`}
   h+=B("sb-more","Más opciones");bar.innerHTML=h;bar.hidden=false;
   const on=(id,ev,fn)=>{const el=$(id);if(el)el[ev]=fn};
@@ -32,6 +32,7 @@ function renderSelBar(){const bar=$("selbar"),t=selTarget(),dragging=(typeof dra
   on("sb-dup","onclick",()=>{if(t.kind==="wi"){const p=$("pp-dup");if(p)p.click()}else dup()});
   on("sb-del","onclick",()=>{if(S.view==="wall")wallDelete();else del()});
   on("sb-col","onchange",e=>mutate(()=>{t.w.color=e.target.value}));
+  on("sb-edit","onclick",()=>setView("board"));
   on("sb-more","onclick",()=>{setPanel("side",true);$("tabP").click()});
   posSelBar()}
 function posSelBar(){const bar=$("selbar"),t=sbTarget;if(bar.hidden||!t||!t.el||!t.el.isConnected)return;

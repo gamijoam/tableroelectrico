@@ -135,7 +135,7 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
   /* items */
   for(const it of W.items){const [cx,cy]=toPx(it.x,it.y),{w,h}=itemSize(it);let g;
     if(it.type==="panel"){const sc=PANEL_W/PW;g=`<svg x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" viewBox="0 0 ${PW} ${lcPH()}">${lcPanelSvg({wall:true,trip:simState.trip})}</svg>`;
-      if(!forExport){for(const b of S.lc.items){const x=(b.side==="L"?XL:XR)*sc-w/2,y=(LY0+b.slot*SL)*sc-h/2;g+=`<rect class="wb" data-brk="${b.id}" x="${x}" y="${y}" width="${BW*sc}" height="${b.p.poles*SL*sc}" fill="#000" fill-opacity="0"><title>Circuito ${brkCalc(b).cs.join("-")}: clic para encender, apagar o rearmar</title></rect>`}
+      if(!forExport){for(const b of S.lc.items){const x=(b.side==="L"?XL:XR)*sc-w/2,y=(LY0+b.slot*SL)*sc-h/2;g+=`<rect class="wb" data-brk="${b.id}" x="${x}" y="${y}" width="${BW*sc}" height="${b.p.poles*SL*sc}" fill="#000" fill-opacity="0"><title>Circuito ${brkCalc(b).cs.join("-")}${simState.running?": clic para encender, apagar o rearmar":""}</title></rect>`}
         if(S.lc.main)g+=`<rect class="wm" x="${(CX-104)*sc-w/2}" y="${52*sc-h/2}" width="${208*sc}" height="${94*sc}" fill="#000" fill-opacity="0"><title>Principal: clic para encender o apagar</title></rect>`}}
     else g=`<g filter="url(#sh)">${drawDev(it.type,it.p,res&&res.loads[it.id])}</g>`+(res&&res.loads[it.id]?wallBadge(res.loads[it.id],DEV[it.type]):"");
     const lab=it.p.name||DEV[it.type].short,ly=h/2+(it.type==="panel"?16:32);
@@ -219,7 +219,8 @@ function renderPropsWall(){const P=$("paneP"),it=S.wall.items.find(i=>i.id===sel
     $("pw-ra").onclick=()=>{reconn={id:w.id,end:"a",moved:false};renderAll()};$("pw-rb").onclick=()=>{reconn={id:w.id,end:"b",moved:false};renderAll()};return}
   if(it){const d=DEV[it.type];
     if(it.type==="panel")P.innerHTML=`<div><h2>Tablero</h2><div class="meta">Centro a ${fmtM2(it.y)} del piso · ${S.lc.spaces} espacios</div></div>
-      <p class="note">Es tu caja de breakers. Para cambiar los breakers ve a la vista Tablero. Los cables se conectan al tornillo de cada breaker, a la barra de neutro (izquierda) y a la barra de tierra (derecha).</p>
+      <div class="row-btns"><button class="btn primary" id="pp-edit">Poner o quitar breakers</button></div>
+      <p class="note">Es tu caja de breakers. Los breakers se ponen, quitan y cambian en la vista Tablero. Los cables se conectan al tornillo de cada breaker, a la barra de neutro (izquierda) y a la barra de tierra (derecha).</p>
       ${posFields(it)}<div class="row-btns"><button class="btn danger" id="pp-del">Quitar de la pared</button></div>${sim}`;
     else P.innerHTML=`<div><h2>${esc(d.n)}</h2><div class="meta">${d.V?d.V+" V · ":""}${d.price?"$ "+fmtNum(devPrice(d,it.p))+" en el presupuesto":"Aparato del cliente"}</div></div>
       <div class="fields"><label class="field wide"><span>Nombre</span><input class="txt" id="pp-name" value="${esc(it.p.name)}" placeholder="${esc(d.short)}"></label>
@@ -228,6 +229,7 @@ function renderPropsWall(){const P=$("paneP"),it=S.wall.items.find(i=>i.id===sel
       ${it.type==="inter"?`<label class="switch"><input type="checkbox" id="pp-on"${it.p.on?" checked":""}> Encendido</label>`:""}
       ${d.tip?`<p class="note">${esc(d.tip)}</p>`:""}
       ${posFields(it)}<div class="row-btns"><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>${sim}`;
+    const pe=$("pp-edit");if(pe)pe.onclick=()=>setView("board");
     const nm=$("pp-name");if(nm)nm.onchange=e=>mutate(()=>{it.p.name=e.target.value});
     const pb=$("pp-brk");if(pb)pb.onchange=e=>mutate(()=>{it.p.brk=+e.target.value});
     (d.f||[]).forEach(([k,,o])=>{$("pp-"+k).onchange=e=>{const v=typeof o[0]==="number"?Number(e.target.value):e.target.value;mutate(()=>{it.p[k]=v})}});
@@ -263,7 +265,8 @@ function terminalClick(id){if(reconn){applyReconn(id);return}const terms=allTerm
   const ta=terms.get(a),tb=terms.get(b),w={id:uid++,a,b,color:wColor==="Auto"?autoColor(ta,tb):wColor,awg:wAwg};mutate(()=>{S.wall.wires.push(w)});sel=w.id;renderAll()}
 wallEl.addEventListener("pointerdown",e=>{const hd=e.target.closest(".wh");if(hd){reconn={id:sel,end:hd.dataset.end,moved:false,sx:e.clientX,sy:e.clientY};pending=null;renderWall();return}
   const t=e.target.closest(".wt");if(t){terminalClick(t.dataset.t);return}
-  const wb=e.target.closest(".wb");if(wb){const b=S.lc.items.find(x=>x.id===+wb.dataset.brk);if(!b)return;
+  const wb=e.target.closest(".wb");if(wb&&!simState.running){const pi=S.wall.items.find(i=>i.type==="panel");if(pi){sel=pi.id;pending=null;reconn=null;renderAll()}return}
+  if(wb){const b=S.lc.items.find(x=>x.id===+wb.dataset.brk);if(!b)return;
     if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste el breaker del circuito ${circLabel(b)}.`});runSim();renderAll()}else mutate(()=>{b.p.on=!b.p.on});return}
   if(e.target.closest(".wm")){mutate(()=>{S.lc.mainOn=S.lc.mainOn===false});return}
   const ww=e.target.closest(".ww");if(ww){sel=+ww.dataset.id;pending=null;reconn=null;renderAll();return}

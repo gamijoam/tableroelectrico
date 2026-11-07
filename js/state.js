@@ -1,6 +1,8 @@
 /* ---------- state ---------- */
 let S, hist=[], fut=[], sel=null, activeRow=0, zoom=1, autoFit=true, uid=1;
-const KEY="taller-tableros-v2", OLDKEY="taller-tableros-v1";
+const KEY="taller-tableros-v3", OLDKEY="taller-tableros-v1", PREVKEY="taller-tableros-v2";
+let freshStart=false;
+const prevBoard=()=>{try{const t=localStorage.getItem(PREVKEY);return t?normalize(JSON.parse(t)):null}catch(e){return null}};
 const today=()=>new Date().toLocaleDateString("es-VE");
 const proj=(name,client)=>({name,client,author:"",date:today()});
 const defQuote=()=>({over:{},point:12,cableM:15,per:10,board:40,ext:35,margin:15,iva:16,ivaOn:false,rate:0,valid:7});
@@ -79,7 +81,7 @@ function normalize(v){if(!v||typeof v!=="object")return null;const b=blankAll();
   const okLc=SPACES.includes(v.lc.spaces)&&Array.isArray(v.lc.items)&&v.lc.items.every(i=>i.p&&(i.side==="L"||i.side==="R")&&Number.isInteger(i.slot));
   return okDin&&okLc?v:null}
 function load(){try{const t=localStorage.getItem(KEY);if(t){const v=normalize(JSON.parse(t));if(v){S=v;syncUid();return}}}catch(e){}
-  S=linkWall(blankAll());
+  S=linkWall(blankAll());freshStart=true;
   try{const o=localStorage.getItem(OLDKEY);if(o){const v=JSON.parse(o);if(v&&v.board&&Array.isArray(v.items)&&v.items.every(i=>CAT[i.type])){S.board=v.board;S.items=v.items}}}catch(e){}
   syncUid()}
 function mutate(fn){const before=JSON.stringify(S);const r=fn();if(r===false)return false;hist.push(before);if(hist.length>100)hist.shift();fut=[];save();renderAll();return true}
