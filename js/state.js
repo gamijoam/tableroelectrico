@@ -41,6 +41,11 @@ const TPL={
   mk("icont",1,0,"KM1","Extractor",{In:18}),mk("ovl",1,5,"F1","Extractor",{range:"9–13A"}),mk("icont",1,11,"KM2","Cava cuarto",{In:25}),mk("ovl",1,16,"F2","Cava",{range:"16–24A"}),mk("relay",1,22,"KA1","Avisos"),mk("relay",1,25,"KA2","Alarma"),
   mk("cont",2,0,"KM3","Cartel luminoso",{cts:"2NA"}),mk("timer",2,4,"KT1","Encendido cartel"),mk("selector",2,6,"SA1","Modo cartel"),mk("push",2,8,"S1","Marcha",{color:"Verde"}),mk("push",2,10,"S2","Parada",{color:"Rojo",ct:"NC"}),mk("emerg",2,12,"S3","Emergencia"),mk("psu",2,17,"G1","Control 24V"),
   ...[1,2,3,4,5,6].map(n=>mk("term",2,23+n,"X"+n,"",{color:"Negro"})),mk("term",2,30,"X7","N",{color:"Blanco"}),mk("term",2,31,"X8","N",{color:"Blanco"}),mk("term",2,32,"X9","T",{color:"Verde"}),mk("term",2,33,"X10","T",{color:"Verde"})];return s},
+ supv(){const s=blankState(2,12);s.project=proj("Protección de voltaje para toda la casa","Residencia Rodríguez");
+  const KM=mk("icont",0,0,"KM1","General",{In:40,coil:"240V",aux:"1NA"}),Q0=mk("mcb",0,6,"Q0","Mando",{poles:2,In:2}),SV=mk("supv",0,10,"SV1","Voltaje",{sys:"Bifásico 240V"}),
+   Q1=mk("mcb",1,0,"Q1","Iluminación",{poles:1,In:16}),Q2=mk("mcb",1,2,"Q2","Tomas",{poles:1,In:20});
+  s.items=[KM,Q0,SV,Q1,Q2];s.lc=Object.assign(JSON.parse(JSON.stringify(S&&S.lc?S.lc:TPL.casaVE().lc)),{sys:"1F"});
+  s.walls=[supvWall({KM,Q0,SV,Q1,Q2})];s.wallI=0;s.view="wall";return s},
  motor(){const s=blankState(2,12);s.project=proj("Bomba hidroneumática 3 HP","Residencias Los Samanes");
   const Q1=mk("mcb",0,0,"Q1","Bomba",{poles:3,In:16}),Q2=mk("mcb",0,6,"Q2","Mando",{poles:1,In:6}),SV=mk("supv",0,8,"SV1","Fases",{sys:"Trifásico 208V"}),KM=mk("icont",0,12,"KM1","Bomba",{In:18,coil:"120V",aux:"1NA"}),F1=mk("ovl",0,17,"F1","Bomba",{range:"9–13A"}),
    S0=mk("emerg",1,0,"S0","Emergencia"),S2=mk("push",1,4,"S2","Parada",{color:"Rojo",ct:"NC"}),S1=mk("push",1,6,"S1","Marcha",{color:"Verde",ct:"NA"}),H1=mk("pilot",1,8,"H1","Marcha",{color:"Verde",on:false}),H2=mk("pilot",1,10,"H2","Falla",{color:"Rojo",on:false}),
@@ -69,6 +74,24 @@ function motorWall(k){const W=blankWall("Sala de bombas"),P=W.items[0];P.x=1.5;P
   wire(c(k.S1,"13"),c(k.KM,"13"),"Rojo");wire(c(k.S1,"14"),c(k.KM,"14"),"Rojo");
   wire(c(k.KM,"A1"),c(k.H1,"X1"),"Rojo");wire(c(k.H1,"X2"),c(k.KM,"A2"),"Blanco");
   wire(c(k.S0,"12"),c(k.F1,"97"),"Rojo");wire(c(k.F1,"98"),c(k.H2,"X1"),"Rojo");wire(c(k.H2,"X2"),c(k.H1,"X2"),"Blanco");
+  return W}
+/* Supervisor de voltaje con contactor general: la acometida entra al contactor; el supervisor mide
+   las dos fases y su contacto 11-14 alimenta la bobina. Si el voltaje sale de rango, el contactor
+   abre y corta toda la casa. Los circuitos salen de T1 y T2 del contactor. */
+function supvWall(k){const W=blankWall("Sala"),P=W.items[0];P.x=1.45;P.y=1.4;P.p.peine=false;
+  const it=(type,x,y,p={})=>{const o={id:uid++,type,x,y,p:Object.assign({},DEV[type].d,p,{name:p.name||""})};W.items.push(o);return o};
+  const su=it("supply",3.6,2.3,{}),lz=it("luz",4.6,2.2,{name:"Luz sala"}),tc=it("toma",4.8,.3,{name:"Toma TV"});
+  const c=(x,pin)=>`${P.id}/c${x.id}.${pin}`,b=(x,n)=>`${P.id}/b${x.id}.${n}`,t=(x,n)=>`${P.id}/t${x.id}.${n}`,wire=(a,z,color,awg="12")=>W.wires.push({id:uid++,a,b:z,color,awg});
+  /* potencia: acometida → contactor → breakers de los circuitos */
+  wire(`${su.id}/L1`,c(k.KM,"L1"),"Negro","6");wire(`${su.id}/L2`,c(k.KM,"L2"),"Rojo","6");wire(`${su.id}/N`,`${P.id}/N0`,"Blanco","6");wire(`${su.id}/T`,`${P.id}/G0`,"Verde","8");
+  wire(c(k.KM,"T1"),t(k.Q1,0),"Negro","10");wire(c(k.KM,"T2"),t(k.Q2,0),"Rojo","10");
+  /* mando: breaker de 2 A → supervisor (mide L1-L2) → su contacto 11-14 → bobina de 240 V */
+  wire(c(k.KM,"L1"),t(k.Q0,0),"Negro","14");wire(c(k.KM,"L2"),t(k.Q0,1),"Rojo","14");
+  wire(b(k.Q0,0),c(k.SV,"L1"),"Negro","14");wire(b(k.Q0,1),c(k.SV,"L2"),"Rojo","14");
+  wire(b(k.Q0,0),c(k.SV,"11"),"Negro","14");wire(c(k.SV,"14"),c(k.KM,"A1"),"Negro","14");wire(c(k.KM,"A2"),b(k.Q0,1),"Rojo","14");
+  /* circuitos */
+  wire(b(k.Q1,0),`${lz.id}/F`,"Negro");wire(`${lz.id}/N`,`${P.id}/N1`,"Blanco");
+  wire(b(k.Q2,0),`${tc.id}/F`,"Rojo");wire(`${tc.id}/N`,`${P.id}/N2`,"Blanco");wire(`${tc.id}/T`,`${P.id}/G1`,"Verde");
   return W}
 /* Segunda pared de ejemplo: luz de pasillo con dos interruptores de tres vías, alimentada desde el tablero */
 function demoStairs(items){const W=blankWall("Pasillo (escalera)",false),b=items.find(x=>x.side==="R"&&x.slot===0)||items[0];if(!b)return W;

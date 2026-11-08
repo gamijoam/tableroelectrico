@@ -22,6 +22,7 @@ js/panelsrc.js      El tablero en la pared, sea caja de breakers o riel DIN: pro
 js/control.js       Mando de motores: bornes de contactor, térmico, relé, temporizador, pulsadores,
                     pilotos y supervisor; qué contactos cierran; motor trifásico
 js/flow.js          Flujo de energía animado, lectura de cada borne, multímetro y diagnóstico de por qué no funciona
+js/touch.js         Pantallas táctiles: desplazar con el dedo, pellizcar para zoom, avance automático al arrastrar
 js/info.js          Ficha de cada elemento: para qué sirve, cómo funciona, cómo se conecta, errores y si se simula
 js/wall.js          Vista Pared: varias paredes, dispositivos, cableado, tubería y panel de prueba
 js/layout.js        Paneles laterales plegables, pantalla completa y alertas de la prueba

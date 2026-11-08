@@ -353,6 +353,20 @@ function brkTopTerm(b,e){const P=S.wall.items.find(i=>i.type==="panel");if(!P)re
   for(const t of itemTerms(P))if(t.lineOf===b.id){const dx=Math.abs(t.x-q.x);if(dx<d){d=dx;best=t.id}}return best}
 function brkTerm(b,e){const P=S.wall.items.find(i=>i.type==="panel");if(!P)return null;const q=toWall(e);let best=null,d=1e9;
   for(const t of itemTerms(P))if(t.srcId===b.id){const dy=Math.abs(t.y-q.y);if(dy<d){d=dy;best=t.id}}return best}
+/* ---------- mover componentes entre rieles desde la pared (modo Mover) ---------- */
+let railDrag=null;
+function railTarget(e){const P=S.wall.items.find(i=>i.type==="panel"),it=S.items.find(i=>i.id===railDrag.id);if(!P||!it)return null;const g=panelGeom(P),q=toWall(e),s=g.s;
+  const x=Math.round(((q.x-railDrag.grab-g.x0)/s-SIDE)/U),row=Math.max(0,Math.min(S.board.rows-1,Math.floor(((q.y-g.y0)/s-TOP)/ROW_H)));
+  let best=null;for(const dx of [0,-1,1,-2,2,-3,3]){const xx=Math.max(0,Math.min(cap()-railDrag.u,x+dx));if(fits(row,xx,railDrag.u,it.id)){best=xx;break}}
+  const tx=best??Math.max(0,Math.min(cap()-railDrag.u,x));return{row,x:tx,ok:best!=null,g}}
+function startRail(id,sx,sy){const it=S.items.find(i=>i.id===id),P=S.wall.items.find(i=>i.type==="panel");if(!it||!P)return;const g=panelGeom(P),q=toWall({clientX:sx,clientY:sy});
+  railDrag={id,u:units(it),grab:q.x-(g.x0+(SIDE+it.x*U)*g.s),t:null};pending=null;sel=id}
+function railMove(e){const t=railTarget(e);railDrag.t=t;if(!t)return;const g=t.g,s=g.s,x=g.x0+(SIDE+t.x*U)*s,y=g.y0+(TOP+t.row*ROW_H+COMP_Y)*s,col=t.ok?"#2f9e44":"#d23a2f";
+  const pv=$("wpv");if(pv){pv.setAttribute("pointer-events","none");pv.innerHTML=R(x-2,y-2,railDrag.u*U*s+4,CH*s+4,col,{rx:4,op:.18})+R(x-2,y-2,railDrag.u*U*s+4,CH*s+4,"none",{rx:4,s:col,sw:2.5,da:"6 4"})}
+  ghost.hidden=false;ghost.textContent=t.ok?`Fila ${t.row+1} · módulo ${t.x/2+1}`:"No cabe ahí";ghost.style.left=e.clientX+"px";ghost.style.top=e.clientY+"px";edgeScroll(e)}
+function railDrop(){const d=railDrag;railDrag=null;ghost.hidden=true;edgeScroll(null);const it=S.items.find(i=>i.id===d.id),t=d.t;
+  if(it&&t&&t.ok&&(t.row!==it.row||t.x!==it.x)){activeRow=t.row;mutate(()=>{it.row=t.row;it.x=t.x});toast(`${it.p.des||CAT[it.type].n} movido a la fila ${t.row+1}. Sus cables lo siguen.`)}
+  else{if(t&&!t.ok)toast("Ese lugar del riel está ocupado.");renderAll()}}
 /* Borne del componente de mando más cercano al punto tocado */
 function compPin(d,e){const P=S.wall.items.find(i=>i.type==="panel");if(!P)return null;const q=toWall(e);let best=null,dd=1e9;
   for(const t of itemTerms(P))if(t.ctlOf===d.id){const k=Math.hypot(t.x-q.x,t.y-q.y);if(k<dd){dd=k;best=t.id}}return best}
@@ -396,14 +410,16 @@ wallEl.addEventListener("pointerdown",e=>{if(wallMode==="tube"&&!simState.runnin
   /* palanca: un toque enciende/apaga o rearma; si se arrastra, sale un cable desde esa protección */
   const hb=e.target.closest(".wbh");if(hb){const b=srcById(+hb.dataset.brk);if(!b)return;
     if(pending){const id=brkTerm(b,e);if(id)terminalClick(id);return}
-    reconn=null;leverPress={id:b.id,sx:e.clientX,sy:e.clientY};return}
+    reconn=null;leverPress={id:b.id,sx:e.clientX,sy:e.clientY,rail:wallMode==="move"&&b.din};return}
   /* componentes del mando: pulsar, enclavar, girar o sacar un cable */
   const wc=e.target.closest(".wc");if(wc){const d=S.items.find(i=>i.id===+wc.dataset.c);if(!d)return;
     if(pending){const id=compPin(d,e);if(id)terminalClick(id);return}
-    reconn=null;compPress={id:d.id,sx:e.clientX,sy:e.clientY,push:false};
+    reconn=null;compPress={id:d.id,sx:e.clientX,sy:e.clientY,push:false,rail:wallMode==="move"};
     if(simState.running&&d.type==="push"){compPress.push=true;simState.pressed.add(d.id);renderAll()}
     return}
   const wb=e.target.closest(".wb");if(wb){const b=srcById(+wb.dataset.brk),id=b&&brkTerm(b,e);if(!id)return;
+    /* en modo Mover, el componente del riel se arrastra a otro lugar del tablero */
+    if(wallMode==="move"&&b.din&&!pending){reconn=null;leverPress={id:b.id,sx:e.clientX,sy:e.clientY,rail:true,noToggle:true};return}
     if(pending&&pending!==id){terminalClick(id);return}
     pending=null;terminalClick(id);wireDrag={sx:e.clientX,sy:e.clientY,moved:false,brk:b.id};return}
   if(e.target.closest(".wm")){if(pending){finishWireAt(e.clientX,e.clientY);return}if(simState.trip.has("main")){simState.trip.delete("main");simState.log.unshift({lvl:"ok",msg:"Rearmaste el principal."});runSim();renderAll();return}mutate(()=>{S.lc.mainOn=S.lc.mainOn===false});return}
@@ -415,8 +431,12 @@ wallEl.addEventListener("pointerdown",e=>{if(wallMode==="tube"&&!simState.runnin
     sel=it.id;pending=null;reconn=null;
     if(wallMode==="move"){const q=toWall(e),[cx,cy]=toPx(it.x,it.y);wdrag={id:it.id,dx:q.x-cx,dy:q.y-cy,moved:false,before:JSON.stringify(S),sx:e.clientX,sy:e.clientY};try{wallEl.setPointerCapture(e.pointerId)}catch(_){}}
     renderAll();return}
-  if(pending||sel||reconn){pending=null;sel=null;reconn=null;renderAll()}});
+  /* fondo de la pared: arrastrar desplaza la vista */
+  startPan(e);if(pending||sel||reconn){pending=null;sel=null;reconn=null;renderAll()}});
 window.addEventListener("pointermove",e=>{
+  if(railDrag){railMove(e);return}
+  if(compPress&&!compPress.push&&compPress.rail&&Math.hypot(e.clientX-compPress.sx,e.clientY-compPress.sy)>tapTol){const cp=compPress;compPress=null;startRail(cp.id,cp.sx,cp.sy);railMove(e);return}
+  if(leverPress&&leverPress.rail&&Math.hypot(e.clientX-leverPress.sx,e.clientY-leverPress.sy)>tapTol){const lp=leverPress;leverPress=null;startRail(lp.id,lp.sx,lp.sy);railMove(e);return}
   if(compPress&&!compPress.push&&Math.hypot(e.clientX-compPress.sx,e.clientY-compPress.sy)>tapTol){const d=S.items.find(i=>i.id===compPress.id),cp=compPress;compPress=null;const id=d&&compPin(d,{clientX:cp.sx,clientY:cp.sy});
     if(id){pending=null;terminalClick(id);wireDrag={sx:cp.sx,sy:cp.sy,moved:true}}}
   if(leverPress&&Math.hypot(e.clientX-leverPress.sx,e.clientY-leverPress.sy)>tapTol){const b=srcById(leverPress.id),lp=leverPress;leverPress=null;const id=b&&brkTerm(b,{clientX:lp.sx,clientY:lp.sy});
@@ -431,6 +451,8 @@ window.addEventListener("pointermove",e=>{
 window.addEventListener("pointercancel",()=>{if(compPress&&compPress.push)releasePush()});
 window.addEventListener("pointerup",e=>{
   if(compPress){const c=compPress,d=S.items.find(i=>i.id===c.id);if(c.push){releasePush();return}compPress=null;if(!d)return;compTap(d);return}
+  if(railDrag){railDrop();return}
+  if(leverPress&&leverPress.noToggle){const id=leverPress.id;leverPress=null;pending=null;sel=id;renderAll();return}
   if(leverPress){const b=srcById(leverPress.id);leverPress=null;if(!b)return;pending=null;
     sel=b.id;/* queda seleccionado: la barra de abajo ofrece Encender/Apagar o Rearmar */
     if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste ${srcWho(b)}.`});runSim();renderAll();toast(`${b.short}: rearmado.`);return}

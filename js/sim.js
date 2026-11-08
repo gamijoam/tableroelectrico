@@ -168,7 +168,7 @@ function simCore(prevTrip,burnt,ctl){
     const tot={...own};for(const key of Object.keys(own)){let q=parent[key],g=0;while(q&&g++<20){tot[q]=(tot[q]||0)+own[key];q=parent[q]}}res.pcur=tot;
     if(!isDin()&&S.lc.main&&!res.trips.has("main")){const by={};for(const b of SRC)for(let k=0;k<b.poles;k++)by[b.ph(k)]=(by[b.ph(k)]||0)+(own[b.id+"."+k]||0);
       const mx=Math.max(0,...Object.values(by));if(mx>S.lc.main){res.pending.push({b:{id:"main",lab:"principal",In:S.lc.main,din:false},I:mx});res.status.push({lvl:"crit",msg:`Sobrecarga en el principal: ${fmtA(mx)} con ${S.lc.main} A. Va a disparar en segundos.`})}}
-    if(!simState.blackout&&!res.trips.has("sup")&&![...info.values()].some(i=>i.feed.length))res.status.push({lvl:"warn",msg:isDin()?"El tablero no recibe línea: lleva L1, L2 (y L3) de la acometida a la entrada (arriba) del seccionador o de la primera protección.":"El tablero no recibe línea: lleva L1, L2 (y L3) de la acometida a la entrada del principal."});
+    if(!simState.blackout&&!res.trips.has("sup")&&![...terms.values()].some(t=>t.item===P&&isPh(pot(t.id))))res.status.push({lvl:"warn",msg:isDin()?"El tablero no recibe línea: lleva L1, L2 (y L3) de la acometida a la entrada (arriba) del seccionador o de la primera protección.":"El tablero no recibe línea: lleva L1, L2 (y L3) de la acometida a la entrada del principal."});
     if(res.trips.has("sup"))res.status.push({lvl:"crit",msg:"Los fusibles de la acometida están quemados. Corrige el corto y presiona Rearmar."});
     res.loads[SUP.id]={s:simState.blackout||res.trips.has("sup")?"off":"idle",v:S.lc.sys==="1F"?240:208,I:0}}
   /* 3a) relés térmicos: miden la corriente que pasa hacia el motor */
