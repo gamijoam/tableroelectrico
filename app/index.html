@@ -96,7 +96,7 @@
         <label class="opt">Acabado <select class="sel" id="wFinish" aria-label="Acabado de la pared"></select></label>
         <label class="chk opt"><input type="checkbox" id="wTube"> Ver tubería</label><label class="chk opt" title="Durante la prueba, muestra por dónde circula la corriente"><input type="checkbox" id="wFlow" checked> Ver flujo de energía</label>
         </span></span>
-        <button class="btn play" id="play">▶ Probar</button><button class="btn" id="rearm" hidden>Rearmar</button><button class="btn" id="blackout" hidden>Simular apagón</button>
+        <button class="btn play" id="play">▶ Probar</button><button class="btn" id="rearm" hidden>Rearmar</button><button class="btn" id="blackout" hidden>Simular apagón</button><select class="sel" id="grid" hidden aria-label="Voltaje de la calle" title="Simula bajones y subidas de la luz durante la prueba"><option value="120">Luz normal (120/240 V)</option><option value="105">Bajón (105/210 V)</option><option value="95">Bajón (95/190 V)</option><option value="90">Bajón fuerte (90/180 V)</option><option value="85">Bajón muy fuerte (85/170 V)</option><option value="80">Bajón extremo (80/160 V)</option><option value="70">Casi sin luz (70/140 V)</option><option value="130">Subida (130/260 V)</option><option value="135">Subida fuerte (135/270 V)</option><option value="140">Subida muy fuerte (140/280 V)</option><option value="150">Pico por neutro flotante (150/300 V)</option></select>
       </span>
       <span class="chip" id="usage"></span>
       <span class="chip money" id="total" title="Total del presupuesto"></span>

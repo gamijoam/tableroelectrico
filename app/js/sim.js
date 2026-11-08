@@ -50,7 +50,7 @@ function simCore(prevTrip,burnt,ctl){
   wires.forEach(w=>nets.union(w.a,w.b,w.id));
   /* sub-tablero: cada breaker cerrado une su barra con su salida; el puente une L1 con L2 */
   for(const it of S.wall.items){if(it.type!=="subt")continue;if(it.p.puente==="Sí")nets.union(`${it.id}/L1`,`${it.id}/L2`);
-    for(const b of subtBrks(it.p)){if(res.trips.has(`s${it.id}.${b.i}`))continue;for(let j=0;j<b.poles;j++)nets.union(`${it.id}/${subtBar(b.slot+j)}`,`${it.id}/Q${b.i}.${j}`)}}
+    for(const b of subtBrks(it.p)){if(!b.on||res.trips.has(`s${it.id}.${b.i}`))continue;for(let j=0;j<b.poles;j++)nets.union(`${it.id}/${subtBar(b.slot+j)}`,`${it.id}/Q${b.i}.${j}`)}}
   for(const it of S.wall.items){if(it.type==="inter"&&it.p.on)nets.union(`${it.id}/COM`,`${it.id}/L`);if(it.type==="inter3")nets.union(`${it.id}/COM`,`${it.id}/T${it.p.pos===2?2:1}`)}
   const feeds=S.wall.items.filter(i=>i.type==="feed");
   /* barras del tablero (y borneras de neutro/tierra del riel) unidas entre sí */
@@ -67,7 +67,7 @@ function simCore(prevTrip,burnt,ctl){
       for(let k=0;k<head.poles;k++){const L=head.ph(k);if(rp[L])nets.union(rp[L],`${P.id}/b${head.id}.${k}`)}}}
   const mainOn=!simState.blackout&&(isDin()||!S.lc.main||S.lc.mainOn!==false);
   const passDev=S.wall.items.filter(i=>DEV[i.type]&&DEV[i.type].pass),linked=new Set(),batOn=new Set();
-  const stab2=S.wall.items.filter(i=>i.type==="estab2"),stabOn=new Set(),stabWhy={};
+  const stab2=S.wall.items.filter(i=>i.type==="estab2"),stabOn=new Set(),stabWhy={},regOn=new Set(),passWhy={},stabByp=new Set();
   const devOf=id=>S.wall.items.find(i=>i.id===id);
   const phName=ph=>ph[0]==="U"?`la salida de ${devLabel(devOf(+ph.slice(1)))}`:ph[0]==="S"?`la salida ${ph.endsWith("b")?"220":"110"} V de ${devLabel(devOf(parseInt(ph.slice(1))))}`:`la fase ${ph}`;
   if(!P&&!feeds.length)res.status.push({lvl:"warn",msg:"Esta pared no tiene de dónde sacar corriente: agrega el tablero o una llegada de circuito."});
@@ -95,7 +95,8 @@ function simCore(prevTrip,burnt,ctl){
     for(const f of feeds){const b=SRC.find(x=>x.id===f.p.brk);get(nets.find(`${f.id}/N`)).N=true;get(nets.find(`${f.id}/T`)).G=true;if(!b)continue;
       for(let k=0;k<Math.min(2,b.poles);k++){const ni=get(nets.find(`${f.id}/F${k+1}`));if(mainOn&&b.p.on!==false&&!res.trips.has(b.id)){ni.ph.add(b.ph(k));ni.feed.push({b,k})}}}
     for(const id of batOn){get(nets.find(`${id}/OF`)).ph.add("U"+id);get(nets.find(`${id}/ON`)).N=true}
-    for(const id of stabOn){get(nets.find(`${id}/O110`)).ph.add("S"+id+"a");get(nets.find(`${id}/O220`)).ph.add("S"+id+"b")}};
+    for(const id of stabOn){get(nets.find(`${id}/O110`)).ph.add("S"+id+"a");get(nets.find(`${id}/O220`)).ph.add("S"+id+"b")}
+    for(const id of regOn)get(nets.find(`${id}/OF`)).ph.add("R"+id)};
   const netOf=id=>info.get(nets.find(id));
   const pot=id=>{const i=netOf(id);if(!i)return null;if(i.ph.size===1)return[...i.ph][0];if(i.ph.size>1)return"X";if(i.N||i.G)return"0";return null};
   const wireIn=root=>wires.find(w=>nets.find(w.a)===root);
@@ -103,16 +104,22 @@ function simCore(prevTrip,burnt,ctl){
 
   /* Equipos en línea: con 120 V en la entrada dejan pasar la corriente; sin entrada, los que tienen batería alimentan su salida */
   const resolvePass=()=>{for(let k=0;k<10;k++){build();let changed=false;
-    for(const it of passDev){if(linked.has(it.id)||burnt.has(it.id)||res.newBurnt.includes(it.id)||it.p.on===false)continue;const vin=volt(pot(`${it.id}/IF`),pot(`${it.id}/IN`));
-      if(vin===120){nets.union(`${it.id}/IF`,`${it.id}/OF`);nets.union(`${it.id}/IN`,`${it.id}/ON`);linked.add(it.id);batOn.delete(it.id);changed=true}
-      else if(vin>=208){res.newBurnt.push(it.id);batOn.delete(it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)} recibió ${vin} V en su entrada y se quemó. Estos equipos son de 120 V.`});changed=true}
-      else if(DEV[it.type].battery&&!res.trips.has("d"+it.id)&&!batOn.has(it.id)){batOn.add(it.id);changed=true}}
+    for(const it of passDev){if(linked.has(it.id)||regOn.has(it.id)||burnt.has(it.id)||res.newBurnt.includes(it.id)||it.p.on===false)continue;const vin=volt(pot(`${it.id}/IF`),pot(`${it.id}/IN`));
+      /* rango de entrada: el protector corta fuera de 100-132 V; el estabilizador regula de 85 a 150 V; UPS e inversor pasan a batería fuera de 95-140 V */
+      const [lo,hi]=it.type==="protw"?[100,132]:it.type==="estabw"?[85,150]:[95,140];
+      if(vin>=lo&&vin<=hi&&vin<180){if(it.type==="estabw"){regOn.add(it.id);nets.union(`${it.id}/IN`,`${it.id}/ON`)}else{nets.union(`${it.id}/IF`,`${it.id}/OF`);nets.union(`${it.id}/IN`,`${it.id}/ON`);linked.add(it.id)}batOn.delete(it.id);delete passWhy[it.id];changed=true}
+      else if(vin>=180){res.newBurnt.push(it.id);batOn.delete(it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)} recibió ${vin} V en su entrada y se quemó. Estos equipos son de 120 V.`});changed=true}
+      else if(DEV[it.type].battery&&!res.trips.has("d"+it.id)&&!batOn.has(it.id)){batOn.add(it.id);changed=true}
+      else if(vin)passWhy[it.id]=`${vin} V en la entrada, fuera de su rango (${lo}-${hi} V)${it.type==="protw"?": cortó para proteger lo que tiene conectado":""}`}
     /* estabilizador bifásico: con 208-240 V entre L1 y L2 y neutro en la entrada, entrega sus dos salidas */
-    for(const it of stab2){if(stabOn.has(it.id)||burnt.has(it.id)||res.newBurnt.includes(it.id)||it.p.on===false||res.trips.has("d"+it.id))continue;
-      const vin=volt(pot(`${it.id}/IL1`),pot(`${it.id}/IL2`)),n=pot(`${it.id}/IN`);
-      if(vin>=330){res.newBurnt.push(it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)} recibió ${vin} V en su entrada y se quemó.`});changed=true}
-      else if(vin>=208&&n==="0"){nets.union(`${it.id}/IN`,`${it.id}/ON`);stabOn.add(it.id);changed=true}
-      else stabWhy[it.id]=!vin?"sin tensión entre E·L1 y E·L2":vin<208?`solo ${vin} V entre E·L1 y E·L2 (necesita las dos fases)`:"sin neutro en E·N"}
+    for(const it of stab2){if(stabOn.has(it.id)||stabByp.has(it.id)||burnt.has(it.id)||res.newBurnt.includes(it.id))continue;
+      const vin=volt(pot(`${it.id}/IL1`),pot(`${it.id}/IL2`)),n=pot(`${it.id}/IN`),est=it.p.brkE!=="Apagado"&&it.p.on!==false&&!res.trips.has("d"+it.id),byp=it.p.brkB==="Encendido";
+      /* bypass: la red pasa directo a las salidas, sin regular (S·110 = L1 y S·220 = L2 de la entrada) */
+      if(byp){nets.union(`${it.id}/IL1`,`${it.id}/O110`);nets.union(`${it.id}/IL2`,`${it.id}/O220`);nets.union(`${it.id}/IN`,`${it.id}/ON`);stabByp.add(it.id);changed=true;continue}
+      if(!est){stabWhy[it.id]=res.trips.has("d"+it.id)?"disparó su breaker (tócalo para rearmarlo)":"su breaker Estabilizador está apagado";continue}
+      if(vin>300){res.newBurnt.push(it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)} recibió ${vin} V en su entrada y se quemó. Por encima de unos 300 V ningún estabilizador aguanta: para eso está el supervisor.`});changed=true}
+      else if(vin>=160&&vin<=270&&n==="0"){nets.union(`${it.id}/IN`,`${it.id}/ON`);stabOn.add(it.id);res.stabVin=res.stabVin||{};res.stabVin[it.id]=vin;changed=true}
+      else stabWhy[it.id]=!vin?"sin tensión entre E·L1 y E·L2":n!=="0"&&vin>=160&&vin<=270?"sin neutro en E·N":vin<160?(vin<120?`solo ${vin} V entre E·L1 y E·L2 (necesita las dos fases)`:`${vin} V en la entrada, por debajo de su rango (160 V): se desconectó para protegerse`):`${vin} V en la entrada, por encima de su rango (270 V): se desconectó para protegerse`}
     if(!changed)break}};
 
   for(let pass=0;pass<6;pass++){resolvePass();
@@ -122,7 +129,7 @@ function simCore(prevTrip,burnt,ctl){
       if(!fault)break;
       const fb=[...new Set(fault.i.feed.map(f=>f.b))];fb.forEach(b=>res.trips.add(b.id));
       const phs=[...fault.i.ph],bats=phs.filter(x=>x[0]==="U").map(x=>+x.slice(1));bats.forEach(id=>{res.trips.add("d"+id);batOn.delete(id)});
-      const stabs=[...new Set(phs.filter(x=>x[0]==="S").map(x=>parseInt(x.slice(1))))];stabs.forEach(id=>{res.trips.add("d"+id);stabOn.delete(id)});bats.push(...stabs);
+      const stabs=[...new Set(phs.filter(x=>x[0]==="S"||x[0]==="R").map(x=>parseInt(x.slice(1))))];stabs.forEach(id=>{res.trips.add("d"+id);stabOn.delete(id);regOn.delete(id)});bats.push(...stabs);
       const what=phs.length>=2?`: se unieron ${phs.map(phName).join(" y ")}`:`: ${phName(phs[0])} quedó unida con ${fault.i.N?"el neutro":"la tierra"}`;
       const who=[...fb.map(srcWho),...bats.map(id=>`la protección interna de ${devLabel(devOf(id))}`)];
       if(!who.length&&WIRED&&!res.trips.has("sup")){res.trips.add("sup");res.log.push({lvl:"crit",msg:`Cortocircuito${what} antes de cualquier protección: se quemaron los fusibles de la compañía en la acometida.`})}
@@ -132,18 +139,18 @@ function simCore(prevTrip,burnt,ctl){
 
     /* 2) aparatos: voltaje, estado y corriente por polo */
     res.loads={};res.pcur={};res.batW={};let gfci=false;
-    res.stabW={};for(const it of stab2)res.loads[it.id]=(burnt.has(it.id)||res.newBurnt.includes(it.id))?{s:"burnt",v:0,I:0}:stabOn.has(it.id)?{s:"on",v:240,I:0}:{s:"off",v:0,I:0,why:it.p.on===false?"apagado":res.trips.has("d"+it.id)?"disparó su protección interna":stabWhy[it.id]||"sin tensión en la entrada"};
-    for(const it of passDev)res.loads[it.id]=(burnt.has(it.id)||res.newBurnt.includes(it.id))?{s:"burnt",v:0,I:0}:linked.has(it.id)?{s:"on",v:120,I:0}:batOn.has(it.id)?{s:"bat",v:120,I:0}:{s:"off",v:0,I:0,why:it.p.on===false?"apagado":"sin tensión en la entrada"};
+    res.stabW={};for(const it of stab2)res.loads[it.id]=res.trips.has("d"+it.id)&&!stabByp.has(it.id)?{s:"off",v:0,I:0,tripE:true,why:"disparó su breaker (tócalo en el dibujo para rearmarlo)"}:(burnt.has(it.id)||res.newBurnt.includes(it.id))?{s:"burnt",v:0,I:0}:stabOn.has(it.id)?{s:"on",v:240,I:0}:stabByp.has(it.id)?{s:"on",v:volt(pot(`${it.id}/IL1`),pot(`${it.id}/IL2`)),I:0,byp:true}:{s:"off",v:0,I:0,why:it.p.on===false?"apagado":res.trips.has("d"+it.id)?"disparó su protección interna":stabWhy[it.id]||"sin tensión en la entrada"};
+    for(const it of passDev)res.loads[it.id]=(burnt.has(it.id)||res.newBurnt.includes(it.id))?{s:"burnt",v:0,I:0}:regOn.has(it.id)?{s:"on",v:120,I:0}:linked.has(it.id)?{s:"on",v:volt(pot(`${it.id}/IF`),pot(`${it.id}/IN`)),I:0}:batOn.has(it.id)?{s:"bat",v:120,I:0}:{s:"off",v:0,I:0,why:it.p.on===false?"apagado":passWhy[it.id]||"sin tensión en la entrada"};
     for(const it of S.wall.items){const d=DEV[it.type];if(!d||!d.V||d.tri)continue;
       const [k0,k1]=d.terms.filter(t=>t[1]!=="T").map(t=>`${it.id}/${t[0]}`);
       const a=pot(k0),b=pot(k1),v=volt(a,b),W=d.W(it.p)||0;let st;
       if(burnt.has(it.id))st={s:"burnt",v};
       else if(v===0)st={s:"off",v,why:whyOff(it,k0,k1,{terms,nets,pot,SRC,trips:res.trips,ctl})};
-      else if(d.V===120&&v>=208){st={s:"burnt",v};if(!res.newBurnt.includes(it.id)){res.newBurnt.push(it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)} recibió ${v} V en vez de 120 V y se quemó.`})}}
-      else if(d.V===240&&v>=330){st={s:"burnt",v};if(!res.newBurnt.includes(it.id)){res.newBurnt.push(it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)} recibió ${v} V en vez de 240 V y se quemó.`})}}
-      else if(d.V===240&&v===120)st={s:"weak",v};
-      else st={s:W>0?"on":"idle",v};
-      st.I=st.s==="on"?W/(d.V===120?120:v):st.s==="weak"?W/4/120:0;res.loads[it.id]=st;st.W=st.s==="on"?W:st.s==="weak"?W/4:0;if(st.I)loadPts.push({t:k0,I:st.I},{t:k1,I:st.I});
+      else if(v>=d.V*1.25){st={s:"burnt",v};if(!res.newBurnt.includes(it.id)){res.newBurnt.push(it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)} recibió ${v} V en vez de ${d.V} V y se quemó.`})}}
+      else if(d.V===240&&v<150)st={s:"weak",v};
+      else if(d.V===120&&v<70)st={s:"weak",v};
+      else{st={s:W>0?"on":"idle",v};if(W>0&&v>d.V*1.1)st.hi=true;else if(W>0&&v<d.V*.88)st.lo=true}
+      st.I=st.s==="on"?W/v:st.s==="weak"?W/4/120:0;res.loads[it.id]=st;st.W=st.s==="on"?W:st.s==="weak"?W/4:0;if(st.I)loadPts.push({t:k0,I:st.I},{t:k1,I:st.I});
       if(st.s==="on")for(const k of [k0,k1]){const i=netOf(k);if(i)for(const ph of i.ph)if(ph[0]==="U")res.batW[ph.slice(1)]=(res.batW[ph.slice(1)]||0)+W}
       if(st.s==="on"){const ss=new Set();for(const k of [k0,k1]){const i=netOf(k);if(i)for(const ph of i.ph)if(ph[0]==="S")ss.add(parseInt(ph.slice(1)))}ss.forEach(id=>res.stabW[id]=(res.stabW[id]||0)+W)}
       if(st.I)for(const k of [k0,k1]){const r=nets.find(k);netCur.set(r,(netCur.get(r)||0)+st.I);const i=netOf(k);if(i&&i.ph.size===1&&i.feed.length){const f=i.feed[0],key=f.b.id+"."+f.k;res.pcur[key]=(res.pcur[key]||0)+st.I}}
@@ -166,15 +173,18 @@ function simCore(prevTrip,burnt,ctl){
     if(!gfci)break}
   /* sub-tablero: corriente de cada breaker por sus polos con fase; dispara con 45% de sobrecarga */
   res.subt={};for(const it of S.wall.items){if(it.type!=="subt")continue;const o={trips:[],I:{},N:0};res.subt[it.id]=o;
-    for(const b of subtBrks(it.p)){if(res.trips.has(`s${it.id}.${b.i}`)){o.trips.push(b.i);continue}let I=0;
+    for(const b of subtBrks(it.p)){if(res.trips.has(`s${it.id}.${b.i}`)){o.trips.push(b.i);continue}if(!b.on)continue;let I=0;
       const reach=new Set();for(let j=0;j<b.poles;j++){const k=`${it.id}/Q${b.i}.${j}`,i=netOf(k);if(i&&i.ph.size===1&&!i.N)circuitTerms(k).forEach(t=>reach.add(t))}
       for(const d of S.wall.items){const st=res.loads[d.id],dv=DEV[d.type];if(!st||!st.I||!dv||!dv.terms||d.type==="subt"||d.type==="estab2")continue;
         if(dv.terms.some(t=>t[1]==="F"&&reach.has(`${d.id}/${t[0]}`)&&isPh(pot(`${d.id}/${t[0]}`))))I+=st.I}
       o.I[b.i]=I;if(b.poles===1)o.N+=I;
       if(I>b.In*1.45){res.trips.add(`s${it.id}.${b.i}`);o.trips.push(b.i);res.log.push({lvl:"crit",msg:`${devLabel(it)}: el breaker ${b.poles}P ${b.In} A de ${b.name||"Q"+b.i} lleva ${fmtNum(I,1)} A y disparó por sobrecarga.`})}}}
-  for(const it of stab2){const W=res.stabW[it.id]||0,cap=it.p.kva*1000*.9,st=res.loads[it.id];if(st){st.W=W;if(st.s==="on")st.I=W/240}
-    if(W>cap*1.25&&!res.trips.has("d"+it.id)){res.trips.add("d"+it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)}: le piden ${fmtNum(W,0)} W y aguanta ${fmtNum(cap,0)} W (${it.p.kva} kVA). Disparó su protección interna.`})}}
-  res.coil=ctlEval(P,pot,volt,burnt,res);
+  /* estabilizador: cuando baja la luz entrega lo mismo, pero su capacidad baja y toma más corriente de la red */
+  for(const it of stab2){const W=res.stabW[it.id]||0,cap=it.p.kva*1000*.9,st=res.loads[it.id],vin=(res.stabVin||{})[it.id]||240,ce=cap*Math.min(1,vin/220),Iin=W/(vin*.95);
+    if(st){st.W=W;st.cap=ce;st.vin=vin;st.Iin=Iin;if(st.s==="on"&&!st.byp)st.I=Iin}
+    if(W&&st&&st.s==="on"&&!st.byp){loadPts.push({t:`${it.id}/IL1`,I:Iin},{t:`${it.id}/IL2`,I:Iin})}
+    if(W>ce*1.05&&!res.trips.has("d"+it.id)){res.trips.add("d"+it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)}: con ${vin} V en la entrada solo aguanta ${fmtNum(ce,0)} W y le piden ${fmtNum(W,0)} W (toma ${fmtNum(Iin,1)} A de la red). Disparó su breaker por sobrecarga.`})}}
+  res.coil=ctlEval(P,pot,volt,burnt,res,ctl);
   /* recorrido de la energía y lectura de cada terminal */
   for(const [id,c] of Object.entries(res.coil))if(c.on&&c.v){const it=S.items.find(i=>i.id===+id);if(!it||it.type==="supv")continue;const [a,b]=it.type==="pilot"?["X1","X2"]:["A1","A2"];loadPts.push({t:`${P.id}/c${id}.${a}`,I:.1},{t:`${P.id}/c${id}.${b}`,I:.1})}
   {const phSrc=[],nSrc=[];
@@ -182,6 +192,8 @@ function simCore(prevTrip,burnt,ctl){
     else if(P){for(const t of terms.values())if(t.srcId!=null&&t.item===P)phSrc.push(t.id);nSrc.push(`${P.id}/N0`)}
     for(const f of feeds){phSrc.push(`${f.id}/F1`,`${f.id}/F2`);nSrc.push(`${f.id}/N`)}
     for(const id of batOn){phSrc.push(`${id}/OF`);nSrc.push(`${id}/ON`)}
+    for(const id of regOn){phSrc.push(`${id}/OF`);nSrc.push(`${id}/ON`)}
+    for(const id of stabOn){phSrc.push(`${id}/O110`,`${id}/O220`);nSrc.push(`${id}/ON`)}
     const isPhase=t=>isPh(pot(t)),isNeutral=t=>{const i=netOf(t);return!!i&&i.N&&!i.ph.size};
     res.flow={w:flowCompute(adj,phSrc,nSrc,loadPts,isPhase,isNeutral),live:new Set(wires.filter(w=>isPhase(w.a)).map(w=>w.id))};
     res.tp={};for(const id of terms.keys())res.tp[id]=pot(id);
@@ -239,12 +251,16 @@ function simCore(prevTrip,burnt,ctl){
     if(d.tri){if(st.s==="on")res.status.push(st.rev?{lvl:"warn",msg:`${L}: gira al revés. Intercambia dos fases (por ejemplo, los cables de T1 y T2).`}:{lvl:"ok",msg:`${L}: girando (${fmtA(st.I)} por fase).`});
       else if(st.s==="fase")res.status.push({lvl:"crit",msg:`${L}: falta una fase${S.lc.sys==="1F"?" (el sistema 120/240 V solo tiene dos)":""}. Zumba, no arranca bien y se recalienta.`});
       else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: detenido (${st.why}).`});continue}
-    if(st.s==="on")res.status.push({lvl:"ok",msg:`${L}: funcionando a ${st.v} V (${fmtA(st.I)}).`});
+    if(st.s==="on")res.status.push(st.hi?{lvl:"warn",msg:`${L}: recibe ${st.v} V (es de ${d.V} V). Sobretensión: se calienta y se acorta su vida${it.type==="ac"||it.type==="pump"?"; el compresor sufre":""}.`}:st.lo?{lvl:"warn",msg:`${L}: recibe solo ${st.v} V (es de ${d.V} V). ${it.type==="ac"||it.type==="pump"||(it.type==="toma"&&/Nevera|Freezer/.test(it.p.carga))?"El motor toma más corriente y se recalienta: riesgo de quemarse.":"Funciona débil."}`}:{lvl:"ok",msg:`${L}: funcionando a ${st.v} V (${fmtA(st.I)}).`});
     else if(st.s==="idle")res.status.push({lvl:"ok",msg:`${L}: tiene ${st.v} V, sin aparato conectado.`});
     else if(st.s==="weak")res.status.push({lvl:"warn",msg:`${L}: recibe solo 120 V y necesita ${S.lc.sys==="1F"?240:208} V. Conéctalo a dos fases.`});
     else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: no funciona, ${st.why}`.replace(/([^.])$/,"$1.")})}
   for(const it of stab2){const st=res.loads[it.id],L=devLabel(it),cap=it.p.kva*1000*.9,W=res.stabW[it.id]||0;if(!st)continue;
-    if(st.s==="on")res.status.push(W>cap?{lvl:"warn",msg:`${L}: entrega ${fmtNum(W,0)} W y su capacidad es ${fmtNum(cap,0)} W (${it.p.kva} kVA). Está sobrecargado.`}:W>cap*.85?{lvl:"warn",msg:`${L}: entrega ${fmtNum(W,0)} W, el ${Math.round(W/cap*100)}% de su capacidad (${it.p.kva} kVA). Al arrancar los compresores (3 a 5 veces su corriente) se puede disparar: conviene uno más grande.`}:{lvl:"ok",msg:`${L}: con 240 V en la entrada, entrega 110 V y 220 V (${fmtNum(W,0)} W de ${fmtNum(cap,0)} W).`});
+    const ce=st.cap||cap,vin=st.vin||240,low=vin<215?` Con ${vin} V en la entrada su capacidad baja a ${fmtNum(ce,0)} W y toma ${fmtNum(st.Iin||0,1)} A de la red.`:"";
+    if(it.p.brkB==="Encendido"&&it.p.brkE!=="Apagado")res.status.push({lvl:"warn",msg:`${L}: tiene encendidos los dos breakers. El de Bypass manda: el estabilizador queda puenteado. Nunca los enciendas juntos.`});
+    if(st.s==="on"&&st.byp&&!st.v)res.status.push({lvl:"off",msg:`${L}: en BYPASS y sin voltaje en su entrada.`});
+    else if(st.s==="on"&&st.byp)res.status.push({lvl:"warn",msg:`${L}: en BYPASS. La red pasa directo sin regular (${st.v} V): S·110 lleva L1 y S·220 lleva L2. Lo que esté entre S·220 y neutro recibe ${Math.round(st.v/2)} V.`});
+    else if(st.s==="on")res.status.push(W>ce?{lvl:"warn",msg:`${L}: entrega ${fmtNum(W,0)} W y ahora aguanta ${fmtNum(ce,0)} W. Está sobrecargado.${low}`}:W>ce*.85?{lvl:"warn",msg:`${L}: entrega ${fmtNum(W,0)} W, el ${Math.round(W/ce*100)}% de lo que aguanta ahora (${fmtNum(ce,0)} W).${low} Al arrancar los compresores se puede disparar: conviene uno más grande.`}:{lvl:"ok",msg:`${L}: con ${vin} V en la entrada, entrega 110 V y 220 V estables (${fmtNum(W,0)} W de ${fmtNum(ce,0)} W).${low}`});
     else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: no entrega voltaje: ${st.why}.`})}
   for(const it of S.wall.items){if(it.type!=="subt"||!res.subt[it.id])continue;const o=res.subt[it.id],L=devLabel(it);
     for(const b of subtBrks(it.p)){const I=o.I[b.i]||0;if(!o.trips.includes(b.i)&&I>b.In)res.status.push({lvl:"warn",msg:`${L}: el breaker de ${b.name||"Q"+b.i} (${b.In} A) lleva ${fmtNum(I,1)} A. Va a disparar.`})}
@@ -266,7 +282,7 @@ function simCore(prevTrip,burnt,ctl){
       else if(used){const miss=supvL(it.p).filter(k=>k!=="N"&&!isPh(pot(tc(k)))),all=supvL(it.p).filter(k=>k!=="N");res.status.push({lvl:"warn",msg:miss.length<all.length?`${lab}: no recibe fase en ${miss.join(" y ")}. Detecta la falta de fase y deja abierto 11-14.`:`${lab}: no tiene tensión en ${all.join(" y ")}, así que su contacto 11-14 queda abierto.`})}continue}
     if(c.forced)res.status.push({lvl:"warn",msg:`${lab}: accionado a mano para probar (su bobina tiene ${c.v||0} V). En la realidad lo cierra la bobina A1-A2.`});
     else if(c.on)res.status.push({lvl:"ok",msg:`${lab}: bobina con ${c.v} V, ${it.type==="timer"?(timerOp(it,ctl)?"contacto 15-18 cerrado":`contando ${timerT(it.p)} s`):"contactos cerrados"}.`});
-    else if(c.why.startsWith("poco"))res.status.push({lvl:"warn",msg:`${lab}: la bobina es de ${c.r} V y recibe ${c.v} V. Zumba y no cierra.`});
+    else if(c.why.startsWith("poco"))res.status.push({lvl:"warn",msg:`${lab}: la bobina es de ${c.r} V y recibe ${c.v} V. ${c.v>=c.r*.65?"Si ya estaba cerrado se mantiene, pero así no logra cerrar: zumba.":"No se mantiene cerrado: se suelta."}`});
     else if(c.why==="sin tensión"&&it.type!=="pilot"){const tc=k=>`${P.id}/c${it.id}.${k}`,cab=["A1","A2"].some(k=>S.wall.wires.some(w=>w.a===tc(k)||w.b===tc(k)));
       /* sin ningún cable en la bobina todavía no se avisa; esperar el pulsador de marcha es normal */
       const cw=cab&&coilWhy(it,{terms,nets,pot,SRC,trips:res.trips,ctl});if(cw)res.status.push({lvl:/^([^;]+ no está presionado(; )?)+$/.test(cw)?"off":"warn",msg:`${lab}: la bobina no tiene tensión: ${cw}.`})}}
