@@ -80,10 +80,58 @@ function innerRoutes(wl,wires,terms,map){if(!wires.length)return;const P=wl.item
     else{const L=(a.x+b.x)/2<g.cx,k=L?"L":"R",n=side[k]++,xs=L?g.x0+(14+(n%6)*4)*s/.6:g.x0+g.w-(14+(n%6)*4)*s/.6,ya=dy[da]+off(da),yb=dy[db]+off(db);
       pts=[[a.x,a.y],[a.x,ya],[xs,ya],[xs,yb],[b.x,yb],[b.x,b.y]]}
     const p=pathFrom(pts);p.inner=true;map.set(w.id,p)}}
+/* Sin tubería dibujada: canalización automática. Cada cable busca el camino más corto en una
+   cuadrícula de 5 cm que rodea los aparatos (pasar por encima de uno cuesta mucho), prefiere ir por
+   donde ya van otros cables (como en un tubo) y dobla lo menos posible. Dentro del tablero va por las
+   canaletas. Al final, los cables que comparten un tramo se reparten en carriles. */
+const GS=11;
+function gridRoutes(wl,wires,terms,map,bare=false){if(!wires.length)return;
+  const x0=WM.l,y0=WM.t,ww=wl.w*WK,wh=wl.h*WK,NC=Math.floor(ww/GS)+1,NR=Math.floor(wh/GS)+1,N=NC*NR;
+  const cost=new Float32Array(N).fill(1),cx=x=>Math.max(0,Math.min(NC-1,Math.round((x-x0)/GS))),cy=y=>Math.max(0,Math.min(NR-1,Math.round((y-y0)/GS)));
+  const box=(a,b,c,d,v,set)=>{for(let r=cy(b);r<=cy(d);r++)for(let k=cx(a);k<=cx(c);k++){const i=r*NC+k;cost[i]=set?v:Math.max(cost[i],v)}};
+  let PR=null;
+  for(const it of wl.items){if(it.type==="panel"){const g=panelGeom(it,wl);PR=[g.x0,g.y0,g.x0+g.w,g.y0+g.h];
+      /* junto a los costados del tablero no se corre: los tubos entran por arriba o por abajo */
+      box(g.x0-3*GS,g.y0+GS,g.x0-1,g.y0+g.h-GS,9);box(g.x0+g.w+1,g.y0+GS,g.x0+g.w+3*GS,g.y0+g.h-GS,9);box(g.x0,g.y0,g.x0+g.w,g.y0+g.h,14);
+      /* caja de breakers: los cables corren por los canales laterales (junto a las barras) y por arriba */
+      if(!g.din){const ys=g.y0+(LY0-8)*g.s,ye=g.y0+g.h-6;box(g.x0+4,ys,g.x0+XL*g.s-2,ye,2.2,true);box(g.x0+(XR+BW)*g.s+2,ys,g.x0+g.w-4,ye,2.2,true);box(g.x0+4,g.y0+4,g.x0+g.w-4,g.y0+20*g.s,2.2,true)}
+      if(g.din)for(let r=0;r<=S.board.rows;r++){const y=g.y0+(TOP+r*ROW_H+DUCT/2)*g.s;box(g.x0+4,y-DUCT*g.s/2,g.x0+g.w-4,y+DUCT*g.s/2,2.2,true)}continue}
+    const d=DEV[it.type];if(!d)continue;const [px,py]=toPx(it.x,it.y,wl);box(px-d.w/2-8,py-d.h/2-8,px+d.w/2+8,py+d.h/2+20,60)}
+  const used=new Map(),ek=(i,j)=>i<j?i+"_"+j:j+"_"+i,raw=[];
+  const DX=[1,-1,0,0],DY=[0,0,1,-1];
+  /* los cables largos primero: marcan los troncales que siguen los demás */
+  const order=[...wires].sort((p,q)=>{const L=w=>{const a=terms.get(w.a),b=terms.get(w.b);return Math.abs(a.x-b.x)+Math.abs(a.y-b.y)};return L(q)-L(p)});
+  for(const w of order){const ta=terms.get(w.a),tb=terms.get(w.b),s0=cy(ta.y)*NC+cx(ta.x),g0=cy(tb.y)*NC+cx(tb.x);
+    const near=(i,c)=>Math.abs(i%NC-c%NC)<=2&&Math.abs(((i/NC)|0)-((c/NC)|0))<=2;
+    const dist=new Float32Array(N*4).fill(Infinity),prev=new Int32Array(N*4).fill(-1),heap=[];
+    const push=(st,f)=>{heap.push([f,st]);let k=heap.length-1;while(k){const p=(k-1)>>1;if(heap[p][0]<=heap[k][0])break;[heap[p],heap[k]]=[heap[k],heap[p]];k=p}};
+    const pop=()=>{const top=heap[0],last=heap.pop();if(heap.length){heap[0]=last;let k=0;for(;;){const l=2*k+1,r=l+1;let m=k;if(l<heap.length&&heap[l][0]<heap[m][0])m=l;if(r<heap.length&&heap[r][0]<heap[m][0])m=r;if(m===k)break;[heap[m],heap[k]]=[heap[k],heap[m]];k=m}}return top};
+    const h=i=>Math.abs(i%NC-g0%NC)+Math.abs(((i/NC)|0)-((g0/NC)|0));
+    for(let d=0;d<4;d++){dist[s0*4+d]=0;push(s0*4+d,h(s0))}let goal=-1,guard=0;
+    while(heap.length&&guard++<N*16){const [,st]=pop(),i=st>>2,d=st&3,cd=dist[st];if(i===g0){goal=st;break}
+      const x=i%NC,y=(i/NC)|0;
+      for(let nd=0;nd<4;nd++){const nx=x+DX[nd],ny=y+DY[nd];if(nx<0||ny<0||nx>=NC||ny>=NR)continue;const j=ny*NC+nx;
+        const c=(near(j,s0)||near(j,g0)?1:cost[j])*(used.has(ek(i,j))?.55:1)+(nd!==d&&!(i===s0)?5:0),ns=j*4+nd,v=cd+c;
+        if(v<dist[ns]){dist[ns]=v;prev[ns]=st;push(ns,v+h(j))}}}
+    const nodes=[];if(goal>=0){for(let st=goal;st>=0;st=prev[st]){const i=st>>2;if(!nodes.length||nodes[nodes.length-1]!==i)nodes.push(i)}nodes.reverse()}else nodes.push(s0,g0);
+    for(let k=1;k<nodes.length;k++){const e=ek(nodes[k-1],nodes[k]);if(!used.has(e))used.set(e,[]);used.get(e).push(w.id)}
+    raw.push([w,nodes,ta,tb])}
+  const P=i=>[x0+(i%NC)*GS,y0+((i/NC)|0)*GS];
+  for(const [w,nodes,ta,tb] of raw){const off=k=>{const e=ek(nodes[k-1],nodes[k]),L=used.get(e),o=(L.indexOf(w.id)-(L.length-1)/2)*LANE,v=Math.abs(nodes[k]-nodes[k-1])===NC;return v?[o,0]:[0,o]};
+    const pts=[[ta.x,ta.y]];if(nodes.length>1){const o1=off(1),p0=P(nodes[0]);pts.push([p0[0]+o1[0],p0[1]+o1[1]]);
+      for(let k=1;k<nodes.length-1;k++){const p=P(nodes[k]),a=off(k),b=off(k+1),same=(a[0]!==0||Math.abs(nodes[k]-nodes[k-1])===NC)===(b[0]!==0||Math.abs(nodes[k+1]-nodes[k])===NC);
+        if(same){pts.push([p[0]+a[0],p[1]+a[1]]);if(a[0]!==b[0]||a[1]!==b[1])pts.push([p[0]+b[0],p[1]+b[1]])}else pts.push([p[0]+a[0]+b[0],p[1]+a[1]+b[1]])}
+      const pl=P(nodes[nodes.length-1]),ol=off(nodes.length-1);pts.push([pl[0]+ol[0],pl[1]+ol[1]])}
+    pts.push([tb.x,tb.y]);
+    /* quita puntos alineados para que el trazo quede limpio */
+    const Q=[];for(const p of pts){if(Q.length>=2){const a=Q[Q.length-2],b=Q[Q.length-1];if((Math.abs(a[0]-b[0])<.01&&Math.abs(b[0]-p[0])<.01)||(Math.abs(a[1]-b[1])<.01&&Math.abs(b[1]-p[1])<.01)){Q[Q.length-1]=p;continue}}Q.push(p)}
+    const p=pathFrom(Q);p.bare=bare;p.grid=true;map.set(w.id,p)}
+  /* tramos de canalización automática (fuera del tablero) con su cantidad de cables */
+  const inP=(x,y)=>PR&&x>PR[0]&&x<PR[2]&&y>PR[1]&&y<PR[3];map.grid=(map.grid||[]).concat([...used].map(([e,L])=>{const [i,j]=e.split("_").map(Number),a=P(i),b=P(j);return{a,b,n:L.length}}).filter(s=>!inP((s.a[0]+s.b[0])/2,(s.a[1]+s.b[1])/2)))}
 function computeRoutes(wl,terms){const map=new Map(),all=wl.wires.filter(w=>terms.has(w.a)&&terms.has(w.b));
   /* los puentes dentro del tablero van directo, sin tubo */
   const inner=all.filter(w=>innerWire(w,terms)),valid=all.filter(w=>!innerWire(w,terms));innerRoutes(wl,inner,terms,map);
-  if(!(wl.tubes&&wl.tubes.length)){autoRoutes(valid,terms,map,false);return map}
+  if(!(wl.tubes&&wl.tubes.length)){if(typeof wdrag!=="undefined"&&wdrag&&wdrag.moved)autoRoutes(valid,terms,map,false);else gridRoutes(wl,valid,terms,map);return map}
   const G=tubeGraph(wl),use=new Map(),raw=[],rest=[];
   for(const w of valid){const r=routeOnTubes(G,terms.get(w.a),terms.get(w.b));if(!r){rest.push(w);continue}raw.push([w,r]);
     for(const e of r.seg)if(e!=null){if(!use.has(e))use.set(e,[]);const L=use.get(e);if(!L.includes(w.id))L.push(w.id)}}
@@ -91,7 +139,7 @@ function computeRoutes(wl,terms){const map=new Map(),all=wl.wires.filter(w=>term
     p.stubs=r.seg.map((e,k)=>e==null?[r.pts[k],r.pts[k+1]]:null).filter(Boolean);map.set(w.id,p)}
   /* cuántos cables pasan como máximo por cada tubo: define su ancho */
   map.tubeLoad=new Map();for(const [e,L] of use){const t=G.edges[e].tube;map.tubeLoad.set(t,Math.max(map.tubeLoad.get(t)||0,L.length))}
-  autoRoutes(rest,terms,map,true);return map}
+  gridRoutes(wl,rest,terms,map,true);return map}
 let _routeCache={key:null,wl:null,map:null};
 function routesFor(wl,terms){const key=JSON.stringify([wl.tubes||[],wl.wires.map(w=>[w.id,w.a,w.b]),wl.items.map(i=>[i.id,i.x,i.y,i.type]),wl.h,S.lc.items.map(b=>[b.id,b.side,b.slot,b.p.poles]),S.lc.spaces,S.lc.aux.length,S.kind,S.items.map(i=>[i.id,i.row,i.x,i.type,i.p.poles||0,i.p.color||"",CTL_TYPES.has(i.type)?[i.p.aux,i.p.cts,i.p.ct,i.p.lab,i.p.sys]:0]),S.board.rows,S.board.mods]);
   if(_routeCache.wl===wl&&_routeCache.key===key)return _routeCache.map;const map=computeRoutes(wl,terms);_routeCache={key,wl,map};return map}
@@ -99,7 +147,8 @@ function routesFor(wl,terms){const key=JSON.stringify([wl.tubes||[],wl.wires.map
 /* ---------- metros de tubo ---------- */
 function tubeBySize(wl=S.wall){const out={};
   if(wl.tubes&&wl.tubes.length){for(const t of wl.tubes){let m=0;for(let k=1;k<t.pts.length;k++)m+=Math.hypot(t.pts[k][0]-t.pts[k-1][0],t.pts[k][1]-t.pts[k-1][1]);out[t.size||'3/4"']=(out[t.size||'3/4"']||0)+m}return out}
-  const terms=allTerms(wl),cells=new Set(),st=WK*.05;
+  const terms=allTerms(wl),cells=new Set(),st=WK*.05,R=routesFor(wl,terms);
+  if(R.grid&&R.grid.length){out['3/4"']=R.grid.length*GS/WK;return out}
   wl.wires.forEach((w,i)=>{if(!terms.has(w.a)||!terms.has(w.b))return;const p=wirePath(w,i,terms,wl).pts;
     for(let k=0;k<p.length-1;k++){const [x1,y1]=p[k],[x2,y2]=p[k+1],n=Math.max(1,Math.round(Math.hypot(x2-x1,y2-y1)/st));for(let j=0;j<=n;j++)cells.add(Math.round((x1+(x2-x1)*j/n)/st)+","+Math.round((y1+(y2-y1)*j/n)/st))}});
   if(cells.size)out['3/4"']=cells.size*.05;return out}

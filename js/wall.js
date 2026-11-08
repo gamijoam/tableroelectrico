@@ -158,14 +158,20 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
       body+=drops;
       for(const t of tubePx(W)){const dd="M"+t.pts.map(p=>p[0]+" "+p[1]).join("L");body+=tubeLine(dd,"",Math.max(20,(load.get(t.id)||0)*LANE+10));t.pts.slice(1,-1).forEach(p=>fit+=elbow(p[0],p[1]));
         if(!forExport){hit+=`<path class="tb" data-id="${t.id}" d="${dd}" fill="none" stroke="#000" stroke-opacity="0" stroke-width="26" stroke-linejoin="round"/>`;if(t.id===sel)hit+=`<path d="${dd}" fill="none" stroke="#1c74e0" stroke-width="3" stroke-dasharray="7 5" pointer-events="none"/>`}}}
+    else if((routesFor(W,terms).grid||[]).length){const G=routesFor(W,terms).grid,deg=new Map();
+      /* canalización automática: un tubo por tramo, más ancho cuantos más cables lleva */
+      const k=p=>p[0]+","+p[1];for(const e of G){const v=Math.abs(e.a[0]-e.b[0])<1;for(const p of [e.a,e.b]){const o=deg.get(k(p))||{h:0,v:0,p};o[v?"v":"h"]++;deg.set(k(p),o)}}
+      const runs=[...G].sort((p,q)=>p.n-q.n);for(const e of runs)body+=tubeLine(`M${e.a[0]} ${e.a[1]}L${e.b[0]} ${e.b[1]}`,"",Math.max(16,e.n*LANE+8));
+      for(const o of deg.values())if(o.h&&o.v)fit+=elbow(o.p[0],o.p[1])}
     else{const seen=new Set();for(const [w,i] of valid){if(innerWire(w,terms))continue;const p=wirePath(w,i,terms);body+=tubeLine(p.d);for(const [x,y] of p.pts.slice(1,-1)){const k=Math.round(x/8)+","+Math.round(y/8);if(!seen.has(k)){seen.add(k);fit+=elbow(x,y)}}}}
     const tm=tubeMeters();if(body)s+=`<g class="tube">${body}${fit}</g>${hit}`+R(WM.l+ww-236,WM.t+wh-40,228,24,"#ffffff",{rx:5,op:.92,s:"#5f645e",sw:1})+T(WM.l+ww-122,WM.t+wh-24,`Tubería PVC${manual?"":" (automática)"}: ${fmtNum(tm,1)} m`,{fs:11,ff:SANS,fw:600,c:"#2a2e31"})}
-  /* items */
-  for(const it of W.items){const [cx,cy]=toPx(it.x,it.y),{w,h}=itemSize(it);let g;
+  /* items: el tablero va debajo de los cables; los demás aparatos encima (los cables pasan por detrás) */
+  const drawItem=it=>{const [cx,cy]=toPx(it.x,it.y),{w,h}=itemSize(it);let g;
     if(it.type==="panel")g=panelImg(panelGeom(it));
     else g=`<g filter="url(#sh)">${drawDev(it.type,it.p,res&&res.loads[it.id])}</g>`+(res&&res.loads[it.id]?wallBadge(res.loads[it.id],DEV[it.type]):"");
     const lab=it.p.name||DEV[it.type].short,ly=h/2+(it.type==="panel"?16:32);
-    s+=`<g class="wi" data-id="${it.id}" transform="translate(${cx} ${cy})">${g}${T(0,ly,lab,{fs:9.5,ff:SANS,fw:600,c:"#3a3530"})}${it.id===sel&&!forExport?R(-w/2-6,-h/2-6,w+12,h+12,"none",{rx:8,s:"#1c74e0",sw:2.5}):""}</g>`}
+    s+=`<g class="wi" data-id="${it.id}" transform="translate(${cx} ${cy})">${g}${T(0,ly,lab,{fs:9.5,ff:SANS,fw:600,c:"#3a3530"})}${it.id===sel&&!forExport?R(-w/2-6,-h/2-6,w+12,h+12,"none",{rx:8,s:"#1c74e0",sw:2.5}):""}</g>`};
+  for(const it of W.items)if(it.type==="panel")drawItem(it);
   /* zonas del tablero: cuerpo de cada protección (seleccionar / sacar cable) y principal */
   const PI=W.items.find(i=>i.type==="panel"),PG=PI?panelGeom(PI):null;
   if(PG){for(const sr of PG.srcs){const b=sr.body;if(simState.trip.has(sr.id))s+=R(b.x-1,b.y-1,b.w+2,b.h+2,"none",{rx:3,s:"#e0302a",sw:2.5});
@@ -184,6 +190,7 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
   if(PG){for(const c of PG.ctl){const b=c.body,d=S.items.find(i=>i.id===c.id);if(!d)continue;const tr=d.type==="ovl"&&simState.trip.has("o"+d.id),pr=simState.pressed.has(d.id);
       if(tr)s+=R(b.x-1,b.y-1,b.w+2,b.h+2,"none",{rx:3,s:"#e0302a",sw:2.5});if(pr)s+=R(b.x-1,b.y-1,b.w+2,b.h+2,"#1c74e0",{rx:3,op:.18,s:"#1c74e0",sw:2.5});
       if(!forExport)s+=`<rect class="wc" data-c="${d.id}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="#000" fill-opacity="0"${sel===d.id?` stroke="#1c74e0" stroke-width="2.5" rx="3"`:""}><title>${esc((d.p.des||"")+" "+CAT[d.type].n)}: ${esc(compHint(d))}</title></rect>`}}
+  for(const it of W.items)if(it.type!=="panel")drawItem(it);
   /* palancas: encima de los cables para poder encender y apagar siempre */
   if(PG&&!forExport)for(const sr of PG.srcs){const src=srcById(sr.id);if(!src)continue;const hd=sr.handle,st=simState.trip.has(sr.id)?"disparado":src.p.on!==false?"encendido":"apagado";
     s+=`<rect class="wbh" data-brk="${sr.id}" x="${hd.x}" y="${hd.y}" width="${hd.w}" height="${hd.h}" rx="3"><title>${esc(src.short)} (${st}): clic en la palanca para ${simState.trip.has(sr.id)?"rearmar":src.p.on!==false?"apagar":"encender"}</title></rect>`}
