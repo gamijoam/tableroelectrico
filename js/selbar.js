@@ -6,7 +6,7 @@
 let sbTarget=null;
 function selTarget(){if(!sel)return null;
   if(S.view==="wall"){const tb=(S.wall.tubes||[]).find(t=>t.id===sel);if(tb)return{kind:"tb",it:tb,el:wallEl.querySelector(`.tb[data-id="${sel}"]`)};
-    const bk=S.lc.items.find(i=>i.id===sel);if(bk)return{kind:"brk",it:bk,el:wallEl.querySelector(`.wb[data-brk="${sel}"]`)};
+    const sr=srcById(sel);if(sr)return{kind:sr.din?"din":"brk",it:sr.ref,el:wallEl.querySelector(`.wb[data-brk="${sel}"]`)};
     const it=S.wall.items.find(i=>i.id===sel);if(it)return{kind:"wi",it,el:wallEl.querySelector(`.wi[data-id="${sel}"]`)};
     const w=S.wall.wires.find(i=>i.id===sel);if(w)return{kind:"ww",w,el:wallEl.querySelector(`.ww[data-id="${sel}"]`)};return null}
   const ax=selAux();if(ax)return{kind:"ax",it:ax,el:board.querySelector(`.ax[data-id="${sel}"]`)};

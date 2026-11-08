@@ -30,7 +30,7 @@ function dup(){const ax=selAux();if(ax){const u=units(ax),x=auxNearest(ax.x+u,u,
    const n={id:uid++,side:pos.side,slot:pos.slot,p:Object.assign({},b.p)};mutate(()=>{S.lc.items.push(n)});sel=n.id;renderAll();return}
   const it=S.items.find(i=>i.id===sel);if(!it)return;const u=units(it);let x=nearest(it.row,it.x+u,u,null),pos=x!=null?{row:it.row,x}:firstFree(u,it.row);if(!pos){toast("No queda lugar para duplicarlo.");return}
   const n={id:uid++,type:it.type,row:pos.row,x:pos.x,p:Object.assign({},it.p,{des:nextDes(it.type)})};mutate(()=>{S.items.push(n)});sel=n.id;renderAll()}
-function del(){if(!sel)return;if(S.kind==="lc"&&S.lc.items.some(b=>b.id===sel)){const id=sel;sel=null;deleteBreaker(id);return}const id=sel;sel=null;mutate(()=>{if(S.lc.aux.some(i=>i.id===id))S.lc.aux=S.lc.aux.filter(i=>i.id!==id);else if(S.ext.some(i=>i.id===id))S.ext=S.ext.filter(i=>i.id!==id);else if(S.kind==="lc")S.lc.items=S.lc.items.filter(i=>i.id!==id);else S.items=S.items.filter(i=>i.id!==id)})}
+function del(){if(!sel)return;if(srcById(sel)){const id=sel;sel=null;deleteBreaker(id);return}const id=sel;sel=null;mutate(()=>{if(S.lc.aux.some(i=>i.id===id))S.lc.aux=S.lc.aux.filter(i=>i.id!==id);else if(S.ext.some(i=>i.id===id))S.ext=S.ext.filter(i=>i.id!==id);else if(S.kind==="lc")S.lc.items=S.lc.items.filter(i=>i.id!==id);else S.items=S.items.filter(i=>i.id!==id)})}
 function resize(rows,mods){const items=JSON.parse(JSON.stringify(S.items)).sort((a,b)=>a.row-b.row||a.x-b.x),c=mods*2,keep=[],out=[];
   for(const i of items)(fits(i.row,i.x,units(i),i.id,keep,c,rows)?keep:out).push(i);
   for(const i of out){let ok=false;for(let r=0;r<rows&&!ok;r++)for(let x=0;x+units(i)<=c;x++)if(fits(r,x,units(i),i.id,keep,c,rows)){i.row=r;i.x=x;keep.push(i);ok=true;break}
@@ -144,7 +144,7 @@ $("rows").onchange=e=>resize(+e.target.value,S.board.mods);
 $("mods").onchange=e=>resize(S.board.rows,+e.target.value);
 $("style").onchange=e=>mutate(()=>{S.board.style=e.target.value});
 $("spaces").onchange=e=>resizeLC(+e.target.value,S.lc.sys);
-$("sys").onchange=e=>resizeLC(S.lc.spaces,e.target.value);
+$("sys").onchange=e=>resizeLC(S.lc.spaces,e.target.value);$("sysD").onchange=e=>resizeLC(S.lc.spaces,e.target.value);
 $("main").onchange=e=>mutate(()=>{S.lc.main=+e.target.value});
 $("zin").onclick=()=>{autoFit=false;zoom=Math.min(2.5,zoom*1.2);renderBoard()};
 $("zout").onclick=()=>{autoFit=false;zoom=Math.max(.25,zoom/1.2);renderBoard()};

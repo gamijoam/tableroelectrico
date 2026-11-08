@@ -19,7 +19,7 @@ class Nets{
 const AMPACITY={"14":15,"12":20,"10":30,"8":40,"6":55};
 const AWG_FOR=I=>Object.keys(AMPACITY).find(k=>AMPACITY[k]>=I)||"6";
 const devLabel=it=>it.p.name||DEV[it.type].short;
-const circLabel=b=>brkCalc(b).cs.join("-");
+const circLabel=b=>b.lab||("circuito "+brkCalc(b).cs.join("-"));
 
 function simulate(prevTrip,burnt){
   const res={status:[],log:[],sparks:[],loads:{},hot:new Set(),trips:new Set(prevTrip),newBurnt:[],pending:[],pcur:{},wireMsg:{}};
@@ -30,22 +30,26 @@ function simulate(prevTrip,burnt){
   wires.forEach(w=>nets.union(w.a,w.b));
   for(const it of S.wall.items){if(it.type==="inter"&&it.p.on)nets.union(`${it.id}/COM`,`${it.id}/L`);if(it.type==="inter3")nets.union(`${it.id}/COM`,`${it.id}/T${it.p.pos===2?2:1}`)}
   const feeds=S.wall.items.filter(i=>i.type==="feed");
-  if(P)for(let r=1;r<lcRows();r++){nets.union(`${P.id}/N0`,`${P.id}/N${r}`);nets.union(`${P.id}/G0`,`${P.id}/G${r}`)}
-  const mainOn=!simState.blackout&&(!S.lc.main||S.lc.mainOn!==false);
+  /* barras del tablero (y borneras de neutro/tierra del riel) unidas entre sí */
+  const SRC=srcList(),PG=P?panelGeom(P):null;
+  if(PG){PG.N.forEach((_,k)=>k&&nets.union(`${P.id}/N0`,`${P.id}/N${k}`));PG.G.forEach((_,k)=>k&&nets.union(`${P.id}/G0`,`${P.id}/G${k}`));
+    for(const x of PG.X){const r=bornRole(x.color);if(r==="N")nets.union(`${P.id}/N0`,`${P.id}/X${x.id}`);if(r==="T")nets.union(`${P.id}/G0`,`${P.id}/X${x.id}`)}}
+  const mainOn=!simState.blackout&&(isDin()||!S.lc.main||S.lc.mainOn!==false);
   const passDev=S.wall.items.filter(i=>DEV[i.type]&&DEV[i.type].pass),linked=new Set(),batOn=new Set();
   const devOf=id=>S.wall.items.find(i=>i.id===id);
   const phName=ph=>ph[0]==="U"?`la salida de ${devLabel(devOf(+ph.slice(1)))}`:`la fase ${ph}`;
   if(!P&&!feeds.length)res.status.push({lvl:"warn",msg:"Esta pared no tiene de dónde sacar corriente: agrega el tablero o una llegada de circuito."});
   else if(simState.blackout)res.status.push({lvl:"warn",msg:"Apagón simulado: no llega corriente de la calle. Solo funciona lo que tenga batería."});
   else if(!mainOn)res.status.push({lvl:"warn",msg:"El breaker principal está apagado: no hay tensión en ningún circuito."});
+  else if(P&&!SRC.length)res.status.push({lvl:"warn",msg:isDin()?"El tablero DIN no tiene protecciones que entreguen fase (termomagnético, diferencial, seccionador o guardamotor).":"La caja no tiene breakers: ponlos en la vista Tablero."});
 
   let info;
   const build=()=>{info=new Map();const get=r=>{if(!info.has(r))info.set(r,{ph:new Set(),N:false,G:false,feed:[]});return info.get(r)};
-    if(P){for(const b of S.lc.items)for(let k=0;k<b.p.poles;k++){const id=`${P.id}/b${b.id}.${k}`;if(!terms.has(id))continue;const ni=get(nets.find(id));
-        if(mainOn&&b.p.on&&!res.trips.has(b.id)){ni.ph.add(phaseOf(b.slot+k));ni.feed.push({b,k})}}
+    if(P){for(const b of SRC)for(let k=0;k<b.poles;k++){const id=`${P.id}/b${b.id}.${k}`;if(!terms.has(id))continue;const ni=get(nets.find(id));
+        if(mainOn&&b.p.on!==false&&!res.trips.has(b.id)){ni.ph.add(b.ph(k));ni.feed.push({b,k})}}
       get(nets.find(`${P.id}/N0`)).N=true;get(nets.find(`${P.id}/G0`)).G=true}
-    for(const f of feeds){const b=S.lc.items.find(x=>x.id===f.p.brk);get(nets.find(`${f.id}/N`)).N=true;get(nets.find(`${f.id}/T`)).G=true;if(!b)continue;
-      for(let k=0;k<Math.min(2,b.p.poles);k++){const ni=get(nets.find(`${f.id}/F${k+1}`));if(mainOn&&b.p.on&&!res.trips.has(b.id)){ni.ph.add(phaseOf(b.slot+k));ni.feed.push({b,k})}}}
+    for(const f of feeds){const b=SRC.find(x=>x.id===f.p.brk);get(nets.find(`${f.id}/N`)).N=true;get(nets.find(`${f.id}/T`)).G=true;if(!b)continue;
+      for(let k=0;k<Math.min(2,b.poles);k++){const ni=get(nets.find(`${f.id}/F${k+1}`));if(mainOn&&b.p.on!==false&&!res.trips.has(b.id)){ni.ph.add(b.ph(k));ni.feed.push({b,k})}}}
     for(const id of batOn){get(nets.find(`${id}/OF`)).ph.add("U"+id);get(nets.find(`${id}/ON`)).N=true}};
   const netOf=id=>info.get(nets.find(id));
   const pot=id=>{const i=netOf(id);if(!i)return null;if(i.ph.size===1)return[...i.ph][0];if(i.ph.size>1)return"X";if(i.N||i.G)return"0";return null};
@@ -68,7 +72,7 @@ function simulate(prevTrip,burnt){
       const fb=[...new Set(fault.i.feed.map(f=>f.b))];fb.forEach(b=>res.trips.add(b.id));
       const phs=[...fault.i.ph],bats=phs.filter(x=>x[0]==="U").map(x=>+x.slice(1));bats.forEach(id=>{res.trips.add("d"+id);batOn.delete(id)});
       const what=phs.length>=2?`: se unieron ${phs.map(phName).join(" y ")}`:`: ${phName(phs[0])} quedó unida con ${fault.i.N?"el neutro":"la tierra"}`;
-      const who=[...fb.map(b=>`el breaker del circuito ${circLabel(b)} (${b.p.In} A)`),...bats.map(id=>`la protección interna de ${devLabel(devOf(id))}`)];
+      const who=[...fb.map(srcWho),...bats.map(id=>`la protección interna de ${devLabel(devOf(id))}`)];
       res.log.push({lvl:"crit",msg:`Cortocircuito${what}. Disparó ${who.join(" y ")}.`});if(!who.length)break;
       const w=wireIn(fault.root);if(w){const p=wirePath(w,S.wall.wires.indexOf(w),terms);res.sparks.push(p.mid)}
       else{const t=[...terms.values()].find(t=>nets.find(t.id)===fault.root);if(t)res.sparks.push({x:t.x,y:t.y})}}
@@ -88,15 +92,15 @@ function simulate(prevTrip,burnt){
       if(st.s==="on")for(const k of [k0,k1]){const i=netOf(k);if(i)for(const ph of i.ph)if(ph[0]==="U")res.batW[ph.slice(1)]=(res.batW[ph.slice(1)]||0)+W}
       if(st.I)for(const k of [k0,k1]){const i=netOf(k);if(i&&i.ph.size===1&&i.feed.length){const f=i.feed[0],key=f.b.id+"."+f.k;res.pcur[key]=(res.pcur[key]||0)+st.I}}
       /* GFCI: si el neutro del aparato regresa por la tierra, el GFCI dispara */
-      if(st.I&&d.V===120){const nN=netOf(k1),nF=netOf(k0);if(nN&&nN.G&&!nN.N&&nF&&nF.feed.length){const g=nF.feed.find(f=>f.b.p.type==="GFCI");
-        if(g&&!res.trips.has(g.b.id)){res.trips.add(g.b.id);gfci=true;res.log.push({lvl:"crit",msg:`El GFCI del circuito ${circLabel(g.b)} detectó corriente regresando por la tierra (${devLabel(it)}) y disparó.`})}}}}
+      if(st.I&&d.V===120){const nN=netOf(k1),nF=netOf(k0);if(nN&&nN.G&&!nN.N&&nF&&nF.feed.length){const g=nF.feed.find(f=>f.b.gfci);
+        if(g&&!res.trips.has(g.b.id)){res.trips.add(g.b.id);gfci=true;res.log.push({lvl:"crit",msg:`${g.b.din?"El diferencial "+g.b.lab:"El GFCI del "+g.b.lab} detectó corriente regresando por la tierra (${devLabel(it)}) y disparó.`})}}}}
     if(!gfci)break}
 
   /* 3) sobrecarga por polo */
   const seen=new Set();
-  for(const [key,I] of Object.entries(res.pcur)){const id=+key.split(".")[0],b=S.lc.items.find(x=>x.id===id);if(!b)continue;
-    if(I>b.p.In&&!seen.has(id)){seen.add(id);res.pending.push({b,I});res.status.push({lvl:"crit",msg:`Sobrecarga en el circuito ${circLabel(b)}: ${fmtA(I)} con breaker de ${b.p.In} A. Va a disparar en segundos.`})}
-    else if(I>b.p.In*.8&&!seen.has(id)){seen.add(id);res.status.push({lvl:"warn",msg:`Circuito ${circLabel(b)} al ${Math.round(I/b.p.In*100)}% de su breaker (${fmtA(I)} de ${b.p.In} A).`})}}
+  for(const [key,I] of Object.entries(res.pcur)){const id=+key.split(".")[0],b=SRC.find(x=>x.id===id);if(!b)continue;
+    if(I>b.In&&!seen.has(id)){seen.add(id);res.pending.push({b,I});res.status.push({lvl:"crit",msg:`Sobrecarga en ${b.lab}: ${fmtA(I)} con protección de ${b.In} A. Va a disparar en segundos.`})}
+    else if(I>b.In*.8&&!seen.has(id)){seen.add(id);res.status.push({lvl:"warn",msg:`${b.lab[0].toUpperCase()+b.lab.slice(1)} al ${Math.round(I/b.In*100)}% de su protección (${fmtA(I)} de ${b.In} A).`})}}
 
   /* 4) cables: colores según norma y calibre vs. breaker */
   wires.forEach(w=>{const ra=terms.get(w.a).role,rb=terms.get(w.b).role,roles=[ra,rb],c=w.color,msgs=[];
@@ -104,7 +108,7 @@ function simulate(prevTrip,burnt){
     else if(roles.includes("T")&&c!=="Verde")msgs.push("la tierra va en verde");
     else if((roles.includes("F")||roles.includes("S"))&&(c==="Blanco"||c==="Verde"))msgs.push("una fase no puede ir en blanco ni en verde");
     const i=netOf(w.a);
-    if(i&&i.feed.length){const In=Math.max(...i.feed.map(f=>f.b.p.In)),amp=AMPACITY[w.awg];
+    if(i&&i.feed.length){const In=Math.max(...i.feed.map(f=>f.b.In)),amp=AMPACITY[w.awg];
       if(amp<In)msgs.push(`calibre #${w.awg} aguanta ${amp} A y está protegido con ${In} A: usa #${AWG_FOR(In)}`);
       const I=Math.max(0,...i.feed.map(f=>res.pcur[f.b.id+"."+f.k]||0));if(I>amp)res.hot.add(w.id)}
     if(msgs.length){res.wireMsg[w.id]=msgs;res.status.push({lvl:"warn",msg:`Cable ${c.toLowerCase()} #${w.awg} (${wireEnds(w,terms)}): ${msgs.join("; ")}.`,wire:w.id})}});

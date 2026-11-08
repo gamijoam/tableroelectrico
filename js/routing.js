@@ -79,7 +79,7 @@ function computeRoutes(wl,terms){const map=new Map(),valid=wl.wires.filter(w=>te
   map.tubeLoad=new Map();for(const [e,L] of use){const t=G.edges[e].tube;map.tubeLoad.set(t,Math.max(map.tubeLoad.get(t)||0,L.length))}
   autoRoutes(rest,terms,map,true);return map}
 let _routeCache={key:null,wl:null,map:null};
-function routesFor(wl,terms){const key=JSON.stringify([wl.tubes||[],wl.wires.map(w=>[w.id,w.a,w.b]),wl.items.map(i=>[i.id,i.x,i.y,i.type]),wl.h,S.lc.items.map(b=>[b.id,b.side,b.slot,b.p.poles]),S.lc.spaces,S.lc.aux.length]);
+function routesFor(wl,terms){const key=JSON.stringify([wl.tubes||[],wl.wires.map(w=>[w.id,w.a,w.b]),wl.items.map(i=>[i.id,i.x,i.y,i.type]),wl.h,S.lc.items.map(b=>[b.id,b.side,b.slot,b.p.poles]),S.lc.spaces,S.lc.aux.length,S.kind,S.items.map(i=>[i.id,i.row,i.x,i.type,i.p.poles||0,i.p.color||""]),S.board.rows,S.board.mods]);
   if(_routeCache.wl===wl&&_routeCache.key===key)return _routeCache.map;const map=computeRoutes(wl,terms);_routeCache={key,wl,map};return map}
 
 /* ---------- metros de tubo ---------- */

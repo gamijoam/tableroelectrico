@@ -195,7 +195,7 @@ function quoteImage(){const d=quoteData(),Q=S.quote,P=S.project,W=820,D=dims(),F
   showPng(s,W,y,"Imagen del presupuesto",`Lista para enviar por WhatsApp. Haz clic derecho sobre la imagen y elige "Guardar imagen como…" (en el teléfono, mantenla presionada).`)}
 function renderTools(){const lc=S.kind==="lc";$("projName").textContent=S.project.name+(S.project.client?" · "+S.project.client:"");$("kind").value=S.kind;$("lcTools").hidden=!lc;$("dinTools").hidden=lc;
   if(lc){$("usage").textContent=`${S.lc.items.reduce((a,x)=>a+x.p.poles,0)} / ${S.lc.spaces} esp.`;$("spaces").value=S.lc.spaces;$("sys").value=S.lc.sys;$("main").value=S.lc.main}
-  else{const used=S.items.reduce((a,i)=>a+units(i),0);$("usage").textContent=`${fmtM(used/2)} / ${S.board.rows*S.board.mods} mód`;$("rows").value=S.board.rows;$("mods").value=S.board.mods;$("style").value=S.board.style}
+  else{const used=S.items.reduce((a,i)=>a+units(i),0);$("usage").textContent=`${fmtM(used/2)} / ${S.board.rows*S.board.mods} mód`;$("rows").value=S.board.rows;$("sysD").value=S.lc.sys;$("mods").value=S.board.mods;$("style").value=S.board.style}
   $("hint").innerHTML=lc?"Toca un espacio con <b>+</b> para poner un breaker · toca un breaker para cambiar su amperaje o eliminarlo · arrástralo para moverlo · <kbd>Doble clic</kbd> ON/OFF · <kbd>↑</kbd><kbd>↓</kbd> mueven · <kbd>←</kbd><kbd>→</kbd> cambian de lado · <kbd>Supr</kbd> borra"
    :"Arrastra componentes al riel o toca uno para sumarlo a la fila activa · <kbd>Doble clic</kbd> enciende/apaga · <kbd>←</kbd><kbd>→</kbd> mueven · <kbd>Supr</kbd> borra";
   const wall=S.view==="wall";$("vBoard").setAttribute("aria-pressed",String(!wall));$("vWall").setAttribute("aria-pressed",String(wall));
