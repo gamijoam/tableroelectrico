@@ -154,6 +154,11 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
     if(!forExport)s+=`<path d="${p.d}" fill="none" stroke="#000" stroke-opacity="0" stroke-width="12"/>`;
     if(bad&&!forExport)s+=C(p.mid.x,p.mid.y,7,"#f08a2b",{s:"#fff",sw:1.5})+T(p.mid.x,p.mid.y+3.5,"!",{fs:9,c:"#fff",ff:SANS,fw:700});
     if(w.id===sel&&!forExport)s+=`<path d="${p.d}" fill="none" stroke="#1c74e0" stroke-width="2" stroke-dasharray="5 4"/>`;s+="</g>"}
+  /* palancas de los breakers: encima de los cables para poder encender y apagar siempre */
+  const PI=W.items.find(i=>i.type==="panel");
+  if(PI&&!forExport){const [pcx,pcy]=toPx(PI.x,PI.y),{w:pw,h:ph,s:ps}=itemSize(PI),px0=pcx-pw/2,py0=pcy-ph/2;
+    for(const b of S.lc.items){const hx=b.side==="L"?XL+BW-76:XR+22,hy=LY0+b.slot*SL+7,st=simState.trip.has(b.id)?"disparado":b.p.on?"encendido":"apagado";
+      s+=`<rect class="wbh" data-brk="${b.id}" x="${px0+hx*ps}" y="${py0+hy*ps}" width="${54*ps}" height="${(b.p.poles*SL-14)*ps}" rx="3"><title>Circuito ${brkCalc(b).cs.join("-")} (${st}): clic en la palanca para ${simState.trip.has(b.id)?"rearmar":b.p.on?"apagar":"encender"}</title></rect>`}}
   /* terminals */
   for(const t of terms.values()){const fillT={F:"#d9a441",S:"#d9a441",N:"#dfe3e5",T:"#2f9e44"}[t.role];
     if(t.item.type!=="panel"){s+=C(t.x,t.y,5,fillT,{s:"#5d5548",sw:1.2})+T(t.x,t.y+15,t.label,{fs:6.5,c:"#5b5650"})}
@@ -293,6 +298,9 @@ function terminalClick(id){if(reconn){applyReconn(id);return}const terms=allTerm
   const ta=terms.get(a),tb=terms.get(b),w={id:uid++,a,b,color:wColor==="Auto"?autoColor(ta,tb):wColor,awg:wAwg};mutate(()=>{S.wall.wires.push(w)});sel=w.id;renderAll()}
 wallEl.addEventListener("pointerdown",e=>{const hd=e.target.closest(".wh");if(hd){reconn={id:sel,end:hd.dataset.end,moved:false,sx:e.clientX,sy:e.clientY};pending=null;renderWall();return}
   const t=e.target.closest(".wt");if(t){const had=pending;terminalClick(t.dataset.t);if(!had&&pending)wireDrag={sx:e.clientX,sy:e.clientY,moved:false};return}
+  const hb=e.target.closest(".wbh");if(hb){const b=S.lc.items.find(x=>x.id===+hb.dataset.brk);if(!b)return;pending=null;reconn=null;
+    if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste el breaker del circuito ${circLabel(b)}.`});runSim();renderAll();toast(`Circuito ${circLabel(b)}: rearmado.`);return}
+    mutate(()=>{b.p.on=!b.p.on});toast(`Circuito ${circLabel(b)}: ${b.p.on?"encendido":"apagado"}.`);return}
   const wb=e.target.closest(".wb");if(wb&&!simState.running){const b=S.lc.items.find(x=>x.id===+wb.dataset.brk),id=b&&brkTerm(b,e);if(!id)return;const had=pending;terminalClick(id);if(!had&&pending)wireDrag={sx:e.clientX,sy:e.clientY,moved:false};return}
   if(wb){const b=S.lc.items.find(x=>x.id===+wb.dataset.brk);if(!b)return;
     if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste el breaker del circuito ${circLabel(b)}.`});runSim();renderAll()}else mutate(()=>{b.p.on=!b.p.on});return}

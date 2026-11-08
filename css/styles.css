@@ -239,3 +239,5 @@ table.bom{width:100%;border-collapse:collapse;font-size:12.5px}
 .checks{display:flex;flex-direction:column;gap:8px}
 .co-sum{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2)}
 label.btn{display:inline-flex;align-items:center}
+#wall .wbh{fill:#1c74e0;fill-opacity:0;cursor:pointer}
+#wall .wbh:hover{fill-opacity:.25;stroke:#1c74e0;stroke-width:1.2}
