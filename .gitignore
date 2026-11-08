@@ -1,0 +1,14 @@
+# Dependencias y salidas de compilación
+node_modules/
+video/promo/out/
+dist/
+# Entorno de Python y modelos de voz (se descargan con el script)
+.tts/
+video/voices/*.onnx
+video/voices/*.onnx.json
+*.wav
+# Skills de agentes instaladas localmente (se reinstalan con skills-lock.json)
+.claude/
+# Sistema
+.DS_Store
+Thumbs.db
