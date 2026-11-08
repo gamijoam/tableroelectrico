@@ -7,6 +7,7 @@ let sbTarget=null;
 function selTarget(){if(!sel)return null;
   if(S.view==="wall"){const tb=(S.wall.tubes||[]).find(t=>t.id===sel);if(tb)return{kind:"tb",it:tb,el:wallEl.querySelector(`.tb[data-id="${sel}"]`)};
     const sr=srcById(sel);if(sr)return{kind:sr.din?"din":"brk",it:sr.ref,el:wallEl.querySelector(`.wb[data-brk="${sel}"]`)};
+    const dc=isDin()&&S.items.find(i=>i.id===sel&&CTL_TYPES.has(i.type));if(dc)return{kind:"din",it:dc,el:wallEl.querySelector(`.wc[data-c="${sel}"]`),ctl:true};
     const it=S.wall.items.find(i=>i.id===sel);if(it)return{kind:"wi",it,el:wallEl.querySelector(`.wi[data-id="${sel}"]`)};
     const w=S.wall.wires.find(i=>i.id===sel);if(w)return{kind:"ww",w,el:wallEl.querySelector(`.ww[data-id="${sel}"]`)};return null}
   const ax=selAux();if(ax)return{kind:"ax",it:ax,el:board.querySelector(`.ax[data-id="${sel}"]`)};
@@ -22,7 +23,7 @@ function renderSelBar(){const bar=$("selbar"),t=selTarget(),dragging=(typeof dra
     h=`<span class="sb-t">Circuito ${c.cs.join("-")}</span><input class="txt sb-name" id="sb-nm" value="${esc(p.name)}" placeholder="Nombre (ej. Cocina)" aria-label="Nombre del circuito"><select class="sel" id="sb-in" aria-label="Amperaje">${O(BRK_IN,p.In,v=>v+" A")}</select>
       <select class="sel" id="sb-po" aria-label="Polos">${O(S.lc.sys==="1F"?[1,2]:[1,2,3],p.poles,v=>v+"P")}</select><select class="sel" id="sb-ty" aria-label="Tipo">${O(["Estándar","GFCI","AFCI"],p.type)}</select>
       ${B("sb-on",p.on?"Apagar":"Encender")}${B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
-  else if(t.kind==="din"||t.kind==="ax"){const c=CAT[t.it.type];h=`<span class="sb-t">${esc(t.it.p.des||c.n)} · ${esc(c.n)}</span>${c.st?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
+  else if(t.kind==="din"||t.kind==="ax"){const c=CAT[t.it.type];h=`<span class="sb-t">${esc(t.it.p.des||c.n)} · ${esc(c.n)}</span>${t.ctl?(t.it.type==="emerg"?B("sb-on",t.it.p.on!==false?"Enclavar":"Liberar"):""):c.st?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${t.ctl?"":B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
   else if(t.kind==="ex"){const c=EXT[t.it.type];h=`<span class="sb-t">${esc(c.n)}</span>${c.st?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
   else if(t.kind==="wi"){const d=DEV[t.it.type];h=`<span class="sb-t">${esc(t.it.p.name||d.short)}</span>${t.it.type==="inter"?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${t.it.type==="panel"?B("sb-edit","Poner o quitar breakers","primary"):B("sb-dup","Duplicar")}${B("sb-del",t.it.type==="panel"?"Quitar":"Eliminar","danger")}`}
   else if(t.kind==="tb"){let m=0;for(let k=1;k<t.it.pts.length;k++)m+=Math.hypot(t.it.pts[k][0]-t.it.pts[k-1][0],t.it.pts[k][1]-t.it.pts[k-1][1]);h=`<span class="sb-t">Tubo PVC · ${fmtNum(m,2)} m</span><select class="sel" id="sb-ts" aria-label="Diámetro">${O(TUBE_SIZES,t.it.size)}</select>${B("sb-del","Eliminar","danger")}`}

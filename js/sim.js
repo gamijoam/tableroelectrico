@@ -21,8 +21,22 @@ const AWG_FOR=I=>Object.keys(AMPACITY).find(k=>AMPACITY[k]>=I)||"6";
 const devLabel=it=>it.p.name||DEV[it.type].short;
 const circLabel=b=>b.lab||("circuito "+brkCalc(b).cs.join("-"));
 
+/* El mando se resuelve por pasos: con el estado de las bobinas se calculan las redes, se mira qué
+   bobinas quedan con tensión y se repite hasta que nada cambie. Los disparos y lo quemado se acumulan. */
 function simulate(prevTrip,burnt){
-  const res={status:[],log:[],sparks:[],loads:{},hot:new Set(),trips:new Set(prevTrip),newBurnt:[],pending:[],pcur:{},wireMsg:{}};
+  let ctl={on:new Set(simState.ctl||[]),pressed:simState.pressed},res;const trips=new Set(prevTrip),bset=new Set(burnt),logs=[],sparks=[],flips=new Map();let ok=false;
+  for(let i=0;i<16;i++){res=simCore(trips,bset,ctl);res.log.forEach(e=>logs.push(e));res.sparks.forEach(p=>sparks.push(p));res.trips.forEach(t=>trips.add(t));res.newBurnt.forEach(b=>bset.add(b));
+    const next=new Set(Object.keys(res.coil).filter(k=>res.coil[k].on).map(Number));
+    if(next.size===ctl.on.size&&[...next].every(x=>ctl.on.has(x))){ok=true;break}
+    for(const x of new Set([...next,...ctl.on]))if(next.has(x)!==ctl.on.has(x))flips.set(x,(flips.get(x)||0)+1);
+    ctl={on:next,pressed:ctl.pressed}}
+  if(!ok){const bad=[...flips].filter(([,n])=>n>3).map(([id])=>S.items.find(i=>i.id===id)).filter(Boolean);
+    bad.forEach(k=>ctl.on.delete(k.id));res=simCore(trips,bset,ctl);
+    res.status.unshift({lvl:"crit",msg:`${bad.map(k=>k.p.des||CAT[k.type].n).join(", ")||"El mando"} está vibrando: al cerrar se corta su propia bobina (por ejemplo, un contacto NC suyo en serie con su bobina). Revisa el mando.`})}
+  res.log=logs;res.sparks=sparks;res.trips=trips;res.newBurnt=[...bset].filter(b=>!burnt.has(b));res.ctlOn=ctl.on;return res}
+
+function simCore(prevTrip,burnt,ctl){
+  const res={status:[],log:[],sparks:[],loads:{},hot:new Set(),trips:new Set(prevTrip),newBurnt:[],pending:[],pcur:{},wireMsg:{},coil:{},ovlI:{}},netCur=new Map();
   const P=S.wall.items.find(i=>i.type==="panel");
   const terms=new Map();for(const it of S.wall.items)for(const t of itemTerms(it))terms.set(t.id,Object.assign(t,{item:it}));
   const nets=new Nets();for(const id of terms.keys())nets.add(id);
@@ -33,7 +47,9 @@ function simulate(prevTrip,burnt){
   /* barras del tablero (y borneras de neutro/tierra del riel) unidas entre sí */
   const SRC=srcList(),PG=P?panelGeom(P):null;
   if(PG){PG.N.forEach((_,k)=>k&&nets.union(`${P.id}/N0`,`${P.id}/N${k}`));PG.G.forEach((_,k)=>k&&nets.union(`${P.id}/G0`,`${P.id}/G${k}`));
-    for(const x of PG.X){const r=bornRole(x.color);if(r==="N")nets.union(`${P.id}/N0`,`${P.id}/X${x.id}`);if(r==="T")nets.union(`${P.id}/G0`,`${P.id}/X${x.id}`)}}
+    for(const x of PG.X){const r=bornRole(x.color);if(r==="N")nets.union(`${P.id}/N0`,`${P.id}/X${x.id}`);if(r==="T")nets.union(`${P.id}/G0`,`${P.id}/X${x.id}`)}
+    /* contactos del mando cerrados en este paso */
+    if(PG.din)for(const [a,b] of ctlLinks(ctl,res.trips))nets.union(`${P.id}/${a}`,`${P.id}/${b}`)}
   /* Con acometida: neutro y tierra se unen en el tablero; en el riel, el peine une las entradas a la salida del seccionador */
   const SUP=supplyOf(),WIRED=!!SUP&&!!P;
   if(WIRED){nets.union(`${P.id}/N0`,`${P.id}/G0`);
@@ -98,7 +114,7 @@ function simulate(prevTrip,burnt){
     /* 2) aparatos: voltaje, estado y corriente por polo */
     res.loads={};res.pcur={};res.batW={};let gfci=false;
     for(const it of passDev)res.loads[it.id]=(burnt.has(it.id)||res.newBurnt.includes(it.id))?{s:"burnt",v:0,I:0}:linked.has(it.id)?{s:"on",v:120,I:0}:batOn.has(it.id)?{s:"bat",v:120,I:0}:{s:"off",v:0,I:0,why:it.p.on===false?"apagado":"sin tensión en la entrada"};
-    for(const it of S.wall.items){const d=DEV[it.type];if(!d||!d.V)continue;
+    for(const it of S.wall.items){const d=DEV[it.type];if(!d||!d.V||d.tri)continue;
       const [k0,k1]=d.terms.filter(t=>t[1]!=="T").map(t=>`${it.id}/${t[0]}`);
       const a=pot(k0),b=pot(k1),v=volt(a,b),W=d.W(it.p)||0;let st;
       if(burnt.has(it.id))st={s:"burnt",v};
@@ -108,14 +124,25 @@ function simulate(prevTrip,burnt){
       else st={s:W>0?"on":"idle",v};
       st.I=st.s==="on"?W/(d.V===120?120:v):st.s==="weak"?W/4/120:0;res.loads[it.id]=st;
       if(st.s==="on")for(const k of [k0,k1]){const i=netOf(k);if(i)for(const ph of i.ph)if(ph[0]==="U")res.batW[ph.slice(1)]=(res.batW[ph.slice(1)]||0)+W}
-      if(st.I)for(const k of [k0,k1]){const i=netOf(k);if(i&&i.ph.size===1&&i.feed.length){const f=i.feed[0],key=f.b.id+"."+f.k;res.pcur[key]=(res.pcur[key]||0)+st.I}}
+      if(st.I)for(const k of [k0,k1]){const r=nets.find(k);netCur.set(r,(netCur.get(r)||0)+st.I);const i=netOf(k);if(i&&i.ph.size===1&&i.feed.length){const f=i.feed[0],key=f.b.id+"."+f.k;res.pcur[key]=(res.pcur[key]||0)+st.I}}
       /* curva B: el arranque de un motor (5 a 7 veces su corriente) la hace disparar */
       if(st.s==="on"&&(it.type==="pump"||it.type==="ac"))for(const k of [k0,k1]){const i=netOf(k);if(!i)continue;const f=i.feed.find(f=>f.b.din&&f.b.ref.type==="mcb"&&f.b.ref.p.curve==="B");
         if(f&&!res.trips.has(f.b.id)){res.trips.add(f.b.id);gfci=true;res.log.push({lvl:"crit",msg:`Al arrancar, ${devLabel(it)} pidió varias veces su corriente y disparó ${f.b.lab} (curva B). Para motores usa curva C o D.`})}}
       /* GFCI: si el neutro del aparato regresa por la tierra, el GFCI dispara */
       if(st.I&&d.V===120){const nN=netOf(k1),nF=netOf(k0);if(nN&&nN.G&&!nN.N&&nF&&nF.feed.length){const g=nF.feed.find(f=>f.b.gfci);
         if(g&&!res.trips.has(g.b.id)){res.trips.add(g.b.id);gfci=true;res.log.push({lvl:"crit",msg:`${g.b.din?"El diferencial "+g.b.lab:"El GFCI del "+g.b.lab} detectó corriente regresando por la tierra (${devLabel(it)}) y disparó.`})}}}}
+    /* motores trifásicos: tres fases distintas giran; con dos zumban (falta de fase); el orden define el sentido */
+    for(const it of S.wall.items){if(it.type!=="motor3")continue;const d=DEV.motor3,ks=["U","V","W"].map(k=>`${it.id}/${k}`),ps=ks.map(pot),fla=d.fla(it.p),ph=ps.map(x=>x&&/^[ABC]$/.test(x)?x:null),u=new Set(ph.filter(Boolean));let st;
+      if(burnt.has(it.id)||res.newBurnt.includes(it.id))st={s:"burnt",v:0,I:0};
+      else if(u.size===3){const ix=ph.map(x=>"ABC".indexOf(x));st={s:"on",v:208,I:fla,rev:(ix[1]-ix[0]+3)%3!==1}}
+      else if(u.size===2)st={s:"fase",v:208,I:fla*1.73};
+      else st={s:"off",v:0,I:0,why:u.size?"le llega una sola fase":"sin tensión"};
+      res.loads[it.id]=st;
+      if(st.I)ks.forEach((k,j)=>{if(!ph[j])return;const r=nets.find(k);netCur.set(r,(netCur.get(r)||0)+st.I);const i=netOf(k);if(i&&i.ph.size===1&&i.feed.length){const f=i.feed[0],key=f.b.id+"."+f.k;res.pcur[key]=(res.pcur[key]||0)+st.I}});
+      if(st.s==="on")for(const k of ks){const i=netOf(k);if(!i)continue;const f=i.feed.find(f=>f.b.din&&f.b.ref.type==="mcb"&&f.b.ref.p.curve==="B");
+        if(f&&!res.trips.has(f.b.id)){res.trips.add(f.b.id);gfci=true;res.log.push({lvl:"crit",msg:`Al arrancar, ${devLabel(it)} pidió varias veces su corriente y disparó ${f.b.lab} (curva B). Para motores usa curva C o D, o un guardamotor.`})}}}
     if(!gfci)break}
+  res.coil=ctlEval(P,pot,volt,burnt,res);
 
   /* la corriente de cada circuito también pasa por las protecciones de arriba (y por el principal) */
   if(WIRED){const own={...res.pcur},parent={};
@@ -126,6 +153,15 @@ function simulate(prevTrip,burnt){
     if(!simState.blackout&&!res.trips.has("sup")&&![...info.values()].some(i=>i.feed.length))res.status.push({lvl:"warn",msg:isDin()?"El tablero no recibe línea: lleva L1, L2 (y L3) de la acometida a la entrada (arriba) del seccionador o de la primera protección.":"El tablero no recibe línea: lleva L1, L2 (y L3) de la acometida a la entrada del principal."});
     if(res.trips.has("sup"))res.status.push({lvl:"crit",msg:"Los fusibles de la acometida están quemados. Corrige el corto y presiona Rearmar."});
     res.loads[SUP.id]={s:simState.blackout||res.trips.has("sup")?"off":"idle",v:S.lc.sys==="1F"?240:208,I:0}}
+  /* 3a) relés térmicos: miden la corriente que pasa hacia el motor */
+  if(PG&&PG.din){const ovlRoots=new Set();
+    for(const o of S.items){if(o.type!=="ovl")continue;const roots=["1","2","3"].map(n=>nets.find(`${P.id}/c${o.id}.T${n}`));roots.forEach(r=>ovlRoots.add(r));if(res.trips.has("o"+o.id))continue;
+      const I=Math.max(0,...roots.map(r=>netCur.get(r)||0)),mx=ovlMax(o.p),mn=ovlMin(o.p),lab=o.p.des||"Relé térmico";res.ovlI[o.id]=I;
+      if(I>mx*1.05){res.pending.push({ovl:o.id,I,lab});res.status.push({lvl:"crit",msg:`${lab}: pasan ${fmtA(I)} y está ajustado hasta ${mx} A. Va a disparar en segundos.`})}
+      else if(I>0&&I<mn*.85)res.status.push({lvl:"warn",msg:`${lab}: el motor consume ${fmtA(I)} y el relé se ajusta desde ${mn} A, así no lo protege. Elige el rango que incluya la corriente del motor.`})}
+    for(const it of S.wall.items)if(it.type==="motor3"&&res.loads[it.id].s==="fase"&&!["U","V","W"].some(k=>ovlRoots.has(nets.find(`${it.id}/${k}`))))
+      res.pending.push({burn:it.id,msg:`${devLabel(it)} trabajó en falta de fase sin relé térmico y se quemó el bobinado. Protege los motores con un relé térmico o un guardamotor.`})}
+  else for(const it of S.wall.items)if(it.type==="motor3"&&res.loads[it.id]&&res.loads[it.id].s==="fase")res.pending.push({burn:it.id,msg:`${devLabel(it)} trabajó en falta de fase y se quemó el bobinado.`});
   /* 3) sobrecarga por polo */
   const seen=new Set();
   for(const [key,I] of Object.entries(res.pcur)){const id=+key.split(".")[0],b=SRC.find(x=>x.id===id);if(!b)continue;if(res.trips.has(id))continue;
@@ -157,6 +193,9 @@ function simulate(prevTrip,burnt){
     if(d.terms.some(t=>t[1]==="T")){const g=netOf(`${it.id}/T`);if(!(g&&g.G))res.status.push({lvl:"warn",msg:`${L}: sin conexión a tierra.`})}
     const nTerm=d.terms.find(t=>t[1]==="N");if(nTerm){const n=netOf(`${it.id}/${nTerm[0]}`);if(n&&n.G&&!n.N)res.status.push({lvl:"warn",msg:`${L}: el neutro está conectado a la barra de tierra, no a la de neutro.`})}
     if(d.pass)continue;const st=res.loads[it.id];if(!st)continue;
+    if(d.tri){if(st.s==="on")res.status.push(st.rev?{lvl:"warn",msg:`${L}: gira al revés. Intercambia dos fases (por ejemplo, los cables de T1 y T2).`}:{lvl:"ok",msg:`${L}: girando (${fmtA(st.I)} por fase).`});
+      else if(st.s==="fase")res.status.push({lvl:"crit",msg:`${L}: falta una fase${S.lc.sys==="1F"?" (el sistema 120/240 V solo tiene dos)":""}. Zumba, no arranca bien y se recalienta.`});
+      else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: detenido (${st.why}).`});continue}
     if(st.s==="on")res.status.push({lvl:"ok",msg:`${L}: funcionando a ${st.v} V (${fmtA(st.I)}).`});
     else if(st.s==="idle")res.status.push({lvl:"ok",msg:`${L}: tiene ${st.v} V, sin aparato conectado.`});
     else if(st.s==="weak")res.status.push({lvl:"warn",msg:`${L}: recibe solo 120 V y necesita ${S.lc.sys==="1F"?240:208} V. Conéctalo a dos fases.`});
@@ -165,5 +204,10 @@ function simulate(prevTrip,burnt){
     if(st.s==="on")res.status.push({lvl:"ok",msg:`${L}: con 120 V en la entrada, alimentando su salida.`});
     else if(st.s==="bat"){const w=res.batW[it.id]||0,cap=d.cap(Object.assign({},d.d,it.p));res.status.push(w>cap?{lvl:"crit",msg:`${L}: tiene ${w} W conectados y solo aguanta ${cap} W con batería.`}:{lvl:"ok",msg:`${L}: funcionando con batería (${w} W de ${cap} W).`})}
     else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: ${st.why}.`})}
+  if(PG&&PG.din)for(const it of S.items){const c=res.coil[it.id];if(!c)continue;const lab=it.p.des||CAT[it.type].n;
+    if(it.type==="pilot"){if(c.on)res.status.push({lvl:"ok",msg:`${lab} (piloto ${String(it.p.color).toLowerCase()}): encendida.`});else if(c.why.startsWith("poco"))res.status.push({lvl:"warn",msg:`${lab}: luz piloto de ${c.r} V con ${c.v} V, casi no se ve.`});continue}
+    if(it.type==="supv"){if(c.why!=="sin tensión")res.status.push(c.on?{lvl:"ok",msg:`${lab}: red normal, cierra 11-14.`}:{lvl:"warn",msg:`${lab}: ${c.why}. Abre 11-14 y no deja arrancar.`});continue}
+    if(c.on)res.status.push({lvl:"ok",msg:`${lab}: bobina con ${c.v} V, ${it.type==="timer"?(timerOp(it,ctl)?"contacto 15-18 cerrado":`contando ${timerT(it.p)} s`):"contactos cerrados"}.`});
+    else if(c.why.startsWith("poco"))res.status.push({lvl:"warn",msg:`${lab}: la bobina es de ${c.r} V y recibe ${c.v} V. Zumba y no cierra.`})}
   const order={crit:0,warn:1,ok:2,off:3};res.status.sort((a,b)=>order[a.lvl]-order[b.lvl]);
   return res}

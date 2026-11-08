@@ -30,7 +30,7 @@ function dup(){const ax=selAux();if(ax){const u=units(ax),x=auxNearest(ax.x+u,u,
    const n={id:uid++,side:pos.side,slot:pos.slot,p:Object.assign({},b.p)};mutate(()=>{S.lc.items.push(n)});sel=n.id;renderAll();return}
   const it=S.items.find(i=>i.id===sel);if(!it)return;const u=units(it);let x=nearest(it.row,it.x+u,u,null),pos=x!=null?{row:it.row,x}:firstFree(u,it.row);if(!pos){toast("No queda lugar para duplicarlo.");return}
   const n={id:uid++,type:it.type,row:pos.row,x:pos.x,p:Object.assign({},it.p,{des:nextDes(it.type)})};mutate(()=>{S.items.push(n)});sel=n.id;renderAll()}
-function del(){if(!sel)return;if(srcById(sel)){const id=sel;sel=null;deleteBreaker(id);return}const id=sel;sel=null;mutate(()=>{if(S.lc.aux.some(i=>i.id===id))S.lc.aux=S.lc.aux.filter(i=>i.id!==id);else if(S.ext.some(i=>i.id===id))S.ext=S.ext.filter(i=>i.id!==id);else if(S.kind==="lc")S.lc.items=S.lc.items.filter(i=>i.id!==id);else S.items=S.items.filter(i=>i.id!==id)})}
+function del(){if(!sel)return;if(srcById(sel)||(S.kind==="din"&&S.items.some(i=>i.id===sel&&CTL_TYPES.has(i.type)))){const id=sel;sel=null;deleteBreaker(id);return}const id=sel;sel=null;mutate(()=>{if(S.lc.aux.some(i=>i.id===id))S.lc.aux=S.lc.aux.filter(i=>i.id!==id);else if(S.ext.some(i=>i.id===id))S.ext=S.ext.filter(i=>i.id!==id);else if(S.kind==="lc")S.lc.items=S.lc.items.filter(i=>i.id!==id);else S.items=S.items.filter(i=>i.id!==id)})}
 function resize(rows,mods){const items=JSON.parse(JSON.stringify(S.items)).sort((a,b)=>a.row-b.row||a.x-b.x),c=mods*2,keep=[],out=[];
   for(const i of items)(fits(i.row,i.x,units(i),i.id,keep,c,rows)?keep:out).push(i);
   for(const i of out){let ok=false;for(let r=0;r<rows&&!ok;r++)for(let x=0;x+units(i)<=c;x++)if(fits(r,x,units(i),i.id,keep,c,rows)){i.row=r;i.x=x;keep.push(i);ok=true;break}
@@ -133,7 +133,7 @@ function emptyDialog(){if(S.view==="board"&&S.kind==="lc"){const L=S.lc;
   const what=S.view==="wall"?"la pared (se quedan el tablero y sus breakers)":S.kind==="lc"?"la caja de breakers":"el tablero DIN";openModal(`<h2>¿Empezar de cero?</h2><p class="note">Se vacía ${what} actual. Puedes recuperarlo con Deshacer.</p><div class="row-btns"><button class="btn primary" id="n-ok">Vaciar</button><button class="btn" data-close>Cancelar</button></div>`);
   $("n-ok").onclick=()=>{mutate(()=>{if(S.view==="wall"){S.wall.items=S.wall.items.filter(i=>i.type==="panel");S.wall.wires=[];return}if(S.kind==="lc")S.lc.items=[];else S.items=[];S.ext=[];S.project=proj("Tablero nuevo","")});sel=null;activeRow=0;closeModal();fit()}}
 $("file").onclick=projectsDialog;
-$("tpl").onchange=e=>{const k=e.target.value;e.target.value="";if(!TPL[k])return;mutate(()=>{S=linkWall(Object.assign(JSON.parse(JSON.stringify(S)),TPL[k]()))});syncUid();sel=null;activeRow=0;autoFit=true;renderLib();fit();toast("Plantilla cargada. Deshacer vuelve al tablero anterior.")};
+$("tpl").onchange=e=>{const k=e.target.value;e.target.value="";if(!TPL[k])return;mutate(()=>{S=linkWall(Object.assign(JSON.parse(JSON.stringify(S)),TPL[k]()))});syncUid();sel=null;activeRow=0;autoFit=true;renderLib();fit();toast(k==="motor"?"Arranque de bomba cargado y cableado en la pared. Presiona ▶ Probar y mantén presionado S1 (Marcha).":"Plantilla cargada. Deshacer vuelve al tablero anterior.")};
 
 /* ---------- toolbar ---------- */
 $("rows").innerHTML=[1,2,3,4,5,6].map(v=>`<option>${v}</option>`).join("");

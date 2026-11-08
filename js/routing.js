@@ -68,7 +68,21 @@ function autoRoutes(wires,terms,map,bare){const tracks=[];
     for(let k=0;k<60;k++){const c=base+(k%2?1:-1)*Math.ceil(k/2)*7;if(flat&&c<Math.max(a.y,b.y)+10)continue;if(!flat&&(c<Math.min(a.y,b.y)+6||c>Math.max(a.y,b.y)-6)&&k)continue;
       if(!tracks.some(t=>Math.abs(t.y-c)<6.5&&t.x1<x2+6&&x1<t.x2+6)){ym=c;break}}
     tracks.push({y:ym,x1,x2});const p=pathFrom([[a.x,a.y],[a.x,ym],[b.x,ym],[b.x,b.y]]);p.bare=bare;map.set(w.id,p)}}
-function computeRoutes(wl,terms){const map=new Map(),valid=wl.wires.filter(w=>terms.has(w.a)&&terms.has(w.b));
+/* Puentes dentro del tablero de riel: suben o bajan a la canaleta más cercana, corren por ella
+   y, si cambian de fila, bajan por el costado del gabinete. Cada cable va en su propio carril. */
+function innerRoutes(wl,wires,terms,map){if(!wires.length)return;const P=wl.items.find(i=>i.type==="panel");
+  if(!P||!isDin()){autoRoutes(wires,terms,map,false);return}
+  const g=panelGeom(P,wl),s=g.s,dy=[...Array(S.board.rows+1)].map((_,r)=>g.y0+(TOP+r*ROW_H+DUCT/2)*s),lane={},side={L:0,R:0};
+  const near=y=>{let b=0;dy.forEach((v,k)=>{if(Math.abs(v-y)<Math.abs(dy[b]-y))b=k});return b};
+  const off=k=>{const n=lane[k]=(lane[k]||0)+1;return((n%9)-4)*Math.min(3.4,DUCT*s/10)};
+  for(const w of wires){const a=terms.get(w.a),b=terms.get(w.b),da=near(a.y),db=near(b.y);let pts;
+    if(da===db){const y=dy[da]+off(da);pts=[[a.x,a.y],[a.x,y],[b.x,y],[b.x,b.y]]}
+    else{const L=(a.x+b.x)/2<g.cx,k=L?"L":"R",n=side[k]++,xs=L?g.x0+(14+(n%6)*4)*s/.6:g.x0+g.w-(14+(n%6)*4)*s/.6,ya=dy[da]+off(da),yb=dy[db]+off(db);
+      pts=[[a.x,a.y],[a.x,ya],[xs,ya],[xs,yb],[b.x,yb],[b.x,b.y]]}
+    const p=pathFrom(pts);p.inner=true;map.set(w.id,p)}}
+function computeRoutes(wl,terms){const map=new Map(),all=wl.wires.filter(w=>terms.has(w.a)&&terms.has(w.b));
+  /* los puentes dentro del tablero van directo, sin tubo */
+  const inner=all.filter(w=>innerWire(w,terms)),valid=all.filter(w=>!innerWire(w,terms));innerRoutes(wl,inner,terms,map);
   if(!(wl.tubes&&wl.tubes.length)){autoRoutes(valid,terms,map,false);return map}
   const G=tubeGraph(wl),use=new Map(),raw=[],rest=[];
   for(const w of valid){const r=routeOnTubes(G,terms.get(w.a),terms.get(w.b));if(!r){rest.push(w);continue}raw.push([w,r]);
@@ -79,7 +93,7 @@ function computeRoutes(wl,terms){const map=new Map(),valid=wl.wires.filter(w=>te
   map.tubeLoad=new Map();for(const [e,L] of use){const t=G.edges[e].tube;map.tubeLoad.set(t,Math.max(map.tubeLoad.get(t)||0,L.length))}
   autoRoutes(rest,terms,map,true);return map}
 let _routeCache={key:null,wl:null,map:null};
-function routesFor(wl,terms){const key=JSON.stringify([wl.tubes||[],wl.wires.map(w=>[w.id,w.a,w.b]),wl.items.map(i=>[i.id,i.x,i.y,i.type]),wl.h,S.lc.items.map(b=>[b.id,b.side,b.slot,b.p.poles]),S.lc.spaces,S.lc.aux.length,S.kind,S.items.map(i=>[i.id,i.row,i.x,i.type,i.p.poles||0,i.p.color||""]),S.board.rows,S.board.mods]);
+function routesFor(wl,terms){const key=JSON.stringify([wl.tubes||[],wl.wires.map(w=>[w.id,w.a,w.b]),wl.items.map(i=>[i.id,i.x,i.y,i.type]),wl.h,S.lc.items.map(b=>[b.id,b.side,b.slot,b.p.poles]),S.lc.spaces,S.lc.aux.length,S.kind,S.items.map(i=>[i.id,i.row,i.x,i.type,i.p.poles||0,i.p.color||"",CTL_TYPES.has(i.type)?[i.p.aux,i.p.cts,i.p.ct,i.p.lab,i.p.sys]:0]),S.board.rows,S.board.mods]);
   if(_routeCache.wl===wl&&_routeCache.key===key)return _routeCache.map;const map=computeRoutes(wl,terms);_routeCache={key,wl,map};return map}
 
 /* ---------- metros de tubo ---------- */

@@ -163,9 +163,12 @@ table.bom{width:100%;border-collapse:collapse;font-size:12.5px}
 @keyframes smoke{0%{transform:translateY(4px);opacity:.2}50%{opacity:.9}100%{transform:translateY(-14px);opacity:0}}
 .spin{transform-box:fill-box;transform-origin:center;animation:spin .5s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.spinr{transform-box:fill-box;transform-origin:center;animation:spin .5s linear infinite reverse}
+.hum{transform-box:fill-box;transform-origin:center;animation:hum .09s linear infinite alternate}
+@keyframes hum{from{transform:translate(-.8px,0) rotate(-4deg)}to{transform:translate(.8px,0) rotate(4deg)}}
 .flow{stroke-dasharray:5 6;animation:flow .7s linear infinite}
 @keyframes flow{to{stroke-dashoffset:-22}}
-@media (prefers-reduced-motion:reduce){.spark,.smoke,.spin,.flow{animation:none}}
+@media (prefers-reduced-motion:reduce){.spark,.smoke,.spin,.spinr,.hum,.flow{animation:none}}
 
 /* ---------- paneles plegables, pantalla completa y alertas ---------- */
 .app{--lw:268px;--sw:316px;grid-template-columns:var(--lw) minmax(0,1fr) var(--sw)}

@@ -41,12 +41,12 @@ const TPL={
   mk("icont",1,0,"KM1","Extractor",{In:18}),mk("ovl",1,5,"F1","Extractor",{range:"9–13A"}),mk("icont",1,11,"KM2","Cava cuarto",{In:25}),mk("ovl",1,16,"F2","Cava",{range:"16–24A"}),mk("relay",1,22,"KA1","Avisos"),mk("relay",1,25,"KA2","Alarma"),
   mk("cont",2,0,"KM3","Cartel luminoso",{cts:"2NA"}),mk("timer",2,4,"KT1","Encendido cartel"),mk("selector",2,6,"SA1","Modo cartel"),mk("push",2,8,"S1","Marcha",{color:"Verde"}),mk("push",2,10,"S2","Parada",{color:"Rojo",ct:"NC"}),mk("emerg",2,12,"S3","Emergencia"),mk("psu",2,17,"G1","Control 24V"),
   ...[1,2,3,4,5,6].map(n=>mk("term",2,23+n,"X"+n,"",{color:"Negro"})),mk("term",2,30,"X7","N",{color:"Blanco"}),mk("term",2,31,"X8","N",{color:"Blanco"}),mk("term",2,32,"X9","T",{color:"Verde"}),mk("term",2,33,"X10","T",{color:"Verde"})];return s},
- motor(){const s=blankState(2,12);s.project=proj("Bomba hidroneumática 3 HP","Residencias Los Samanes");s.items=[
-  mk("mcb",0,0,"Q1","Control",{poles:2,In:6}),mk("supv",0,4,"SV1","Fases"),mk("icont",0,8,"KM1","Bomba",{In:18}),mk("ovl",0,13,"F1","Bomba",{range:"9–13A"}),mk("relay",0,18,"KA1","Presostato"),mk("pilot",0,21,"H1","Marcha",{color:"Verde",on:false}),
-  mk("push",1,0,"S1","Marcha",{color:"Verde"}),mk("push",1,2,"S2","Parada",{color:"Rojo",ct:"NC"}),mk("emerg",1,4,"S0","Emergencia"),mk("selector",1,8,"SA1","Modo"),mk("pilot",1,10,"H2","Falla",{color:"Rojo",on:false}),
-  mk("vam",1,12,"PA1","Corriente",{mode:"Amperímetro",read:"9.6"}),
-  mk("term",1,16,"X1","A",{color:"Negro",sec:"10 AWG"}),mk("term",1,17,"X2","B",{color:"Rojo",sec:"10 AWG"}),mk("term",1,18,"X3","C",{color:"Azul",sec:"10 AWG"}),mk("term",1,19,"X4","T",{color:"Verde",sec:"10 AWG"}),
-  mk("term",1,21,"X5","P1",{color:"Gris",sec:"14 AWG"}),mk("term",1,22,"X6","P2",{color:"Gris",sec:"14 AWG"}),mk("term",1,23,"X7","N",{color:"Blanco",sec:"14 AWG"})];return s},
+ motor(){const s=blankState(2,12);s.project=proj("Bomba hidroneumática 3 HP","Residencias Los Samanes");
+  const Q1=mk("mcb",0,0,"Q1","Bomba",{poles:3,In:16}),Q2=mk("mcb",0,6,"Q2","Mando",{poles:1,In:6}),SV=mk("supv",0,8,"SV1","Fases",{sys:"Trifásico 208V"}),KM=mk("icont",0,12,"KM1","Bomba",{In:18,coil:"120V",aux:"1NA"}),F1=mk("ovl",0,17,"F1","Bomba",{range:"9–13A"}),
+   S0=mk("emerg",1,0,"S0","Emergencia"),S2=mk("push",1,4,"S2","Parada",{color:"Rojo",ct:"NC"}),S1=mk("push",1,6,"S1","Marcha",{color:"Verde",ct:"NA"}),H1=mk("pilot",1,8,"H1","Marcha",{color:"Verde",on:false}),H2=mk("pilot",1,10,"H2","Falla",{color:"Rojo",on:false}),
+   XT=mk("term",1,13,"X1","T",{color:"Verde"}),XN=mk("term",1,14,"X2","N",{color:"Blanco"});
+  s.items=[Q1,Q2,SV,KM,F1,S0,S2,S1,H1,H2,XT,XN];s.lc=Object.assign(JSON.parse(JSON.stringify(S&&S.lc?S.lc:TPL.casaVE().lc)),{sys:"3F"});
+  s.walls=[motorWall({Q1,Q2,SV,KM,F1,S0,S2,S1,H1,H2})];s.wallI=0;s.view="wall";return s},
 };
 /* Pared de ejemplo ya cableada según norma: luz con interruptor, toma con TV y A/A a 240 V */
 function demoWall(items){const W=blankWall("Sala"),P=W.items[0],at=(side,slot)=>items.find(b=>b.side===side&&b.slot===slot);
@@ -56,6 +56,19 @@ function demoWall(items){const W=blankWall("Sala"),P=W.items[0],at=(side,slot)=>
   if(luz){wire(pb(luz,0),`${sw.id}/COM`,"Negro");wire(`${sw.id}/L`,`${lz.id}/F`,"Rojo");wire(`${lz.id}/N`,`${P.id}/N${luz.slot}`,"Blanco")}
   if(tom){wire(pb(tom,0),`${tc.id}/F`,"Negro");wire(`${tc.id}/N`,`${P.id}/N${tom.slot}`,"Blanco");wire(`${tc.id}/T`,`${P.id}/G${tom.slot}`,"Verde")}
   if(aa&&aa.p.poles===2){wire(pb(aa,0),`${ac.id}/F1`,"Negro");wire(pb(aa,1),`${ac.id}/F2`,"Rojo");wire(`${ac.id}/T`,`${P.id}/G${aa.slot}`,"Verde")}
+  return W}
+/* Pared de ejemplo del arranque de bomba: potencia, mando con retención, paro de emergencia,
+   supervisor de fases en serie, relé térmico y pilotos de marcha y falla */
+function motorWall(k){const W=blankWall("Sala de bombas"),P=W.items[0];P.x=1.5;P.y=1.4;
+  const m={id:uid++,type:"motor3",x:4.6,y:.32,p:{hp:"3 HP",name:"Bomba 3 HP"}};W.items.push(m);
+  const c=(it,pin)=>`${P.id}/c${it.id}.${pin}`,b=(it,n)=>`${P.id}/b${it.id}.${n}`,wire=(a,z,color,awg="14")=>W.wires.push({id:uid++,a,b:z,color,awg});
+  ["1","2","3"].forEach((n,j)=>{const col=["Negro","Rojo","Azul"][j];wire(b(k.Q1,j),c(k.KM,"L"+n),col,"12");wire(c(k.F1,"T"+n),`${m.id}/${["U","V","W"][j]}`,col,"12");wire(c(k.KM,"L"+n),c(k.SV,"L"+n),col,"12")});
+  wire(`${m.id}/T`,`${P.id}/G0`,"Verde","12");
+  wire(b(k.Q2,0),c(k.S0,"11"),"Rojo");wire(c(k.S0,"12"),c(k.S2,"11"),"Rojo");wire(c(k.S2,"12"),c(k.SV,"11"),"Rojo");wire(c(k.SV,"14"),c(k.S1,"13"),"Rojo");
+  wire(c(k.S1,"14"),c(k.F1,"95"),"Rojo");wire(c(k.F1,"96"),c(k.KM,"A1"),"Rojo");wire(c(k.KM,"A2"),`${P.id}/N0`,"Blanco");
+  wire(c(k.S1,"13"),c(k.KM,"13"),"Rojo");wire(c(k.S1,"14"),c(k.KM,"14"),"Rojo");
+  wire(c(k.KM,"A1"),c(k.H1,"X1"),"Rojo");wire(c(k.H1,"X2"),c(k.KM,"A2"),"Blanco");
+  wire(c(k.S0,"12"),c(k.F1,"97"),"Rojo");wire(c(k.F1,"98"),c(k.H2,"X1"),"Rojo");wire(c(k.H2,"X2"),c(k.H1,"X2"),"Blanco");
   return W}
 /* Segunda pared de ejemplo: luz de pasillo con dos interruptores de tres vías, alimentada desde el tablero */
 function demoStairs(items){const W=blankWall("Pasillo (escalera)",false),b=items.find(x=>x.side==="R"&&x.slot===0)||items[0];if(!b)return W;

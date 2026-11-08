@@ -19,6 +19,8 @@ js/panels.js        Biblioteca, panel de propiedades y presupuesto
 js/sim.js           Simulador: redes, cortocircuitos, voltajes, sobrecargas y reglas de norma
 js/routing.js       Recorrido de cables: por la tubería dibujada (camino más corto, un carril por cable) o en Z sin encimarse
 js/panelsrc.js      El tablero en la pared, sea caja de breakers o riel DIN: protecciones, tornillos y barras
+js/control.js       Mando de motores: bornes de contactor, térmico, relé, temporizador, pulsadores,
+                    pilotos y supervisor; qué contactos cierran; motor trifásico
 js/info.js          Ficha de cada elemento: para qué sirve, cómo funciona, cómo se conecta, errores y si se simula
 js/wall.js          Vista Pared: varias paredes, dispositivos, cableado, tubería y panel de prueba
 js/layout.js        Paneles laterales plegables, pantalla completa y alertas de la prueba
@@ -47,6 +49,13 @@ fase (desde un breaker cerrado), neutro o tierra. Con eso detecta:
 - GFCI: dispara si el neutro regresa por la tierra.
 - Norma: neutro blanco, tierra verde, fases negro/rojo/azul; interruptor cortando el neutro;
   polaridad invertida en tomas; equipos sin tierra; calibre menor que el breaker.
+- Mando de motores en el tablero de riel (js/control.js): bobinas A1-A2 con su voltaje (poco voltaje no cierra,
+  mucho la quema), retención con el auxiliar 13-14, pulsadores que se mantienen presionados, paro de emergencia
+  enclavable, selector, temporizador con retardo real, pilotos y supervisor de fases (falta de fase, secuencia).
+  El mando se resuelve por pasos hasta que ninguna bobina cambia; si oscila, avisa que el contactor vibra.
+- Relé térmico: mide la corriente del motor y dispara antes que el breaker; abre 95-96 y cierra 97-98.
+- Motor trifásico: gira con tres fases, gira al revés si se cruzan dos y con falta de fase consume 1,7 veces más
+  (sin relé térmico se quema).
 
 Es una herramienta de enseñanza y presupuesto, no un cálculo según el Código Eléctrico Nacional.
 
