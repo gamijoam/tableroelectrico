@@ -74,7 +74,7 @@ function ctlCommit(r){simState.ctl=[...r.ctlOn];const now=Date.now();let next=In
     if(isTon(it.p)?q.on&&el<t:!q.on&&el<t)next=Math.min(next,t-el)}
   clearTimeout(simState.ctlT);simState.ctlT=null;
   if(next<Infinity)simState.ctlT=setTimeout(()=>{simState.ctlT=null;if(simState.running&&S.view==="wall")renderAll()},next+40)}
-function ctlReset(){simState.ctl=[];simState.pressed.clear();simState.tm={};clearTimeout(simState.ctlT);simState.ctlT=null}
+function ctlReset(){simState.ctl=[];simState.pressed.clear();simState.forced.clear();simState.tm={};clearTimeout(simState.ctlT);simState.ctlT=null}
 
 /* Estado de cada bobina, piloto y supervisor con las redes ya calculadas */
 function ctlEval(P,pot,volt,burnt,res){const out={};if(!P||!isDin())return out;
@@ -82,7 +82,7 @@ function ctlEval(P,pot,volt,burnt,res){const out={};if(!P||!isDin())return out;
     if(CTL_COIL.has(it.type)||it.type==="pilot"){const pl=it.type==="pilot",[a,b]=pl?["X1","X2"]:["A1","A2"],v=volt(pot(T(a)),pot(T(b))),r=pl?(parseInt(it.p.V)||120):coilVolt(it.p.coil);let on=false,why="";
       if(burnt.has(it.id)||res.newBurnt.includes(it.id))why="quemada";
       else if(!v)why="sin tensión";
-      else if(v>r*1.15){res.newBurnt.push(it.id);why="quemada";res.log.push({lvl:"crit",msg:`${lab}: ${pl?"la luz piloto es de":"la bobina es de"} ${r} V y recibió ${v} V. Se quemó${pl?"":" la bobina"}.`})}
+      else if(v>r*1.2){res.newBurnt.push(it.id);why="quemada";res.log.push({lvl:"crit",msg:`${lab}: ${pl?"la luz piloto es de":"la bobina es de"} ${r} V y recibió ${v} V. Se quemó${pl?"":" la bobina"}.`})}
       else if(v<r*.85)why=`poco voltaje (${v} V de ${r} V)`;
       else on=true;out[it.id]={on,v,r,why}}
     else if(it.type==="supv"){const s=String(it.p.sys||""),q=k=>pot(T(k));let ok=false,why="";

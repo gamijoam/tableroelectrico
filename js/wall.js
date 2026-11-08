@@ -51,9 +51,11 @@ const WALL_DEFS=`<pattern id="pBlk" width="88" height="44" patternUnits="userSpa
 <radialGradient id="gGlow"><stop offset="0" stop-color="#fff3b0" stop-opacity=".95"/><stop offset=".5" stop-color="#ffd84d" stop-opacity=".35"/><stop offset="1" stop-color="#ffd84d" stop-opacity="0"/></radialGradient>`;
 
 let wallMode="move",wColor="Auto",wAwg="12",pending=null,wdrag=null,reconn=null,wireDrag=null,leverPress=null;
-const simState={running:false,blackout:false,trip:new Set(),burnt:new Set(),res:null,log:[],sparks:[],timer:null,ctl:[],pressed:new Set(),tm:{},ctlT:null};
-let compPress=null;
+const simState={running:false,blackout:false,trip:new Set(),burnt:new Set(),res:null,log:[],sparks:[],timer:null,ctl:[],pressed:new Set(),forced:new Set(),tm:{},ctlT:null};
+let compPress=null,tapTol=6;
 const wallEl=$("wall");
+/* con el dedo la mano tiembla más que con el mouse: un toque no debe convertirse en arrastre */
+wallEl.addEventListener("pointerdown",e=>{tapTol=e.pointerType==="mouse"?6:16},true);
 
 function blankWall(name="Pared 1",withPanel=true){return{name,w:6,h:2.7,finish:FINISH[0],tube:true,items:withPanel?[{id:uid++,type:"panel",x:1,y:1.6,p:{name:""}}]:[],wires:[],tubes:[]}}
 /* S.wall apunta siempre a la pared activa, sin duplicarse al guardar */
@@ -415,9 +417,9 @@ wallEl.addEventListener("pointerdown",e=>{if(wallMode==="tube"&&!simState.runnin
     renderAll();return}
   if(pending||sel||reconn){pending=null;sel=null;reconn=null;renderAll()}});
 window.addEventListener("pointermove",e=>{
-  if(compPress&&!compPress.push&&Math.hypot(e.clientX-compPress.sx,e.clientY-compPress.sy)>6){const d=S.items.find(i=>i.id===compPress.id),cp=compPress;compPress=null;const id=d&&compPin(d,{clientX:cp.sx,clientY:cp.sy});
+  if(compPress&&!compPress.push&&Math.hypot(e.clientX-compPress.sx,e.clientY-compPress.sy)>tapTol){const d=S.items.find(i=>i.id===compPress.id),cp=compPress;compPress=null;const id=d&&compPin(d,{clientX:cp.sx,clientY:cp.sy});
     if(id){pending=null;terminalClick(id);wireDrag={sx:cp.sx,sy:cp.sy,moved:true}}}
-  if(leverPress&&Math.hypot(e.clientX-leverPress.sx,e.clientY-leverPress.sy)>6){const b=srcById(leverPress.id),lp=leverPress;leverPress=null;const id=b&&brkTerm(b,{clientX:lp.sx,clientY:lp.sy});
+  if(leverPress&&Math.hypot(e.clientX-leverPress.sx,e.clientY-leverPress.sy)>tapTol){const b=srcById(leverPress.id),lp=leverPress;leverPress=null;const id=b&&brkTerm(b,{clientX:lp.sx,clientY:lp.sy});
     if(id){pending=null;terminalClick(id);wireDrag={sx:lp.sx,sy:lp.sy,moved:true}}}
   if(wdrag){if(!wdrag.moved&&Math.hypot(e.clientX-wdrag.sx,e.clientY-wdrag.sy)<4)return;wdrag.moved=true;const it=S.wall.items.find(i=>i.id===wdrag.id),q=toWall(e),[x,y]=fromPx(q.x-wdrag.dx,q.y-wdrag.dy);
     it.x=x;it.y=y;clampItem(it);renderWall();ghost.hidden=false;ghost.textContent=`${fmtM2(it.x)} desde la izq. · altura ${fmtM2(it.y)}`;ghost.style.left=e.clientX+"px";ghost.style.top=e.clientY+"px";return}
@@ -425,11 +427,12 @@ window.addEventListener("pointermove",e=>{
   if(wallMode==="tube"&&tubeDraft){const pv=$("wpv");if(pv){pv.setAttribute("pointer-events","none");pv.innerHTML=tubeDraftSvg(tubeSnap(toWall(e)))}return}
   const from=reconn?(()=>{const w=S.wall.wires.find(x=>x.id===reconn.id);return w&&allTerms().get(w[reconn.end==="a"?"b":"a"])})():pending?allTerms().get(pending):null;
   if(reconn&&!reconn.moved&&reconn.sx!=null&&Math.hypot(e.clientX-reconn.sx,e.clientY-reconn.sy)>4)reconn.moved=true;
-  const pv=$("wpv");if(!pv||!from)return;const q=toWall(e);if(wireDrag&&!wireDrag.moved&&Math.hypot(e.clientX-wireDrag.sx,e.clientY-wireDrag.sy)>6)wireDrag.moved=true;pv.setAttribute("pointer-events","none");pv.innerHTML=`<path d="M${from.x} ${from.y}L${q.x} ${q.y}" stroke="#1c74e0" stroke-width="3" stroke-dasharray="6 4" fill="none" opacity=".85"/>${C(q.x,q.y,6,"#1c74e0",{op:.6})}`});
+  const pv=$("wpv");if(!pv||!from)return;const q=toWall(e);if(wireDrag&&!wireDrag.moved&&Math.hypot(e.clientX-wireDrag.sx,e.clientY-wireDrag.sy)>tapTol)wireDrag.moved=true;pv.setAttribute("pointer-events","none");pv.innerHTML=`<path d="M${from.x} ${from.y}L${q.x} ${q.y}" stroke="#1c74e0" stroke-width="3" stroke-dasharray="6 4" fill="none" opacity=".85"/>${C(q.x,q.y,6,"#1c74e0",{op:.6})}`});
 window.addEventListener("pointercancel",()=>{if(compPress&&compPress.push)releasePush()});
 window.addEventListener("pointerup",e=>{
   if(compPress){const c=compPress,d=S.items.find(i=>i.id===c.id);if(c.push){releasePush();return}compPress=null;if(!d)return;compTap(d);return}
   if(leverPress){const b=srcById(leverPress.id);leverPress=null;if(!b)return;pending=null;
+    sel=b.id;/* queda seleccionado: la barra de abajo ofrece Encender/Apagar o Rearmar */
     if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste ${srcWho(b)}.`});runSim();renderAll();toast(`${b.short}: rearmado.`);return}
     mutate(()=>{b.p.on=b.p.on===false});toast(`${b.short}: ${b.p.on!==false?"encendido":"apagado"}.`);return}
   if(wireDrag&&!wireDrag.moved&&wireDrag.brk){const id=wireDrag.brk;wireDrag=null;pending=null;sel=id;renderAll();return}

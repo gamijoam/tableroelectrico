@@ -19,11 +19,13 @@ function renderSelBar(){const bar=$("selbar"),t=selTarget(),dragging=(typeof dra
   sbTarget=t;if(!t||!t.el||dragging){bar.hidden=true;return}
   const B=(id,label,cls="")=>`<button class="btn sm ${cls}" id="${id}">${label}</button>`,O=(opts,cur,f=v=>v)=>opts.map(v=>`<option value="${v}"${String(v)===String(cur)?" selected":""}>${f(v)}</option>`).join("");
   let h="";
+  const trip=(t.kind==="brk"||t.kind==="din")&&simState.trip.has(t.it.id);
   if(t.kind==="brk"){const p=t.it.p,c=brkCalc(t.it);
     h=`<span class="sb-t">Circuito ${c.cs.join("-")}</span><input class="txt sb-name" id="sb-nm" value="${esc(p.name)}" placeholder="Nombre (ej. Cocina)" aria-label="Nombre del circuito"><select class="sel" id="sb-in" aria-label="Amperaje">${O(BRK_IN,p.In,v=>v+" A")}</select>
       <select class="sel" id="sb-po" aria-label="Polos">${O(S.lc.sys==="1F"?[1,2]:[1,2,3],p.poles,v=>v+"P")}</select><select class="sel" id="sb-ty" aria-label="Tipo">${O(["Estándar","GFCI","AFCI"],p.type)}</select>
-      ${B("sb-on",p.on?"Apagar":"Encender")}${B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
-  else if(t.kind==="din"||t.kind==="ax"){const c=CAT[t.it.type];h=`<span class="sb-t">${esc(t.it.p.des||c.n)} · ${esc(c.n)}</span>${t.ctl?(t.it.type==="emerg"?B("sb-on",t.it.p.on!==false?"Enclavar":"Liberar"):""):c.st?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${t.ctl?"":B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
+      ${trip?B("sb-rearm","Rearmar","primary"):B("sb-on",p.on?"Apagar":"Encender","primary")}${B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
+  else if(t.kind==="din"||t.kind==="ax"){const c=CAT[t.it.type];const co=t.ctl&&simState.running&&simState.res&&simState.res.coil[t.it.id],forced=simState.forced.has(t.it.id);
+    h=`<span class="sb-t">${esc(t.it.p.des||c.n)} · ${esc(c.n)}${co&&CTL_COIL.has(t.it.type)?` · ${forced?"accionado a mano":co.on?`bobina ${co.v} V, cerrado`:`bobina ${co.v||0} V (necesita ${co.r} V)`}`:""}</span>${t.ctl&&CTL_COIL.has(t.it.type)&&simState.running&&t.it.type!=="timer"?B("sb-force",forced?"Soltar":"Accionar a mano","primary"):""}${trip?B("sb-rearm","Rearmar","primary"):""}${t.ctl?(t.it.type==="emerg"?B("sb-on",t.it.p.on!==false?"Enclavar":"Liberar"):""):c.st?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${t.ctl?"":B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
   else if(t.kind==="ex"){const c=EXT[t.it.type];h=`<span class="sb-t">${esc(c.n)}</span>${c.st?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
   else if(t.kind==="wi"){const d=DEV[t.it.type];h=`<span class="sb-t">${esc(t.it.p.name||d.short)}</span>${t.it.type==="inter"?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${t.it.type==="panel"?B("sb-edit","Poner o quitar breakers","primary"):B("sb-dup","Duplicar")}${B("sb-del",t.it.type==="panel"?"Quitar":"Eliminar","danger")}`}
   else if(t.kind==="tb"){let m=0;for(let k=1;k<t.it.pts.length;k++)m+=Math.hypot(t.it.pts[k][0]-t.it.pts[k-1][0],t.it.pts[k][1]-t.it.pts[k-1][1]);h=`<span class="sb-t">Tubo PVC · ${fmtNum(m,2)} m</span><select class="sel" id="sb-ts" aria-label="Diámetro">${O(TUBE_SIZES,t.it.size)}</select>${B("sb-del","Eliminar","danger")}`}
@@ -33,7 +35,9 @@ function renderSelBar(){const bar=$("selbar"),t=selTarget(),dragging=(typeof dra
   const on=(id,ev,fn)=>{const el=$(id);if(el)el[ev]=fn};
   on("sb-in","onchange",e=>setPropLC(t.it.id,"In",+e.target.value));on("sb-po","onchange",e=>setPropLC(t.it.id,"poles",+e.target.value));on("sb-ty","onchange",e=>setPropLC(t.it.id,"type",e.target.value));
   on("sb-nm","onchange",e=>mutate(()=>{t.it.p.name=e.target.value}));
-  on("sb-on","onclick",()=>mutate(()=>{t.it.p.on=!t.it.p.on}));
+  on("sb-on","onclick",()=>{const v=t.ctl&&t.it.type==="emerg"?t.it.p.on===false:!(t.it.p.on!==false);mutate(()=>{t.it.p.on=v});if(S.view==="wall")toast(`${t.kind==="brk"?"Circuito "+brkCalc(t.it).cs.join("-"):t.it.p.des||CAT[t.it.type].n}: ${t.it.type==="emerg"?(v?"liberado":"enclavado"):v?"encendido":"apagado"}.`)});
+  on("sb-rearm","onclick",()=>{simState.trip.delete(t.it.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste ${t.it.p.des||"el breaker"}.`});hideAlert();renderAll()});
+  on("sb-force","onclick",()=>{const id=t.it.id;if(simState.forced.has(id))simState.forced.delete(id);else simState.forced.add(id);renderAll()});
   on("sb-dup","onclick",()=>{if(t.kind==="wi"){const p=$("pp-dup");if(p)p.click()}else dup()});
   on("sb-del","onclick",()=>{if(S.view==="wall")wallDelete();else del()});
   on("sb-ts","onchange",e=>mutate(()=>{t.it.size=e.target.value}));

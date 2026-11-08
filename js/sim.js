@@ -26,6 +26,8 @@ const circLabel=b=>b.lab||("circuito "+brkCalc(b).cs.join("-"));
 function simulate(prevTrip,burnt){
   let ctl={on:new Set(simState.ctl||[]),pressed:simState.pressed},res;const trips=new Set(prevTrip),bset=new Set(burnt),logs=[],sparks=[],flips=new Map();let ok=false;
   for(let i=0;i<16;i++){res=simCore(trips,bset,ctl);res.log.forEach(e=>logs.push(e));res.sparks.forEach(p=>sparks.push(p));res.trips.forEach(t=>trips.add(t));res.newBurnt.forEach(b=>bset.add(b));
+    /* un contactor accionado a mano (botón de prueba) queda cerrado aunque su bobina no tenga tensión */
+    for(const id of simState.forced)if(res.coil[id])res.coil[id]={...res.coil[id],on:true,forced:true};
     const next=new Set(Object.keys(res.coil).filter(k=>res.coil[k].on).map(Number));
     if(next.size===ctl.on.size&&[...next].every(x=>ctl.on.has(x))){ok=true;break}
     for(const x of new Set([...next,...ctl.on]))if(next.has(x)!==ctl.on.has(x))flips.set(x,(flips.get(x)||0)+1);
@@ -223,7 +225,8 @@ function simCore(prevTrip,burnt,ctl){
   if(PG&&PG.din)for(const it of S.items){const c=res.coil[it.id];if(!c)continue;const lab=it.p.des||CAT[it.type].n;
     if(it.type==="pilot"){if(c.on)res.status.push({lvl:"ok",msg:`${lab} (piloto ${String(it.p.color).toLowerCase()}): encendida.`});else if(c.why.startsWith("poco"))res.status.push({lvl:"warn",msg:`${lab}: luz piloto de ${c.r} V con ${c.v} V, casi no se ve.`});continue}
     if(it.type==="supv"){if(c.why!=="sin tensión")res.status.push(c.on?{lvl:"ok",msg:`${lab}: red normal, cierra 11-14.`}:{lvl:"warn",msg:`${lab}: ${c.why}. Abre 11-14 y no deja arrancar.`});continue}
-    if(c.on)res.status.push({lvl:"ok",msg:`${lab}: bobina con ${c.v} V, ${it.type==="timer"?(timerOp(it,ctl)?"contacto 15-18 cerrado":`contando ${timerT(it.p)} s`):"contactos cerrados"}.`});
+    if(c.forced)res.status.push({lvl:"warn",msg:`${lab}: accionado a mano para probar (su bobina tiene ${c.v||0} V). En la realidad lo cierra la bobina A1-A2.`});
+    else if(c.on)res.status.push({lvl:"ok",msg:`${lab}: bobina con ${c.v} V, ${it.type==="timer"?(timerOp(it,ctl)?"contacto 15-18 cerrado":`contando ${timerT(it.p)} s`):"contactos cerrados"}.`});
     else if(c.why.startsWith("poco"))res.status.push({lvl:"warn",msg:`${lab}: la bobina es de ${c.r} V y recibe ${c.v} V. Zumba y no cierra.`})}
   const order={crit:0,warn:1,ok:2,off:3};res.status.sort((a,b)=>order[a.lvl]-order[b.lvl]);
   return res}
