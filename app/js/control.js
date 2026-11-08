@@ -10,7 +10,7 @@
    repite hasta que nada cambie. Así funciona la retención 13-14.
    ===================================================================== */
 const CTL_COIL=new Set(["icont","cont","relay","timer"]);
-const CTL_TYPES=new Set([...CTL_COIL,"ovl","push","emerg","selector","pilot","supv"]);
+const CTL_TYPES=new Set([...CTL_COIL,"ovl","push","emerg","selector","pilot","supv","spd"]);
 const coilVolt=s=>parseInt(String(s))||120;
 const ovlMax=p=>parseFloat(String(p.range).split("–")[1])||13;
 const ovlMin=p=>parseFloat(String(p.range).split("–")[0])||9;
@@ -33,6 +33,7 @@ function dinPins(it){const p=it.p;
    case"emerg":return[...row(19,["11"]),...row(153,["12"])];
    case"selector":return sel3(p)?[...row(19,["13","23"]),...row(153,["14","24"])]:[...row(19,["13"]),...row(153,["14"])];
    case"pilot":return[...row(19,["X1"]),...row(153,["X2"])];
+   case"spd":return[...row(19,p.poles===4?["L1","L2","L3","N"]:["L1","L2"],k=>k==="N"?"N":"C"),...row(153,["PE"],"T")];
    case"supv":{const s=String(p.sys||"");const L=s.startsWith("Trif")?["L1","L2","L3"]:s.startsWith("Bif")?["L1","L2"]:["L","N"];
      return[...row(19,L,k=>k==="N"?"N":"C"),...row(153,["11","12","14"])]}}
   return[]}

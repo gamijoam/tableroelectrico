@@ -9,7 +9,7 @@
 const WK=220, WM={l:78,t:40,r:40,b:90}, PANEL_W=260;
 const WCOL={Negro:"#1f2224",Rojo:"#c8322a",Azul:"#2f6fd0",Amarillo:"#e8c22c",Blanco:"#f4f4f0",Verde:"#2f9e44"};
 const AWG_W={"14":3,"12":3.6,"10":4.3,"8":5,"6":5.8};
-const APPL120={"Nada":0,"Cargador de teléfono":20,"Televisor":150,"Licuadora":600,"Nevera":700,"Plancha":1200,"Microondas":1500,"Secador de pelo":1800,"Plancha y microondas juntos":2700};
+const APPL120={"Nada":0,"Cargador de teléfono":20,"Televisor":150,"Freezer pequeño":150,"Licuadora":600,"Nevera":700,"Freidora de aire":1500,"Plancha":1200,"Microondas":1500,"Secador de pelo":1800,"Plancha y microondas juntos":2700};
 const APPL240={"Nada":0,"Secadora de ropa":5000,"Cocina eléctrica":8000};
 const FINISH=["Frisado y pintado","Bloque sin frisar","Cerámica"];
 const STD_H=[[0.30,"Tomas · 0,30 m"],[1.20,"Interruptores · 1,20 m"],[1.60,"Tablero · 1,60 m"],[2.20,"Apliques y A/A · 2,20 m"]];
@@ -45,7 +45,22 @@ const DEV={
  heater:{n:"Calentador de agua",short:"Calentador",w:76,h:130,V:240,terms:T3,d:{W:4500},f:[["W","Potencia (W)",[3000,4500,5500]]],W:p=>p.W,std:1.6},
  pump:{n:"Bomba de agua 240 V",short:"Bomba",w:100,h:66,V:240,terms:T3,d:{hp:"1 HP"},f:[["hp","Potencia",["1/2 HP","1 HP","2 HP"]]],W:p=>({"1/2 HP":600,"1 HP":1100,"2 HP":2100})[p.hp],std:.25},
 };
-const LIB_WALL=[["Alimentación",["panel","supply","feed"]],["Protección y respaldo",["estabw","protw","upsw","invw"]],["Puntos eléctricos",["toma","toma240","inter","inter3","luz"]],["Aparatos para probar",["ac","heater","pump"]]];
+/* Estabilizador bifásico (autotransformador): entra L1-L2-N y entrega 110 V y 220 V con neutro común */
+DEV.estab2={n:"Estabilizador bifásico 110/220 V",short:"Estabilizador",w:150,h:150,terms:[["IL1","F","E·L1"],["IL2","F","E·L2"],["IN","N","E·N"],["T","T","T"],["O110","F","S·110"],["O220","F","S·220"],["ON","N","S·N"]],
+  d:{kva:10,on:true},f:[["kva","Capacidad (kVA)",[3,5,8,10,15]]],price:p=>({3:220,5:350,8:480,10:600,15:900})[p.kva]||600,
+  qn:p=>`Estabilizador automático ${p.kva} kVA, entrada bifásica, salidas 110 V y 220 V`,std:1.1,
+  tip:"Entrada: L1, L2 y neutro de la red. Salidas: S·110 (110 V a neutro), S·220 (220 V a neutro) y S·N (neutro común con la entrada). Elige al menos 25% más de capacidad que la carga."};
+/* Sub-tablero: caja con barras L1, L2, N y T y hasta 8 módulos de breakers 1P o 2P */
+const SUBT_OPTS=["—","1P 10A","1P 16A","1P 20A","1P 25A","1P 32A","2P 16A","2P 20A","2P 25A","2P 32A","2P 40A","2P 50A","2P 63A"];
+function subtBrks(p){const out=[];let slot=0;for(let i=1;i<=6;i++){const m=/^(\d)P (\d+)A$/.exec(p["b"+i]||"");if(!m)continue;const poles=+m[1],In=+m[2];if(slot+poles>8)break;out.push({i,poles,In,name:p["n"+i]||"",slot});slot+=poles}return out}
+const subtBar=slot=>slot%2?"L2":"L1";
+DEV.subt={n:"Sub-tablero de breakers",short:"Sub-tablero",w:200,h:150,terms:[["L1","F","L1"],["L2","F","L2"],["N","N","N"],["T","T","T"]],
+  d:{puente:"No",b1:"2P 20A",n1:"",b2:"—",n2:"",b3:"—",n3:"",b4:"—",n4:"",b5:"—",n5:"",b6:"—",n6:""},
+  f:[["puente","Puente entre barras L1 y L2",["No","Sí"]],...[1,2,3,4,5,6].flatMap(i=>[["b"+i,"Breaker "+i,SUBT_OPTS],["n"+i,"Qué alimenta el "+i,"text"]])],
+  price:p=>12+subtBrks(p).reduce((a,b)=>a+PRICE_DIN.mcb({poles:b.poles,In:b.In,kA:6}),0),
+  qn:p=>`Sub-tablero superficial 8 módulos con ${subtBrks(p).map(b=>`breaker ${b.poles}P ${b.In}A`).join(", ")||"sin breakers"}`,std:1.6,
+  tip:"Entrada por arriba: L1, L2, neutro y tierra. Cada breaker toma la barra de su posición (L1, L2, L1…); los de 2 polos toman L1 y L2. Con el puente, las dos barras quedan unidas (todo a 110 V)."};
+const LIB_WALL=[["Alimentación",["panel","supply","feed","subt"]],["Protección y respaldo",["estab2","estabw","protw","upsw","invw"]],["Puntos eléctricos",["toma","toma240","inter","inter3","luz"]],["Aparatos para probar",["ac","heater","pump"]]];
 const WALL_DEFS=`<pattern id="pBlk" width="88" height="44" patternUnits="userSpaceOnUse"><rect width="88" height="44" fill="#b9b6ae"/><path d="M0 0.5H88M0 22.5H88M0.5 0V22M44.5 22V44" stroke="#9a978f" stroke-width="2"/></pattern>
 <pattern id="pTile" width="66" height="66" patternUnits="userSpaceOnUse"><rect width="66" height="66" fill="#f3f4f1"/><path d="M0 0.5H66M0.5 0V66" stroke="#cfd3d0" stroke-width="1.5"/></pattern>
 <linearGradient id="gMot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4d6d82"/><stop offset=".22" stop-color="#8fb0c4"/><stop offset=".55" stop-color="#5d7f96"/><stop offset="1" stop-color="#36505f"/></linearGradient><linearGradient id="gMotF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f5b6c"/><stop offset=".22" stop-color="#7393a7"/><stop offset=".55" stop-color="#4d6d82"/><stop offset="1" stop-color="#2c4350"/></linearGradient><linearGradient id="gPump" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2556a3"/><stop offset=".22" stop-color="#5c95e6"/><stop offset=".55" stop-color="#2f6fd0"/><stop offset="1" stop-color="#1c4686"/></linearGradient><radialGradient id="gGlow"><stop offset="0" stop-color="#fff3b0" stop-opacity=".95"/><stop offset=".5" stop-color="#ffd84d" stop-opacity=".35"/><stop offset="1" stop-color="#ffd84d" stop-opacity="0"/></radialGradient>`;
@@ -79,6 +94,8 @@ function itemTerms(it,wl=S.wall){const [cx,cy]=toPx(it.x,it.y,wl),out=[];
     for(const sr of g.srcs)for(const t of sr.top||[])out.push({id:`${it.id}/t${sr.id}.${t.k}`,key:`t${sr.id}.${t.k}`,role:"F",lineOf:sr.id,pole:t.k,x:t.x,y:t.y,label:""});
     for(const c of g.ctl)for(const q of c.pins)out.push({id:`${it.id}/c${c.id}.${q.k}`,key:`c${c.id}.${q.k}`,role:q.role,ctlOf:c.id,pin:q.k,x:q.x,y:q.y,label:""});
     return out}
+  if(it.type==="subt"){const d=DEV.subt;[[-70,"L1"],[-46,"L2"],[46,"N"],[70,"T"]].forEach(([dx,k])=>{const t=d.terms.find(x=>x[0]===k);out.push({id:`${it.id}/${k}`,key:k,role:t[1],label:t[2],x:cx+dx,y:cy-d.h/2-11})});
+    for(const b of subtBrks(it.p))for(let j=0;j<b.poles;j++)out.push({id:`${it.id}/Q${b.i}.${j}`,key:`Q${b.i}.${j}`,role:"F",label:`${b.name||"Q"+b.i}${b.poles>1?" polo "+(j+1):""}`,x:cx-88+(b.slot+j)*22+11,y:cy+d.h/2+11});return out}
   const d=DEV[it.type],tl=it.type==="supply"&&S.lc.sys!=="3F"?d.terms.filter(t=>t[0]!=="L3"):d.terms,n=tl.length,sp=18;
   tl.forEach(([key,role,label],i)=>out.push({id:`${it.id}/${key}`,key,role,label,src:(it.type==="feed"||it.type==="supply")&&role==="F",x:cx+(i-(n-1)/2)*sp,y:cy+d.h/2+11}));return out}
 function allTerms(wl=S.wall){const m=new Map();for(const it of wl.items)for(const t of itemTerms(it,wl))m.set(t.id,Object.assign(t,{item:it}));return m}
@@ -116,6 +133,22 @@ function drawDev(type,p,st){const on=st&&(st.s==="on"||st.s==="weak"),burnt=st&&
     const W=e.w(ep),H=e.h(ep);s=`<g transform="scale(${d.sc}) translate(${-W/2} ${-H/2})">${DRAWX[d.ext](ep,W,H)}</g>`;break}
   case"protw":{const ok=st?st.s==="on":p.on!==false;s=box(-25,-38,50,76,"#f4f4f0",{rx:10,s:"#b9bab4"})+scr(-17,-30,34,17,"#0d1a10")+T(0,-17.5,st?(ok?"120":"---"):"120",{fs:10,c:"#5cff7a"});
     s+=led(-10,-4,2.4,"#3bd16b",ok,"#24452f")+led(10,-4,2.4,"#ff3b30",!ok,"#5a1f1f")+R(-15,5,30,26,"#000",{rx:8,op:.12})+R(-15,4,30,26,"#efefea",{rx:8,s:"#c4c5bf"})+R(-8,9,3,10,"url(#gHole)",{rx:1})+R(5,10,3,8,"url(#gHole)",{rx:1})+`<path d="M-2.5 26v-2.5a2.5 2.5 0 0 1 5 0v2.5z" fill="#1b1e20"/>`;break}
+  case"estab2":{const ok=st?st.s==="on":p.on!==false;s=box(-75,-75,150,150,"#e6e7e3",{rx:8,s:"#8d918d"})+R(-75,-75,150,26,"url(#gBkS)",{rx:8})+R(-75,-55,150,6,"#1b1d1f")+T(0,-58,"ESTABILIZADOR",{fs:8.5,c:"#fff",ff:SANS,fw:700});
+    s+=scr(-62,-40,58,26,"#0d1a10",{rx:3})+T(-33,-22,st?(ok?"240":"---"):"240",{fs:13,c:"#5cff7a"})+T(-33,-6,"ENTRADA",{fs:5.5,fw:400});
+    s+=scr(6,-40,56,26,"#0d1a10",{rx:3})+T(34,-30,ok||!st?"110 V":"---",{fs:8,c:"#5cff7a"})+T(34,-19,ok||!st?"220 V":"---",{fs:8,c:"#5cff7a"})+T(34,-6,"SALIDAS",{fs:5.5,fw:400});
+    s+=led(-52,8,3.4,"#3bd16b",ok,"#24452f")+T(-45,10.5,"NORMAL",{fs:5.5,a:"start",fw:400})+led(14,8,3.4,"#ffc533",st&&!ok,"#5a4a1d")+T(21,10.5,"FALLA",{fs:5.5,a:"start",fw:400});
+    for(let k=0;k<4;k++)s+=R(-60,24+k*7,120,3,"url(#gHole)",{rx:1.5,op:.6})+R(-60,27+k*7,120,.7,"#fff");s+=T(0,66,p.kva+" kVA · 110/220 V",{fs:8,fw:700});break}
+  case"subt":{s=box(-100,-75,200,150,"#cfd3d0",{rx:6,s:"#7d827c"})+box(-94,-58,188,120,"#e4e6e3",{rx:3,s:"#a9ada8",so:.1})+T(0,-63,cutText((p.name||"Sub-tablero").toUpperCase(),28),{fs:7.5,ff:SANS,fw:700});
+    s+=R(-96,-6,192,10,"url(#gR)",{rx:2,s:"#8b9397",sw:.6});
+    [[-70,"L1"],[-46,"L2"],[46,"N"],[70,"T"]].forEach(([x,k])=>s+=T(x,-66,k,{fs:6.5,fw:700,c:k==="N"?"#3a4044":k==="T"?"#2f9e44":"#1d2326"}));
+    if(p.puente==="Sí")s+=`<path d="M-70 -78v6h24v-6" fill="none" stroke="#e8c22c" stroke-width="3"/>`+T(-58,-52,"PUENTE",{fs:5.5,c:"#a07d10",fw:700});
+    const bs=subtBrks(p);if(!bs.length)s+=T(0,30,"Sin breakers: elígelos en Propiedades",{fs:6.5,fw:400,c:"#5b6266"});
+    for(const b of bs){const x=-88+b.slot*22,w=b.poles*22-2,tr=st&&st.trips&&st.trips.includes(b.i);
+      s+=box(x,-40,w,72,"url(#gB)",{rx:2.5,s:"#9a9e99",so:.15});for(let j=0;j<b.poles;j++)s+=lever(x+5+j*22,11,!tr,-36,44);
+      if(b.poles>1)s+=R(x+5,-20,(b.poles-1)*22+11,3,"url(#gLv)",{rx:1});
+      s+=T(x+w/2,6+12,`C${b.In}`,{fs:7,fw:700})+(tr?R(x+2,22,w-4,6,"#e0302a",{rx:1}):"")+T(x+w/2,46,cutText(b.name||"Q"+b.i,b.poles>1?9:4),{fs:5.5,fw:400});
+      for(let j=0;j<b.poles;j++)s+=T(x+11+j*22,60,subtBar(b.slot+j),{fs:5,fw:400,c:"#5b6266"})}
+    break}
   case"luz":{if(on)s+=C(0,8,48,"url(#gGlow)");s+=box(-15,-32,30,10,"#bdb7aa",{rx:3})+R(-3,-22,6,10,"url(#gNi)")+R(-8,-14,16,10,"url(#gNi)",{rx:2,s:"#8d918d",sw:.5});
     s+=C(0,8,16,burnt?"#4a4743":on?"#fff6c8":"#f2f0e6",{s:"#b9b3a0"})+`<path d="M-5 10 q2.5 -6 5 0 q2.5 6 5 0" fill="none" stroke="${on?"#ff9a1a":"#9a958a"}" stroke-width="1.4"/>`+C(0,8,16,"url(#gLens)",{op:.6});
     if(burnt)s+=`<path d="M-8 2 l6 5 -3 4 7 4" fill="none" stroke="#222" stroke-width="1.2"/>`;break}
@@ -313,14 +346,14 @@ function renderPropsWall(){const bs=srcById(sel);
     else P.innerHTML=`<div><h2>${esc(d.n)}</h2><div class="meta">${d.V?d.V+" V · ":""}${d.price?"$ "+fmtNum(devPrice(d,it.p))+" en el presupuesto":"Aparato del cliente"}</div></div>
       <div class="fields"><label class="field wide"><span>Nombre</span><input class="txt" id="pp-name" value="${esc(it.p.name)}" placeholder="${esc(d.short)}"></label>
       ${it.type==="feed"?`<label class="field wide"><span>Circuito del tablero</span><select class="sel" id="pp-brk">${srcList().map(b=>`<option value="${b.id}"${b.id===it.p.brk?" selected":""}>${esc(srcOption(b))}</option>`).join("")}</select></label>`:""}
-      ${(d.f||[]).map(([k,l,o])=>`<label class="field${o.length>4?" wide":""}"><span>${esc(l)}</span><select class="sel" id="pp-${k}">${o.map(v=>opt(v,it.p[k])).join("")}</select></label>`).join("")}</div>
+      ${(d.f||[]).map(([k,l,o])=>o==="text"?`<label class="field"><span>${esc(l)}</span><input class="txt" id="pp-${k}" value="${esc(it.p[k]??"")}"></label>`:`<label class="field${o.length>4?" wide":""}"><span>${esc(l)}</span><select class="sel" id="pp-${k}">${o.map(v=>opt(v,it.p[k])).join("")}</select></label>`).join("")}</div>
       ${it.type==="inter"?`<label class="switch"><input type="checkbox" id="pp-on"${it.p.on?" checked":""}> Encendido</label>`:""}
       ${res&&res.loads[it.id]?readCard(it,res):""}${d.tip?`<p class="note">${esc(d.tip)}</p>`:""}${infoCard(it.type)}
       ${posFields(it)}<div class="row-btns"><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>${sim}`;
     const pe=$("pp-edit");if(pe)pe.onclick=()=>setView("board");const pg=$("pp-peine");if(pg)pg.onchange=e=>mutate(()=>{it.p.peine=e.target.checked});
     const nm=$("pp-name");if(nm)nm.onchange=e=>mutate(()=>{it.p.name=e.target.value});
     const pb=$("pp-brk");if(pb)pb.onchange=e=>mutate(()=>{it.p.brk=+e.target.value});
-    (d.f||[]).forEach(([k,,o])=>{$("pp-"+k).onchange=e=>{const v=typeof o[0]==="number"?Number(e.target.value):e.target.value;mutate(()=>{it.p[k]=v})}});
+    (d.f||[]).forEach(([k,,o])=>{$("pp-"+k).onchange=e=>{const v=o!=="text"&&typeof o[0]==="number"?Number(e.target.value):e.target.value;mutate(()=>{it.p[k]=v})}});
     const on=$("pp-on");if(on)on.onchange=e=>mutate(()=>{it.p.on=e.target.checked});
     ["x","y"].forEach(k=>$("pp-"+k).onchange=e=>mutate(()=>{it[k]=+e.target.value||0;clampItem(it)}));
     const sd=$("pp-std");if(sd)sd.onclick=()=>mutate(()=>{it.y=d.std;clampItem(it)});

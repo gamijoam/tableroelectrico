@@ -10,8 +10,19 @@
 let showFlow=true,meterA=null;
 const isPh=x=>!!x&&x!=="0"&&x!=="X";
 /* Tensión entre dos lecturas, igual que el simulador */
-const voltOf=(a,b)=>{if(a==null||b==null||a==="X"||b==="X"||a===b)return 0;if(a==="0"||b==="0")return 120;return S.lc.sys==="1F"?240:208};
-const potTxt=(x,role)=>x==null?"sin conexión (al aire)":x==="X"?"dos fases juntas (cortocircuito)":x==="0"?(role==="T"?"tierra conectada (0 V)":role==="N"?"neutro (0 V)":"neutro o tierra (0 V)"):x[0]==="U"?"salida de un equipo con batería":`fase ${x}`;
+/* Cada fuente es un fasor: fases de la red (A, B, C), neutro (0) y las salidas del estabilizador
+   bifásico (S<id>a = 110 V, S<id>b = 220 V, en fase entre sí y con neutro común).
+   El voltaje entre dos puntos es la diferencia, redondeada al valor nominal más cercano. */
+const NOMV=[120,208,240,360];
+function phasor(x){if(x==="0")return[0,0];const d=Math.PI/180,P=(m,g)=>[m*Math.cos(g*d),m*Math.sin(g*d)];
+  if(x==="A")return P(120,0);if(x==="B")return S.lc.sys==="1F"?P(120,180):P(120,-120);if(x==="C")return P(120,120);
+  if(x[0]==="S")return P(x.endsWith("b")?240:120,0);return null}
+const voltOf=(a,b)=>{if(a==null||b==null||a==="X"||b==="X"||a===b)return 0;
+  if(a[0]==="U"||b[0]==="U"){if(a==="0"||b==="0")return 120;return S.lc.sys==="1F"?240:208}
+  const p=phasor(a),q=phasor(b);if(!p||!q)return a==="0"||b==="0"?120:S.lc.sys==="1F"?240:208;
+  const m=Math.hypot(p[0]-q[0],p[1]-q[1]);return m<30?0:NOMV.reduce((z,v)=>Math.abs(v-m)<Math.abs(z-m)?v:z,120)};
+const potName=x=>x[0]==="U"?"salida de un equipo con batería":x[0]==="S"?`salida ${x.endsWith("b")?"220":"110"} V del estabilizador`:`fase ${x}`;
+const potTxt=(x,role)=>x==null?"sin conexión (al aire)":x==="X"?"dos fases juntas (cortocircuito)":x==="0"?(role==="T"?"tierra conectada (0 V)":role==="N"?"neutro (0 V)":"neutro o tierra (0 V)"):potName(x);
 
 /* Árboles de recorrido: de cada fuente hacia afuera, solo por terminales del mismo tipo */
 function flowTree(adj,srcs,ok){const par=new Map(),q=[];for(const s of srcs)if(ok(s)&&!par.has(s)){par.set(s,null);q.push(s)}
@@ -34,7 +45,11 @@ function netBlockers(k,ctx,out=new Set(),seen=new Set()){const {terms,nets,SRC,t
     else if(it.type==="inter"&&!it.p.on)out.add(`${devLabel(it)} está apagado`);
     else if(it.type==="inter3"&&/^T[12]$/.test(t.key)&&t.key!=="T"+(it.p.pos===2?2:1))out.add(`${devLabel(it)} está del otro lado (viajero ${t.key.slice(1)} sin corriente)`);
     else if(it.type==="feed"&&!SRC.find(x=>x.id===it.p.brk))out.add(`${devLabel(it)} no tiene circuito del tablero elegido`);
+    else if(it.type==="subt"&&/^Q\d+\.\d$/.test(t.key)){const [bi,j]=t.key.slice(1).split(".").map(Number),b=subtBrks(it.p).find(x=>x.i===bi);if(!b)continue;const lab=`el breaker de ${b.name||"Q"+b.i} (${devLabel(it)})`;
+      if(trips.has(`s${it.id}.${b.i}`))out.add(`${lab} está disparado (rearma)`);
+      else{const bar=subtBar(b.slot+j),bk=`${it.id}/${bar}`;if(!S.wall.wires.some(w=>w.a===bk||w.b===bk)&&!(it.p.puente==="Sí"))out.add(`${lab} toma la barra ${bar}, que no tiene cable de entrada${bar==="L2"?" (con una sola línea de 110 V hace falta el puente L1-L2)":""}`);else up.push(bk)}}
     else if(t.ctlOf!=null){const d=S.items.find(i=>i.id===t.ctlOf);if(!d||/^(A[12]|X[12])$/.test(t.pin))continue;const lab=d.p.des||CAT[d.type].n;
+      const outPin={icont:/^(T\d|14|22)$/,cont:/^[2468]$/,relay:/^(12|14|22|24)$/,timer:/^(16|18)$/}[d.type];if(outPin&&!outPin.test(t.pin))continue;
       if((d.type==="icont"||d.type==="cont"||d.type==="relay")&&!ctl.on.has(d.id)){const cw=coilWhy(d,ctx);out.add(`${lab} está abierto${cw?": "+cw:" (su bobina no tiene tensión)"}`)}
       else if(d.type==="push"&&d.p.ct!=="NC"&&!ctl.pressed.has(d.id))out.add(`${lab} no está presionado`);
       else if(d.type==="emerg"&&d.p.on===false)out.add(`${lab} está enclavado`);
@@ -73,20 +88,27 @@ function coilWhy(d,ctx){ctx.cw=ctx.cw||new Set();if(ctx.cw.has(d.id))return"";ct
         if([...bl].some(x=>x.startsWith(lab+" ")))return`${sl} se alimenta de la salida de ${lab}: con ${lab} abierto el supervisor no tiene tensión y nunca lo cierra. Conecta ${L.join(" y ")} del supervisor antes del contactor (en su entrada L1/L2 o desde un breaker de mando)`;
         const nw=L.filter((_,i)=>!wiredT(Lids[i]));
         if(nw.length)return`${sl} no tiene cable en ${nw.join(" y ")}: ${chk.why}, no cierra 11-14`;
-        return`${sl} no tiene tensión en ${L.join(" y ")}${bl.size?` (${[...bl].join("; ")})`:""}, así que no cierra 11-14`}
+        const miss=L.filter((k,i)=>k!=="N"&&!isPh(ctx.pot(Lids[i])));bl.forEach(x=>{if(x.startsWith(sl+" "))bl.delete(x)});
+        return`${sl} no recibe fase en ${miss.join(" y ")}${bl.size?` (${[...bl].join("; ")})`:""}${miss.length<L.filter(k=>k!=="N").length?": con una sola fase no cierra 11-14 (así protege por falta de fase)":", así que no cierra 11-14"}`}
       return`${sl}: ${chk.why}. Por eso abre 11-14`}
     if(t11&&!isPh(ctx.pot(t11)))return wiredT(t11)?`el borne 11 (común) de ${sl} no tiene fase${(()=>{const b=netBlockers(t11,ctx);return b.length?" ("+b.join("; ")+")":""})()}`:`el borne 11 (común) de ${sl} no tiene cable: llévale la fase que manda la bobina`;
     if(R.has(t11)&&!R.has(t14))return`la bobina está en el borne 11 de ${sl}; el 11 es la entrada del contacto. Lleva la fase al 11 y la bobina (A1) al 14`}
   const k=!isPh(pa)?A1:A2,bl=netBlockers(k,ctx).filter(x=>!x.startsWith(lab+" "));
   return bl.length?bl.join("; "):k===A1?"A1 no llega a ninguna fase":`A2 no llega a ${other}`}
 
+/* Terminales de un circuito: se siguen los cables y los interruptores cerrados, sin pasar por barras ni tableros */
+function circuitTerms(k){const seen=new Set([k]),q=[k],it=id=>S.wall.items.find(i=>i.id===id);
+  while(q.length){const a=q.shift(),nx=[];for(const w of S.wall.wires){if(w.a===a)nx.push(w.b);else if(w.b===a)nx.push(w.a)}
+    const [iid,key]=a.split("/"),d=it(+iid);if(d){if(d.type==="inter"&&d.p.on&&(key==="COM"||key==="L"))nx.push(`${iid}/${key==="COM"?"L":"COM"}`);
+      if(d.type==="inter3"){const tk="T"+(d.p.pos===2?2:1);if(key==="COM")nx.push(`${iid}/${tk}`);else if(key===tk)nx.push(`${iid}/COM`)}}
+    for(const n of nx)if(!seen.has(n)){seen.add(n);q.push(n)}}return seen}
 /* Explica por qué un aparato de dos bornes no tiene voltaje */
 function whyOff(it,k0,k1,ctx){const d=DEV[it.type],[l0,l1]=d.terms.filter(t=>t[1]!=="T").map(t=>t[2]),a=ctx.pot(k0),b=ctx.pot(k1),two=d.V!==120;
   const tail=k=>{const bl=netBlockers(k,ctx);return bl.length?` Revisa: ${bl.join("; ")}.`:""};
   const wired=k=>S.wall.wires.some(w=>w.a===k||w.b===k);
   if(a==null&&b==null)return!wired(k0)&&!wired(k1)?"no tiene cables conectados":`ninguno de sus bornes llega a algo con corriente.${tail(k0)||tail(k1)}`;
   if(!isPh(a)&&!isPh(b))return`no le llega la fase al borne ${two?l0+" ni al "+l1:l0}.${tail(k0)||tail(k1)}`;
-  if(a===b)return`sus dos bornes tienen la misma fase (${a}): no hay voltaje entre ellos. ${two?"El otro borne va a otra fase.":"El borne "+l1+" va al neutro."}`;
+  if(a===b)return`sus dos bornes tienen la misma ${potName(a)}: no hay voltaje entre ellos. ${two?"El otro borne va a otra fase.":"El borne "+l1+" va al neutro."}`;
   const miss=isPh(a)?[k1,l1]:[k0,l0];
   if(!wired(miss[0]))return`le falta el cable del borne ${miss[1]} (${two?"la otra fase":"el neutro"}).`;
   return`el borne ${miss[1]} no llega ${two?"a otra fase":"al neutro"}.${tail(miss[0])}`}
