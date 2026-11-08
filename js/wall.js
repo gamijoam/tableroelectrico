@@ -131,7 +131,14 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
   for(const [m,l] of STD_H)if(m<W.h){const y=WM.t+wh-m*WK;s+=`<line x1="${WM.l}" y1="${y}" x2="${WM.l+ww}" y2="${y}" stroke="#7a6f60" stroke-width="1" stroke-dasharray="4 6" opacity=".45"/>`+T(WM.l+ww-8,y-5,l,{fs:8.5,a:"end",fw:400,c:"#7a6f60",ff:SANS})}
   /* conduit under the wires */
   const valid=W.wires.map((w,i)=>[w,i]).filter(([w])=>terms.has(w.a)&&terms.has(w.b));
-  if(W.tube!==false){let t1="",t2="";for(const [w,i] of valid){const d=wirePath(w,i,terms).d;t1+=`<path d="${d}" fill="none" stroke="#b9bcb6" stroke-width="17" stroke-linejoin="round" stroke-linecap="round"/>`;t2+=`<path d="${d}" fill="none" stroke="#e2e4df" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"/>`}s+=`<g opacity=".9">${t1}${t2}</g>`}
+  /* Tubería PVC: borde oscuro, cuerpo gris, brillo; codos en cada esquina y total de metros */
+  if(W.tube!==false&&valid.length){let t1="",t2="",t3="",fit="";const seen=new Set();
+    for(const [w,i] of valid){const p=wirePath(w,i,terms),dd=p.d;
+      t1+=`<path d="${dd}" fill="none" stroke="#5f645e" stroke-width="22" stroke-linejoin="round" stroke-linecap="round"/>`;
+      t2+=`<path d="${dd}" fill="none" stroke="#cdd0c9" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/>`;
+      t3+=`<path d="${dd}" fill="none" stroke="#f3f4f0" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" opacity=".75" transform="translate(-3 -3)"/>`;
+      for(const [x,y] of [p.pts[1],p.pts[2]]){const k=Math.round(x/8)+","+Math.round(y/8);if(seen.has(k))continue;seen.add(k);fit+=C(x,y,12.5,"#bfc2bb",{s:"#5f645e",sw:1.6})+C(x,y,6,"#d9dbd5")}}
+    s+=`<g class="tube">${t1}${t2}${t3}${fit}</g>`+R(WM.l+ww-206,WM.t+wh-40,198,24,"#ffffff",{rx:5,op:.92,s:"#5f645e",sw:1})+T(WM.l+ww-107,WM.t+wh-24,`Tubería PVC 3/4": ${fmtNum(tubeMeters(),1)} m`,{fs:11,ff:SANS,fw:600,c:"#2a2e31"})}
   /* items */
   for(const it of W.items){const [cx,cy]=toPx(it.x,it.y),{w,h}=itemSize(it);let g;
     if(it.type==="panel"){const sc=PANEL_W/PW;g=`<svg x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" viewBox="0 0 ${PW} ${lcPH()}">${lcPanelSvg({wall:true,trip:simState.trip})}</svg>`;
