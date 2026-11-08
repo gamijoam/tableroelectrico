@@ -336,7 +336,7 @@ export const Cta: React.FC = () => {
           </div>
         </Rise>
         <Rise delay={1.8}>
-          <div style={{ fontFamily: sans, fontSize: 30, color: C.muted }}>PC · tablet · teléfono — hecho en y para Venezuela</div>
+          <div style={{ fontFamily: sans, fontSize: 30, color: C.muted }}>En tu computadora, tablet y teléfono</div>
         </Rise>
       </AbsoluteFill>
     </AbsoluteFill>

@@ -1,2 +1,6 @@
 node_modules
 out
+.tts
+voices/*.onnx
+voices/*.json
+voices/*.wav
