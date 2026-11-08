@@ -47,12 +47,12 @@ const DEV={
 };
 /* Estabilizador bifásico (autotransformador): entra L1-L2-N y entrega 110 V y 220 V con neutro común */
 DEV.estab2={n:"Estabilizador bifásico 110/220 V",short:"Estabilizador",w:150,h:150,terms:[["IL1","F","E·L1"],["IL2","F","E·L2"],["IN","N","E·N"],["T","T","T"],["O110","F","S·110"],["O220","F","S·220"],["ON","N","S·N"]],
-  d:{kva:10,on:true},f:[["kva","Capacidad (kVA)",[3,5,8,10,15]]],price:p=>({3:220,5:350,8:480,10:600,15:900})[p.kva]||600,
+  d:{kva:10,brkE:"Encendido",brkB:"Apagado",on:true},f:[["kva","Capacidad (kVA)",[3,5,8,10,15]],["brkE","Breaker Estabilizador",["Encendido","Apagado"]],["brkB","Breaker Bypass",["Apagado","Encendido"]]],price:p=>({3:220,5:350,8:480,10:600,15:900})[p.kva]||600,
   qn:p=>`Estabilizador automático ${p.kva} kVA, entrada bifásica, salidas 110 V y 220 V`,std:1.1,
-  tip:"Entrada: L1, L2 y neutro de la red. Salidas: S·110 (110 V a neutro), S·220 (220 V a neutro) y S·N (neutro común con la entrada). Elige al menos 25% más de capacidad que la carga."};
+  tip:"Entrada: L1, L2 y neutro de la red. Salidas: S·110 (110 V a neutro), S·220 (220 V a neutro) y S·N (neutro común). Regula de 160 a 270 V de entrada; cuando baja la luz entrega lo mismo pero su capacidad baja y toma más corriente. Breaker Estabilizador: funcionamiento normal. Breaker Bypass: la red pasa directo sin regular (S·110 = L1, S·220 = L2); nunca los dos encendidos. Tócalos en el dibujo para cambiarlos."};
 /* Sub-tablero: caja con barras L1, L2, N y T y hasta 8 módulos de breakers 1P o 2P */
 const SUBT_OPTS=["—","1P 10A","1P 16A","1P 20A","1P 25A","1P 32A","2P 16A","2P 20A","2P 25A","2P 32A","2P 40A","2P 50A","2P 63A"];
-function subtBrks(p){const out=[];let slot=0;for(let i=1;i<=6;i++){const m=/^(\d)P (\d+)A$/.exec(p["b"+i]||"");if(!m)continue;const poles=+m[1],In=+m[2];if(slot+poles>8)break;out.push({i,poles,In,name:p["n"+i]||"",slot});slot+=poles}return out}
+function subtBrks(p){const out=[];let slot=0;for(let i=1;i<=6;i++){const m=/^(\d)P (\d+)A$/.exec(p["b"+i]||"");if(!m)continue;const poles=+m[1],In=+m[2];if(slot+poles>8)break;out.push({i,poles,In,name:p["n"+i]||"",slot,on:p["on"+i]!==false});slot+=poles}return out}
 const subtBar=slot=>slot%2?"L2":"L1";
 DEV.subt={n:"Sub-tablero de breakers",short:"Sub-tablero",w:200,h:150,terms:[["L1","F","L1"],["L2","F","L2"],["N","N","N"],["T","T","T"]],
   d:{puente:"No",b1:"2P 20A",n1:"",b2:"—",n2:"",b3:"—",n3:"",b4:"—",n4:"",b5:"—",n5:"",b6:"—",n6:""},
@@ -137,17 +137,19 @@ function drawDev(type,p,st){const on=st&&(st.s==="on"||st.s==="weak"),burnt=st&&
     s+=scr(-62,-40,58,26,"#0d1a10",{rx:3})+T(-33,-22,st?(ok?"240":"---"):"240",{fs:13,c:"#5cff7a"})+T(-33,-6,"ENTRADA",{fs:5.5,fw:400});
     s+=scr(6,-40,56,26,"#0d1a10",{rx:3})+T(34,-30,ok||!st?"110 V":"---",{fs:8,c:"#5cff7a"})+T(34,-19,ok||!st?"220 V":"---",{fs:8,c:"#5cff7a"})+T(34,-6,"SALIDAS",{fs:5.5,fw:400});
     s+=led(-52,8,3.4,"#3bd16b",ok,"#24452f")+T(-45,10.5,"NORMAL",{fs:5.5,a:"start",fw:400})+led(14,8,3.4,"#ffc533",st&&!ok,"#5a4a1d")+T(21,10.5,"FALLA",{fs:5.5,a:"start",fw:400});
-    for(let k=0;k<4;k++)s+=R(-60,24+k*7,120,3,"url(#gHole)",{rx:1.5,op:.6})+R(-60,27+k*7,120,.7,"#fff");s+=T(0,66,p.kva+" kVA · 110/220 V",{fs:8,fw:700});break}
+    /* dos breakers: Estabilizador (normal) y Bypass; se tocan para cambiarlos */
+    [["E",-48,"ESTAB.",p.brkE!=="Apagado"&&!(st&&st.tripE)],["B",14,"BYPASS",p.brkB==="Encendido"]].forEach(([k,x,lab,on])=>{s+=`<g class="wsb" data-b="${k}" style="cursor:pointer">`+box(x,20,34,30,"url(#gB)",{rx:3,s:"#9a9e99",so:.15})+R(x+11,23,12,24,"url(#gHole)",{rx:2})+R(x+12,on?24:34,10,12,"url(#gLv)",{rx:2})+R(x+13,on?25:44,8,2,on?"#9aa1a6":"#2a2e31",{rx:1})+flag(x+26,24,5,8,on)+T(x+17,58,lab,{fs:5.5,fw:700})+"</g>"});
+    if(st&&st.tripE)s+=T(-31,68,"DISPARADO",{fs:5.5,c:"#e0302a",fw:700});s+=T(14+17,68,p.kva+" kVA",{fs:7,fw:700});break}
   case"subt":{s=box(-100,-75,200,150,"#cfd3d0",{rx:6,s:"#7d827c"})+box(-94,-58,188,120,"#e4e6e3",{rx:3,s:"#a9ada8",so:.1})+T(0,-63,cutText((p.name||"Sub-tablero").toUpperCase(),28),{fs:7.5,ff:SANS,fw:700});
     s+=R(-96,-6,192,10,"url(#gR)",{rx:2,s:"#8b9397",sw:.6});
     [[-70,"L1"],[-46,"L2"],[46,"N"],[70,"T"]].forEach(([x,k])=>s+=T(x,-66,k,{fs:6.5,fw:700,c:k==="N"?"#3a4044":k==="T"?"#2f9e44":"#1d2326"}));
     if(p.puente==="Sí")s+=`<path d="M-70 -78v6h24v-6" fill="none" stroke="#e8c22c" stroke-width="3"/>`+T(-58,-52,"PUENTE",{fs:5.5,c:"#a07d10",fw:700});
     const bs=subtBrks(p);if(!bs.length)s+=T(0,30,"Sin breakers: elígelos en Propiedades",{fs:6.5,fw:400,c:"#5b6266"});
     for(const b of bs){const x=-88+b.slot*22,w=b.poles*22-2,tr=st&&st.trips&&st.trips.includes(b.i);
-      s+=box(x,-40,w,72,"url(#gB)",{rx:2.5,s:"#9a9e99",so:.15});for(let j=0;j<b.poles;j++)s+=lever(x+5+j*22,11,!tr,-36,44);
+      s+=`<g class="wsb" data-b="${b.i}" style="cursor:pointer">`+box(x,-40,w,72,"url(#gB)",{rx:2.5,s:"#9a9e99",so:.15});for(let j=0;j<b.poles;j++)s+=lever(x+5+j*22,11,b.on&&!tr,-36,44);
       if(b.poles>1)s+=R(x+5,-20,(b.poles-1)*22+11,3,"url(#gLv)",{rx:1});
       s+=T(x+w/2,6+12,`C${b.In}`,{fs:7,fw:700})+(tr?R(x+2,22,w-4,6,"#e0302a",{rx:1}):"")+T(x+w/2,46,cutText(b.name||"Q"+b.i,b.poles>1?9:4),{fs:5.5,fw:400});
-      for(let j=0;j<b.poles;j++)s+=T(x+11+j*22,60,subtBar(b.slot+j),{fs:5,fw:400,c:"#5b6266"})}
+      for(let j=0;j<b.poles;j++)s+=T(x+11+j*22,60,subtBar(b.slot+j),{fs:5,fw:400,c:"#5b6266"});s+="</g>"}
     break}
   case"luz":{if(on)s+=C(0,8,48,"url(#gGlow)");s+=box(-15,-32,30,10,"#bdb7aa",{rx:3})+R(-3,-22,6,10,"url(#gNi)")+R(-8,-14,16,10,"url(#gNi)",{rx:2,s:"#8d918d",sw:.5});
     s+=C(0,8,16,burnt?"#4a4743":on?"#fff6c8":"#f2f0e6",{s:"#b9b3a0"})+`<path d="M-5 10 q2.5 -6 5 0 q2.5 6 5 0" fill="none" stroke="${on?"#ff9a1a":"#9a958a"}" stroke-width="1.4"/>`+C(0,8,16,"url(#gLens)",{op:.6});
@@ -448,7 +450,15 @@ function terminalClick(id){if(reconn){applyReconn(id);return}const terms=allTerm
   if(pending===id){pending=null;renderAll();return}
   const a=pending,b=id;pending=null;if(!linkOk(a,b,terms)){renderAll();return}
   const ta=terms.get(a),tb=terms.get(b),w={id:uid++,a,b,color:wColor==="Auto"?autoColor(ta,tb):wColor,awg:wAwg};mutate(()=>{S.wall.wires.push(w)});sel=w.id;renderAll()}
+/* breakers dibujados en un aparato de la pared (sub-tablero y estabilizador): tocar enciende, apaga o rearma */
+function wallBrkTap(it,k){const L=devLabel(it);
+  if(it.type==="estab2"){if(k==="E"&&simState.trip.has("d"+it.id)){simState.trip.delete("d"+it.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste el breaker de ${L}.`});runSim();renderAll();toast(`${L}: breaker rearmado.`);return}
+    const key=k==="E"?"brkE":"brkB",on=k==="E"?it.p.brkE!=="Apagado":it.p.brkB==="Encendido";mutate(()=>{it.p[key]=on?"Apagado":"Encendido"});toast(`${L}: breaker ${k==="E"?"Estabilizador":"Bypass"} ${on?"apagado":"encendido"}.`);return}
+  const b=subtBrks(it.p).find(x=>x.i===+k);if(!b)return;const tk=`s${it.id}.${b.i}`,nm=b.name||"Q"+b.i;
+  if(simState.trip.has(tk)){simState.trip.delete(tk);simState.log.unshift({lvl:"ok",msg:`Rearmaste el breaker de ${nm} en ${L}.`});runSim();renderAll();toast(`${nm}: rearmado.`);return}
+  mutate(()=>{it.p["on"+b.i]=!b.on});toast(`${nm}: ${b.on?"apagado":"encendido"}.`)}
 wallEl.addEventListener("pointerdown",e=>{if(wallMode==="tube"&&!simState.running){tubeClick(e);return}
+  const sb=e.target.closest(".wsb");if(sb&&!pending&&wallMode!=="meter"){const g=sb.closest(".wi"),it=g&&S.wall.items.find(i=>i.id===+g.dataset.id);if(it){sel=it.id;wallBrkTap(it,sb.dataset.b);return}}
   const tbh=e.target.closest(".tb");if(tbh&&!e.target.closest(".wt,.wb,.wbh,.wi,.ww,.wh")){sel=+tbh.dataset.id;pending=null;reconn=null;renderAll();return}
   const hd=e.target.closest(".wh");if(hd){reconn={id:sel,end:hd.dataset.end,moved:false,sx:e.clientX,sy:e.clientY};pending=null;renderWall();return}
   if(wallMode==="meter"){const tm=e.target.closest(".wt");if(tm)meterClick(tm.dataset.t);else if(!e.target.closest(".wc,.wbh"))toast("Toca un tornillo o borne con cada punta del multímetro.");if(tm||!e.target.closest(".wc,.wbh"))return}

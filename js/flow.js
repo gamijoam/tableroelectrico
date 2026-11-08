@@ -14,14 +14,17 @@ const isPh=x=>!!x&&x!=="0"&&x!=="X";
    bifásico (S<id>a = 110 V, S<id>b = 220 V, en fase entre sí y con neutro común).
    El voltaje entre dos puntos es la diferencia, redondeada al valor nominal más cercano. */
 const NOMV=[120,208,240,360];
-function phasor(x){if(x==="0")return[0,0];const d=Math.PI/180,P=(m,g)=>[m*Math.cos(g*d),m*Math.sin(g*d)];
-  if(x==="A")return P(120,0);if(x==="B")return S.lc.sys==="1F"?P(120,180):P(120,-120);if(x==="C")return P(120,120);
-  if(x[0]==="S")return P(x.endsWith("b")?240:120,0);return null}
+/* Voltaje fase-neutro de la calle durante la prueba (120 V normal; bajones y subidas lo cambian) */
+const gridLN=()=>(typeof simState!=="undefined"&&simState.running&&simState.grid)||120;
+function phasor(x){if(x==="0")return[0,0];const d=Math.PI/180,P=(m,g)=>[m*Math.cos(g*d),m*Math.sin(g*d)],g=gridLN();
+  if(x==="A")return P(g,0);if(x==="B")return S.lc.sys==="1F"?P(g,180):P(g,-120);if(x==="C")return P(g,120);
+  if(x[0]==="S")return P(x.endsWith("b")?240:120,0);if(x[0]==="R")return P(120,0);return null}
 const voltOf=(a,b)=>{if(a==null||b==null||a==="X"||b==="X"||a===b)return 0;
   if(a[0]==="U"||b[0]==="U"){if(a==="0"||b==="0")return 120;return S.lc.sys==="1F"?240:208}
   const p=phasor(a),q=phasor(b);if(!p||!q)return a==="0"||b==="0"?120:S.lc.sys==="1F"?240:208;
-  const m=Math.hypot(p[0]-q[0],p[1]-q[1]);return m<30?0:NOMV.reduce((z,v)=>Math.abs(v-m)<Math.abs(z-m)?v:z,120)};
-const potName=x=>x[0]==="U"?"salida de un equipo con batería":x[0]==="S"?`salida ${x.endsWith("b")?"220":"110"} V del estabilizador`:`fase ${x}`;
+  /* cerca de un valor nominal (±3%) se redondea a ese valor; si no, al voltio */
+  const m=Math.hypot(p[0]-q[0],p[1]-q[1]);if(m<20)return 0;const n=NOMV.find(v=>Math.abs(v-m)/v<.03);return n||Math.round(m)};
+const potName=x=>x[0]==="U"?"salida de un equipo con batería":x[0]==="R"?"salida del estabilizador":x[0]==="S"?`salida ${x.endsWith("b")?"220":"110"} V del estabilizador`:`fase ${x}`;
 const potTxt=(x,role)=>x==null?"sin conexión (al aire)":x==="X"?"dos fases juntas (cortocircuito)":x==="0"?(role==="T"?"tierra conectada (0 V)":role==="N"?"neutro (0 V)":"neutro o tierra (0 V)"):potName(x);
 
 /* Árboles de recorrido: de cada fuente hacia afuera, solo por terminales del mismo tipo */
@@ -46,7 +49,7 @@ function netBlockers(k,ctx,out=new Set(),seen=new Set()){const {terms,nets,SRC,t
     else if(it.type==="inter3"&&/^T[12]$/.test(t.key)&&t.key!=="T"+(it.p.pos===2?2:1))out.add(`${devLabel(it)} está del otro lado (viajero ${t.key.slice(1)} sin corriente)`);
     else if(it.type==="feed"&&!SRC.find(x=>x.id===it.p.brk))out.add(`${devLabel(it)} no tiene circuito del tablero elegido`);
     else if(it.type==="subt"&&/^Q\d+\.\d$/.test(t.key)){const [bi,j]=t.key.slice(1).split(".").map(Number),b=subtBrks(it.p).find(x=>x.i===bi);if(!b)continue;const lab=`el breaker de ${b.name||"Q"+b.i} (${devLabel(it)})`;
-      if(trips.has(`s${it.id}.${b.i}`))out.add(`${lab} está disparado (rearma)`);
+      if(trips.has(`s${it.id}.${b.i}`))out.add(`${lab} está disparado (tócalo para rearmarlo)`);else if(!b.on)out.add(`${lab} está apagado`);
       else{const bar=subtBar(b.slot+j),bk=`${it.id}/${bar}`;if(!S.wall.wires.some(w=>w.a===bk||w.b===bk)&&!(it.p.puente==="Sí"))out.add(`${lab} toma la barra ${bar}, que no tiene cable de entrada${bar==="L2"?" (con una sola línea de 110 V hace falta el puente L1-L2)":""}`);else up.push(bk)}}
     else if(t.ctlOf!=null){const d=S.items.find(i=>i.id===t.ctlOf);if(!d||/^(A[12]|X[12])$/.test(t.pin))continue;const lab=d.p.des||CAT[d.type].n;
       const outPin={icont:/^(T\d|14|22)$/,cont:/^[2468]$/,relay:/^(12|14|22|24)$/,timer:/^(16|18)$/}[d.type];if(outPin&&!outPin.test(t.pin))continue;
@@ -83,7 +86,7 @@ function coilWhy(d,ctx){ctx.cw=ctx.cw||new Set();if(ctx.cw.has(d.id))return"";ct
     const L=supvL(s.p),Lids=L.map(k=>ctlT(ctx,s,k));
     if(!ctx.ctl.on.has(s.id)){
       if(Lids.every(k=>!wiredT(k)))return`${sl} no tiene cables en ${L.join(" y ")}: sin medir voltaje no cierra su contacto 11-14`;
-      const chk=supvCheck(s,k=>ctx.pot(ctlT(ctx,s,k)),voltOf);
+      const chk=supvCheck(s,k=>ctx.pot(ctlT(ctx,s,k)),voltOf);if(chk.on)return`${sl} está esperando su retardo de ${s.p.delay} antes de cerrar 11-14`;
       if(chk.why==="sin tensión"||chk.why==="falta una fase"){const bl=new Set();for(const k of Lids)if(k&&!isPh(ctx.pot(k))&&!(k===ctlT(ctx,s,"N")))netBlockers(k,ctx,bl,new Set());
         if([...bl].some(x=>x.startsWith(lab+" ")))return`${sl} se alimenta de la salida de ${lab}: con ${lab} abierto el supervisor no tiene tensión y nunca lo cierra. Conecta ${L.join(" y ")} del supervisor antes del contactor (en su entrada L1/L2 o desde un breaker de mando)`;
         const nw=L.filter((_,i)=>!wiredT(Lids[i]));

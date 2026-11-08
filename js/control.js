@@ -73,20 +73,26 @@ function ctlCommit(r){simState.ctl=[...r.ctlOn];const now=Date.now();let next=In
     if(on&&!(rec&&rec.on))simState.tm[it.id]={on:true,at:now};else if(!on&&rec&&rec.on)simState.tm[it.id]={on:false,at:now};
     const q=simState.tm[it.id];if(!q)continue;const t=timerT(it.p)*1000,el=now-q.at;
     if(isTon(it.p)?q.on&&el<t:!q.on&&el<t)next=Math.min(next,t-el)}
+  for(const c of Object.values(r.coil||{}))if(c&&c.wait)next=Math.min(next,c.wait);
   clearTimeout(simState.ctlT);simState.ctlT=null;
   if(next<Infinity)simState.ctlT=setTimeout(()=>{simState.ctlT=null;if(simState.running&&S.view==="wall")renderAll()},next+40)}
-function ctlReset(){simState.ctl=[];simState.pressed.clear();simState.forced.clear();simState.tm={};clearTimeout(simState.ctlT);simState.ctlT=null}
+function ctlReset(){simState.svT={};simState.ctl=[];simState.pressed.clear();simState.forced.clear();simState.tm={};clearTimeout(simState.ctlT);simState.ctlT=null}
 
 /* Estado de cada bobina, piloto y supervisor con las redes ya calculadas */
-function ctlEval(P,pot,volt,burnt,res){const out={};if(!P||!isDin())return out;
+function ctlEval(P,pot,volt,burnt,res,ctl){const out={};if(!P||!isDin())return out;
   for(const it of S.items){const T=k=>`${P.id}/c${it.id}.${k}`,lab=it.p.des||CAT[it.type].n;
     if(CTL_COIL.has(it.type)||it.type==="pilot"){const pl=it.type==="pilot",[a,b]=pl?["X1","X2"]:["A1","A2"],v=volt(pot(T(a)),pot(T(b))),r=pl?(parseInt(it.p.V)||120):coilVolt(it.p.coil);let on=false,why="";
       if(burnt.has(it.id)||res.newBurnt.includes(it.id))why="quemada";
       else if(!v)why="sin tensión";
       else if(v>r*1.2){res.newBurnt.push(it.id);why="quemada";res.log.push({lvl:"crit",msg:`${lab}: ${pl?"la luz piloto es de":"la bobina es de"} ${r} V y recibió ${v} V. Se quemó${pl?"":" la bobina"}.`})}
-      else if(v<r*.85)why=`poco voltaje (${v} V de ${r} V)`;
+      /* una bobina necesita ~85% para cerrar, pero ya cerrada se mantiene hasta ~65% */
+      else if(v<r*(!pl&&ctl&&ctl.on.has(it.id)?.65:.85))why=`poco voltaje (${v} V de ${r} V)`;
       else on=true;out[it.id]={on,v,r,why}}
-    else if(it.type==="supv")out[it.id]=supvCheck(it,k=>pot(T(k)),volt)}
+    else if(it.type==="supv"){let r=supvCheck(it,k=>pot(T(k)),volt);
+      /* retardo al volver la luz: en la prueba va 20 veces más rápido (3 min = 9 s) */
+      const dl={"10 s":10,"30 s":30,"3 min":180,"5 min":300}[it.p.delay]||0;simState.svT=simState.svT||{};
+      if(r.on&&dl){const t=simState.svT[it.id]||(simState.svT[it.id]=Date.now()),left=dl*50-(Date.now()-t);if(left>0)r={on:false,why:`voltaje normal, esperando su retardo de ${it.p.delay}: cierra en ${Math.ceil(left/1000)} s (en la prueba va 20 veces más rápido)`,wait:left}}
+      else if(!r.on)delete simState.svT[it.id];out[it.id]=r}}
   return out}
 /* Bornes de medición del supervisor según su sistema */
 const supvL=p=>{const s=String(p.sys||"");return s.startsWith("Trif")?["L1","L2","L3"]:s.startsWith("Bif")?["L1","L2"]:["L","N"]};
@@ -96,8 +102,11 @@ function supvCheck(it,q,volt){const s=String(it.p.sys||"");let ok=false,why="";
     if(ix.some(i=>i<0)||new Set(ix).size<3)why=ix.every(i=>i<0)?"sin tensión":"falta una fase";
     else if(s.includes("480"))why="voltaje fuera de rango (está ajustado para 480 V)";
     else if((ix[1]-ix[0]+3)%3!==1||(ix[2]-ix[1]+3)%3!==1)why="secuencia de fases invertida";else ok=true}
-  else if(s.startsWith("Bif")){const v=volt(q("L1"),q("L2"));if(!v)why="sin tensión";else if(v<216)why=`bajo voltaje (${v} V): está ajustado para 240 V y L2 recibe neutro; L2 va a la otra fase`;else ok=true}
-  else{const v=volt(q("L"),q("N"));if(!v)why="sin tensión";else if(q("N")!=="0")why="no tiene neutro en N";else ok=true}
+  /* cortes ajustables, en voltios entre fases (base 240 V); el monofásico mide fase-neutro (x2) y el trifásico 208 V */
+  const lo=+it.p.lo||180,hi=+it.p.hi||260,rng=(v,k)=>v*k<lo?`bajo voltaje (${v} V; corta por debajo de ${Math.round(lo/k)} V)`:v*k>hi?`alto voltaje (${v} V; corta por encima de ${Math.round(hi/k)} V)`:"";
+  if(ok&&s.startsWith("Trif")){const r=rng(volt(q("L1"),q("L2")),240/208);if(r){ok=false;why=r}}
+  else if(s.startsWith("Bif")){const a=q("L1"),b=q("L2"),v=volt(a,b);if(!v)why="sin tensión";else if(v<=150&&(a==="0"||b==="0"))why=`mide ${v} V: L2 recibe neutro; para 240 V, L2 va a la otra fase`;else{why=rng(v,1);ok=!why}}
+  else{const v=volt(q("L"),q("N"));if(!v)why="sin tensión";else if(q("N")!=="0")why="no tiene neutro en N";else{why=rng(v,2);ok=!why}}
   return{on:ok,why}}
 
 /* ---------- motor trifásico en la pared ---------- */

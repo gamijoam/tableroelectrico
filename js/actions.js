@@ -182,4 +182,5 @@ $("play").onclick=()=>setRunning(!simState.running);$("rearm").onclick=rearm;
 $("wSel").onchange=e=>selectWall(+e.target.value);$("wAdd").onclick=addWall;
 $("wTube").onchange=e=>mutate(()=>{S.wall.tube=e.target.checked});
 $("blackout").onclick=toggleBlackout;
+$("grid").onchange=e=>{simState.grid=+e.target.value;const o=e.target.selectedOptions[0];runSim();renderAll();toast(simState.grid===120?"La luz volvió a la normalidad.":`Simulando: ${o.textContent}.`)};
 $("new").onclick=newProjectDialog;$("pdf").onclick=pdfDialog;$("fPdf").onclick=pdfDialog;
