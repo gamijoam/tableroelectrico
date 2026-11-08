@@ -1,0 +1,140 @@
+<title>Taller de Tableros</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="defs"></defs></svg>
+
+<div class="app lib-closed side-closed" id="app">
+  <header>
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="7" y="2" width="20" height="30" rx="3" fill="var(--accent)"/><rect x="12" y="9" width="10" height="13" rx="2" fill="var(--panel)"/><rect x="13.5" y="10.5" width="7" height="6" rx="1" fill="var(--fg)"/><rect x="7" y="25" width="20" height="2" fill="var(--panel)" opacity=".5"/></svg>
+      <div><h1>Taller de Tableros</h1><small id="projName">Cajas de breakers y tableros sobre riel DIN</small></div>
+    </div>
+    <button class="icon-btn m-only" id="mUndo" aria-label="Deshacer" title="Deshacer">↶</button><button class="icon-btn m-only" id="mRedo" aria-label="Rehacer" title="Rehacer">↷</button>
+    <button class="icon-btn m-only" id="mMenu" aria-label="Menú" aria-expanded="false">☰</button>
+    <div class="actions">
+      <select class="sel" id="tpl" aria-label="Cargar plantilla">
+        <option value="">Plantillas…</option>
+        <optgroup label="Caja de breakers">
+          <option value="casaVE">Casa 120/240 V · 20 espacios</option>
+          <option value="localVE">Local comercial 208Y/120 V · 30 espacios</option>
+        </optgroup>
+        <optgroup label="Riel DIN">
+          <option value="supv">Supervisor de voltaje con contactor general</option>
+          <option value="motor">Arranque de bomba trifásica</option>
+          <option value="local">Tablero de control comercial</option>
+          <option value="casa">Tablero DIN residencial</option>
+        </optgroup>
+      </select>
+      <button class="btn" id="undo" title="Deshacer (Ctrl+Z)">Deshacer</button>
+      <button class="btn" id="redo" title="Rehacer (Ctrl+Shift+Z)">Rehacer</button>
+      <button class="btn" id="calc">Calculadora</button>
+      <button class="btn" id="file">Proyectos</button>
+      <button class="btn" id="new">Nuevo</button>
+      <button class="btn" id="png">Exportar imagen</button>
+      <button class="btn primary" id="pdf">PDF</button>
+    </div>
+  </header>
+
+  <aside id="lib">
+    <button class="rail" id="libRail" aria-expanded="false" aria-controls="libList"><span>Abrir componentes</span></button>
+    <div class="lib-head">
+      <div class="pane-head"><span class="label" id="libTitle">Componentes</span><button class="icon-btn" id="libClose" aria-label="Guardar el panel de componentes" title="Guardar panel">«</button></div>
+      <div class="cats" id="libCats" aria-label="Ir a una categoría"></div>
+      <input class="txt" id="q" type="search" placeholder="Buscar…" aria-label="Buscar componentes">
+    </div>
+    <div class="lib-list" id="libList"></div>
+  </aside>
+
+  <section id="stagewrap">
+    <div class="tools">
+      <span class="seg" role="group" aria-label="Vista"><button class="segb" id="vBoard" aria-pressed="true">Tablero</button><button class="segb" id="vWall" aria-pressed="false">Pared<span class="d-only"> y cableado</span></button></span>
+      <button class="btn wire-cta" id="goWire" title="Ir a la pared para tender cables y probar">Cablear y probar →</button>
+      <span class="tgroup" id="boardTools">
+      <label>Tipo <select class="sel" id="kind"><option value="lc">Caja de breakers</option><option value="din">Riel DIN</option></select></label>
+      <span class="tgroup" id="lcTools">
+        <label>Espacios <select class="sel" id="spaces"></select></label>
+        <label>Sistema <select class="sel" id="sys"><option value="1F">120/240 V monofásico</option><option value="3F">208Y/120 V trifásico</option></select></label>
+        <label>Principal <select class="sel" id="main"></select></label>
+      </span>
+      <span class="tgroup" id="dinTools">
+        <label>Filas <select class="sel" id="rows"></select></label>
+        <label>Módulos por fila <select class="sel" id="mods"></select></label>
+        <label>Sistema <select class="sel" id="sysD"><option value="1F">120/240 V monofásico</option><option value="3F">208Y/120 V trifásico</option></select></label>
+        <label>Gabinete <select class="sel" id="style"><option value="metal">Metálico</option><option value="plastic">Plástico</option></select></label>
+      </span>
+      </span>
+      <span class="tgroup" id="wallTools" hidden>
+        <select class="sel opt" id="wSel" aria-label="Pared activa"></select><button class="btn opt" id="wAdd" title="Agregar otra pared">+ Pared</button>
+        <span class="seg" role="group" aria-label="Modo"><button class="segb" id="mMove" aria-pressed="true">Mover</button><button class="segb" id="mWire" aria-pressed="false">Cablear</button><button class="segb" id="mTube" aria-pressed="false">Tubería</button><button class="segb" id="mMeter" aria-pressed="false" title="Mide el voltaje entre dos terminales durante la prueba">Multímetro</button></span>
+        <label class="opt">Cable <select class="sel" id="wColor"></select></label>
+        <select class="sel opt" id="wAwg" aria-label="Calibre del cable"></select>
+        <label class="opt">Pared <select class="sel" id="wSize"></select></label>
+        <select class="sel opt" id="wFinish" aria-label="Acabado de la pared"></select>
+        <label class="chk opt"><input type="checkbox" id="wTube"> Ver tubería</label><label class="chk opt" title="Durante la prueba, muestra por dónde circula la corriente"><input type="checkbox" id="wFlow" checked> Ver flujo de energía</label>
+        <button class="btn play" id="play">▶ Probar</button><button class="btn" id="rearm" hidden>Rearmar</button><button class="btn" id="blackout" hidden>Simular apagón</button>
+      </span>
+      <span class="chip" id="usage"></span>
+      <span class="chip money" id="total" title="Total del presupuesto"></span>
+      <span class="sp"></span>
+      <div class="zoom"><button class="btn" id="zout" aria-label="Alejar">−</button><output id="zval">100%</output><button class="btn" id="zin" aria-label="Acercar">+</button><button class="btn" id="zfit">Ajustar</button></div>
+      <span class="tgroup focus-only"><button class="btn" id="fUndo">Deshacer</button><button class="btn" id="fRedo">Rehacer</button><button class="btn" id="fCalc">Calculadora</button><button class="btn" id="fPng">Exportar imagen</button><button class="btn" id="fPdf">PDF</button></span>
+      <button class="btn" id="fs" aria-pressed="false">Pantalla completa</button>
+    </div>
+    <div id="stagebox"><div id="alert" hidden></div><div id="selbar" class="selbar" hidden></div><div id="stage"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg><svg id="wall" xmlns="http://www.w3.org/2000/svg" hidden></svg></div></div>
+    <div class="hint" id="hint"></div>
+  </section>
+
+  <aside id="side">
+    <button class="rail" id="sideRail" aria-expanded="false" aria-controls="paneP"><span>Abrir propiedades y presupuesto</span></button>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tabP" aria-selected="true">Propiedades</button>
+      <button class="tab" role="tab" id="tabB" aria-selected="false">Presupuesto $</button>
+      <button class="icon-btn" id="sideClose" aria-label="Guardar el panel de propiedades" title="Guardar panel">»</button>
+    </div>
+    <div class="pane" id="paneP"></div>
+    <div class="pane" id="paneB" hidden></div>
+  </aside>
+  <div id="sheetBg" class="m-only" aria-hidden="true"></div>
+  <nav class="mnav m-only" aria-label="Navegación">
+    <button id="mnLib" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M17.25 13.5v7.5M13.5 17.25H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Componentes</button>
+    <button id="mnOpts" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="7" r="2.3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="17" r="2.3" fill="none" stroke="currentColor" stroke-width="2"/></svg>Ajustes</button>
+    <button id="mnFit" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Ajustar</button>
+    <button id="mnProps" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M5 12h14M5 19h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Propiedades</button>
+    <button id="mnQuote" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3.1 4.5 1.4 4.5 3.3-2 3.1-4.5 3.1-4.5-1.3-4.5-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><b id="mnTotal">Presupuesto</b></button>
+  </nav>
+</div>
+
+<div id="ghost" hidden></div>
+<div id="toast" hidden></div>
+<div class="modal" id="modal" hidden><div class="dlg" id="dlg"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- El orden importa: cada archivo usa lo definido en los anteriores. -->
+<script src="js/util.js"></script>
+<script src="js/din.js"></script>
+<script src="js/loadcenter.js"></script>
+<script src="js/equipment.js"></script>
+<script src="js/pricing.js"></script>
+<script src="js/state.js"></script>
+<script src="js/render.js"></script>
+<script src="js/panels.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/wall.js"></script>
+<script src="js/panelsrc.js"></script>
+<script src="js/control.js"></script>
+<script src="js/flow.js"></script>
+<script src="js/routing.js"></script>
+<script src="js/info.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/selbar.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/calc.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/touch.js"></script>
+<script src="js/mobile.js"></script>
+<script src="js/main.js"></script>
