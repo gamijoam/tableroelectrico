@@ -36,5 +36,7 @@ Para publicarla basta cualquier hosting estático (GitHub Pages, Cloudflare Page
 - **Calcula** breaker, cable y caída de tensión; arranque de motores; estabilizador, UPS e inversor
   con baterías; y la demanda completa de una vivienda con su caja de breakers.
 - **Cotiza** en $ (y Bs opcional) y genera un PDF profesional con logo, unifilar y cuadro de cargas.
+- **Diagrama unifilar** automático de la caja de breakers o del riel DIN, visible en la app y en el PDF.
+- **Envía el presupuesto por WhatsApp** (imagen o PDF desde el teléfono, texto desde la computadora). Tus precios quedan guardados para todos los proyectos.
 
 > Herramienta de diseño, enseñanza y presupuesto. No reemplaza el cálculo firmado por un profesional.

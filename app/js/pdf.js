@@ -97,7 +97,7 @@ function quoteSection(doc,y){const d=quoteData(),Q=S.quote,P=S.project;
 async function buildPdf(o){const {jsPDF}=window.jspdf,doc=new jsPDF({unit:"mm",format:"letter",compress:true}),co=getCompany(),lc=S.kind==="lc";let first=true;
   const page=t=>{if(!first)doc.addPage();first=false;pdfHeader(doc,co,t);return 36};
   if(o.board){const y=page(lc?"Tablero y directorio de circuitos":"Tablero"),D=dims(),b=sel;sel=null;let img;try{img=await svgPng(sceneSvg(true),D.Wd,D.H,2)}finally{sel=b}pdfImage(doc,img,D.Wd,D.H,y,PDF_H-PM-12-y)}
-  if(o.uni&&lc){const u=unifilarSvg(),y=page("Diagrama unifilar");pdfImage(doc,await svgPng(u.svg,u.W,u.H,2),u.W,u.H,y,PDF_H-PM-12-y)}
+  if(o.uni){const u=uniSvg(),y=page("Diagrama unifilar");pdfImage(doc,await svgPng(u.svg,u.W,u.H,2),u.W,u.H,y,PDF_H-PM-12-y)}
   if(o.load&&lc)loadSection(doc,page("Cuadro de cargas"));
   if(o.quote)quoteSection(doc,page("Presupuesto"));
   if(o.walls){const cur=S.wallI,run=simState.running,b=sel;simState.running=false;sel=null;
@@ -112,13 +112,22 @@ async function buildPdf(o){const {jsPDF}=window.jspdf,doc=new jsPDF({unit:"mm",f
 function pdfDialog(){const lc=S.kind==="lc",nw=S.walls.filter(w=>w.items.length>1||w.wires.length).length,co=getCompany();
   const ck=(id,label,on,dis)=>`<label class="switch"><input type="checkbox" id="${id}"${on?" checked":""}${dis?" disabled":""}> ${esc(label)}</label>`;
   openModal(`<h2>Documento PDF</h2><p class="note">Para entregar al cliente o presentar un permiso. Tamaño carta, con los datos de tu empresa en cada hoja.</p>
-   <div class="checks">${ck("pdf-board",lc?"Dibujo del tablero y directorio de circuitos":"Dibujo del tablero",true)}${lc?ck("pdf-uni","Diagrama unifilar",true)+ck("pdf-load","Cuadro de cargas, balance de fases y demanda",true):""}
+   <div class="checks">${ck("pdf-board",lc?"Dibujo del tablero y directorio de circuitos":"Dibujo del tablero",true)}${ck("pdf-uni","Diagrama unifilar",true)}${lc?ck("pdf-load","Cuadro de cargas, balance de fases y demanda",true):""}
    ${ck("pdf-quote","Presupuesto con firmas",true)}${ck("pdf-walls",nw?`Paredes cableadas (${nw})`:"Paredes cableadas (no hay todavía)",nw>0,!nw)}</div>
    <div class="co-sum">${co.name?`<span>Empresa: <b>${esc(co.name)}</b>${co.rif?" · RIF "+esc(co.rif):""}</span>`:`<span>Todavía no cargaste los datos de tu empresa.</span>`}<button class="btn sm" id="pdf-comp">${co.name?"Cambiar":"Cargar datos y logo"}</button></div>
-   <div class="row-btns"><button class="btn primary" id="pdf-go">Generar y descargar PDF</button><button class="btn" data-close>Cancelar</button></div><p class="note" id="pdf-msg" role="status"></p>`);
+   <div class="row-btns"><button class="btn primary" id="pdf-go">Generar y descargar PDF</button>${shareProbe()?`<button class="btn wa" id="pdf-share">Compartir (WhatsApp…)</button>`:""}<button class="btn" data-close>Cancelar</button></div><p class="note" id="pdf-msg" role="status"></p>`);
   $("pdf-comp").onclick=()=>companyDialog(pdfDialog);
   $("pdf-go").onclick=async()=>{const msg=$("pdf-msg"),go=$("pdf-go");if(!window.jspdf){msg.textContent="No se pudo cargar el generador de PDF. Revisa tu conexión a internet y vuelve a intentar.";return}
-    const o={board:$("pdf-board").checked,uni:!!($("pdf-uni")&&$("pdf-uni").checked),load:!!($("pdf-load")&&$("pdf-load").checked),quote:$("pdf-quote").checked,walls:$("pdf-walls").checked};
-    go.disabled=true;msg.textContent="Generando el PDF…";
+    const o=pdfOpts();    go.disabled=true;msg.textContent="Generando el PDF…";
     try{const blob=await buildPdf(o);msg.textContent="Confirma la descarga para guardarlo.";const ok=await saveFile(slug(S.project.name)+".pdf",blob);msg.textContent=ok?"PDF listo.":"No se descargó el PDF.";if(ok)setTimeout(closeModal,900)}
     catch(e){msg.textContent="Hubo un problema generando el PDF: "+(e&&e.message||e)}finally{go.disabled=false;renderAll()}}}
+
+const pdfOpts=()=>({board:$("pdf-board").checked,uni:!!($("pdf-uni")&&$("pdf-uni").checked),load:!!($("pdf-load")&&$("pdf-load").checked),quote:$("pdf-quote").checked,walls:$("pdf-walls").checked});
+/* en el teléfono: generar el PDF y compartirlo (WhatsApp, correo, Drive…) */
+document.addEventListener("click",async e=>{const b=e.target.closest("#pdf-share");if(!b)return;const msg=$("pdf-msg");
+  if(!window.jspdf){msg.textContent="No se pudo cargar el generador de PDF. Revisa tu conexión a internet y vuelve a intentar.";return}
+  b.disabled=true;msg.textContent="Generando el PDF…";
+  try{const blob=await buildPdf(pdfOpts()),f=new File([blob],slug(S.project.name)+".pdf",{type:"application/pdf"});
+    if(!canShareFiles(f)){msg.textContent="Este teléfono no permite compartir PDF. Usa Generar y descargar.";return}
+    msg.textContent="";if(await shareFile(f,`${S.project.name}${S.project.client?" · "+S.project.client:""}`))closeModal()}
+  catch(err){msg.textContent="Hubo un problema generando el PDF: "+(err&&err.message||err)}finally{b.disabled=false;renderAll()}});

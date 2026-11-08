@@ -32,6 +32,8 @@ js/layout.js        Paneles laterales plegables, pantalla completa y alertas de 
 js/selbar.js        Barra flotante junto a lo seleccionado (amperaje, polos, encender, eliminar)
 js/projects.js      Varios proyectos, archivo .json, datos de la empresa con logo y descargas
 js/pdf.js           PDF carta: tablero, diagrama unifilar, cuadro de cargas con demanda, presupuesto y paredes
+js/unifilar.js      Diagrama unifilar del riel DIN (por orden de montaje) y visor del unifilar
+js/share.js         Mis precios (guardados para todos los proyectos) y envío por WhatsApp
 js/actions.js       Acciones del usuario, arrastrar y soltar, modales y barra de herramientas
 js/main.js          Arranque
 ```
