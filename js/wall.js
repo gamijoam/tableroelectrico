@@ -208,7 +208,13 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
       `${T(cx,cy-8,"1. Abre «Componentes» y arrastra tomas, interruptores o bombillos aquí.",{fs:12,ff:SANS,fw:400,c:"#3a3530"})}${T(cx,cy+14,"2. Toca un tornillo y luego otro para tender cada cable.",{fs:12,ff:SANS,fw:400,c:"#3a3530"})}${T(cx,cy+36,"3. Presiona «Probar» para energizar y ver qué pasa.",{fs:12,ff:SANS,fw:400,c:"#3a3530"})}</g>`}
   if(!forExport)s+=tubeDraftSvg();
   return s+`<g id="wpv"></g>`}
-function renderWall(){const {Wd,H}=wallDims();wallEl.setAttribute("viewBox",`0 0 ${Wd} ${H}`);wallEl.setAttribute("width",Math.round(Wd*zoom));wallEl.setAttribute("height",Math.round(H*zoom));wallEl.innerHTML=wallSvg(false);$("zval").textContent=Math.round(zoom*100)+"%"}
+/* Cablear tablero: la vista se acerca al tablero de la pared; los cables que tiendas ahí son los mismos de la pared */
+let panelZoom=false;
+function wallView(){const D=wallDims(),P=panelZoom&&S.wall.items.find(i=>i.type==="panel");if(!P)return{x:0,y:0,Wd:D.Wd,H:D.H};
+  const [cx,cy]=toPx(P.x,P.y),z=itemSize(P);let x0=cx-z.w/2,x1=cx+z.w/2,y0=cy-z.h/2,y1=cy+z.h/2;
+  for(const t of itemTerms(P)){x0=Math.min(x0,t.x);x1=Math.max(x1,t.x);y0=Math.min(y0,t.y);y1=Math.max(y1,t.y)}
+  const m=26;return{x:x0-m,y:y0-m,Wd:x1-x0+2*m,H:y1-y0+2*m}}
+function renderWall(){const {x:vx,y:vy,Wd,H}=wallView();wallEl.setAttribute("viewBox",`${vx} ${vy} ${Wd} ${H}`);wallEl.setAttribute("width",Math.round(Wd*zoom));wallEl.setAttribute("height",Math.round(H*zoom));wallEl.innerHTML=wallSvg(false);$("zval").textContent=Math.round(zoom*100)+"%"}
 
 /* ---------- running the test ---------- */
 const alertTitle=m=>/^Cortocircuito/.test(m)?"Cortocircuito":/relé térmico/.test(m)?"Disparó el relé térmico":/falta de fase/.test(m)?"Motor quemado":/bobina|piloto/.test(m)?"Bobina quemada":/sobrecarga/i.test(m)?"Disparo por sobrecarga":/quemó/.test(m)?"Aparato quemado":/GFCI/.test(m)?"Disparó el GFCI":"Atención";

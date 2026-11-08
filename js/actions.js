@@ -157,11 +157,16 @@ window.addEventListener("resize",()=>{if(autoFit)fit()});
 
 
 /* ---------- wall toolbar ---------- */
-function setView(v){if(S.view===v)return;if(v!=="wall"&&simState.running){simState.running=false;clearTimeout(simState.timer);simState.timer=null;simState.res=null}
+function setView(v){if(v==="board")panelZoom=false;if(S.view===v){autoFit=true;fit();renderAll();return}if(v!=="wall"&&simState.running){simState.running=false;clearTimeout(simState.timer);simState.timer=null;simState.res=null}
   pending=null;reconn=null;sel=null;hideAlert();mutate(()=>{S.view=v});$("q").value="";renderLib();autoFit=true;fit()}
 $("vBoard").onclick=()=>setView("board");
+/* Cablear tablero: se va a la pared donde está el tablero y se acerca a él, en modo Cablear */
+function panelWiring(){const i=S.walls.findIndex(w=>w.items.some(x=>x.type==="panel"));if(i<0){toast("Agrega el tablero a una pared para cablearlo.");setView("wall");return}
+  if(S.wallI!==i){S.wallI=i}panelZoom=true;wallMode="wire";setView("wall");
+  if(!lsGet("tt-hint-panelwire")){lsSet("tt-hint-panelwire","1");showAlert("ok","Cablea el interior del tablero","Toca un tornillo y luego otro para tender el cable (o arrástralo de uno a otro). Estos cables son los mismos de la pared: cuando pases a Pared ya estarán hechos y solo te faltará llevar los circuitos a los aparatos.")}}
+$("vPanel").onclick=panelWiring;
 $("goWire").onclick=()=>{setView("wall");wallMode="wire";renderAll();
-  showAlert("ok","Cablear y probar","Toca un tornillo (de un breaker, de la barra de neutro N o de tierra T, o de un aparato) y luego otro para tender el cable. Las tomas, interruptores y bombillos están en Abrir componentes. Al terminar, presiona Probar.")};$("vWall").onclick=()=>setView("wall");
+  showAlert("ok","Cablear y probar","Toca un tornillo (de un breaker, de la barra de neutro N o de tierra T, o de un aparato) y luego otro para tender el cable. Las tomas, interruptores y bombillos están en Abrir componentes. Al terminar, presiona Probar.")};$("vWall").onclick=()=>{panelZoom=false;setView("wall")};
 $("mMeter").onclick=()=>{wallMode="meter";meterA=null;pending=null;tubeDraft=null;renderAll();if(!simState.running)toast("Presiona ▶ Probar y luego toca dos terminales para medir el voltaje entre ellos.")};
 $("wFlow").onchange=e=>{showFlow=e.target.checked;renderAll()};
 $("mMove").onclick=()=>{wallMode="move";tubeDraft=null;renderAll()};$("mWire").onclick=()=>{wallMode="wire";tubeDraft=null;renderAll()};
