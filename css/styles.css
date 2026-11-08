@@ -241,3 +241,4 @@ table.bom{width:100%;border-collapse:collapse;font-size:12.5px}
 label.btn{display:inline-flex;align-items:center}
 #wall .wbh{fill:#1c74e0;fill-opacity:0;cursor:pointer}
 #wall .wbh:hover{fill-opacity:.25;stroke:#1c74e0;stroke-width:1.2}
+#toast{bottom:calc(112px + env(safe-area-inset-bottom,0px))}

@@ -142,7 +142,7 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
   /* items */
   for(const it of W.items){const [cx,cy]=toPx(it.x,it.y),{w,h}=itemSize(it);let g;
     if(it.type==="panel"){const sc=PANEL_W/PW;g=`<svg x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" viewBox="0 0 ${PW} ${lcPH()}">${lcPanelSvg({wall:true,trip:simState.trip})}</svg>`;
-      if(!forExport){for(const b of S.lc.items){const x=(b.side==="L"?XL:XR)*sc-w/2,y=(LY0+b.slot*SL)*sc-h/2;g+=`<rect class="wb" data-brk="${b.id}" x="${x}" y="${y}" width="${BW*sc}" height="${b.p.poles*SL*sc}" fill="#000" fill-opacity="0"><title>Circuito ${brkCalc(b).cs.join("-")}${simState.running?": clic para encender, apagar o rearmar":""}</title></rect>`}
+      if(!forExport){for(const b of S.lc.items){const x=(b.side==="L"?XL:XR)*sc-w/2,y=(LY0+b.slot*SL)*sc-h/2;g+=`<rect class="wb" data-brk="${b.id}" x="${x}" y="${y}" width="${BW*sc}" height="${b.p.poles*SL*sc}" fill="#000" fill-opacity="0"${sel===b.id?` stroke="#1c74e0" stroke-width="2.5" rx="3"`:""}><title>Circuito ${brkCalc(b).cs.join("-")}${simState.running?": clic para encender, apagar o rearmar":""}</title></rect>`}
         if(S.lc.main)g+=`<rect class="wm" x="${(CX-104)*sc-w/2}" y="${52*sc-h/2}" width="${208*sc}" height="${94*sc}" fill="#000" fill-opacity="0"><title>Principal: clic para encender o apagar</title></rect>`}}
     else g=`<g filter="url(#sh)">${drawDev(it.type,it.p,res&&res.loads[it.id])}</g>`+(res&&res.loads[it.id]?wallBadge(res.loads[it.id],DEV[it.type]):"");
     const lab=it.p.name||DEV[it.type].short,ly=h/2+(it.type==="panel"?16:32);
@@ -221,7 +221,12 @@ function clampItem(it){const {w,h}=itemSize(it),hw=w/2/WK,hh=h/2/WK;it.x=Math.ro
 
 /* ---------- side panel for the wall ---------- */
 function evList(list){return list.length?`<ul class="ev">${list.map(e=>`<li class="${e.lvl}"${e.wire?` data-wire="${e.wire}"`:""}>${esc(e.msg)}</li>`).join("")}</ul>`:""}
-function renderPropsWall(){const P=$("paneP"),it=S.wall.items.find(i=>i.id===sel),w=S.wall.wires.find(i=>i.id===sel),terms=allTerms(),res=simState.running?simState.res:null;
+function renderPropsWall(){const bs=S.lc.items.find(b=>b.id===sel);
+  if(bs){const P=$("paneP"),c=brkCalc(bs);P.innerHTML=`<div><h2>Breaker circuito ${c.cs.join("-")}</h2><div class="meta">${bs.p.poles}P ${bs.p.In} A${bs.p.type!=="Estándar"?" "+bs.p.type:""} · ${esc(bs.p.name||"Sin nombre")} · ${simState.trip.has(bs.id)?"disparado":bs.p.on?"encendido":"apagado"}</div></div>
+    <p class="note">Desde aquí puedes encenderlo, apagarlo o eliminarlo. El amperaje, los polos y el nombre se cambian en la barra flotante de abajo o en la vista Tablero.</p>
+    <div class="row-btns"><button class="btn" id="pb-on">${bs.p.on?"Apagar":"Encender"}</button><button class="btn" id="pb-board">Ver en la vista Tablero</button><button class="btn danger" id="pb-del">Eliminar breaker</button></div>`;
+    $("pb-on").onclick=()=>mutate(()=>{bs.p.on=!bs.p.on});$("pb-board").onclick=()=>setView("board");$("pb-del").onclick=()=>{sel=null;deleteBreaker(bs.id)};return}
+  const P=$("paneP"),it=S.wall.items.find(i=>i.id===sel),w=S.wall.wires.find(i=>i.id===sel),terms=allTerms(),res=simState.running?simState.res:null;
   const sim=`<h3>Prueba</h3>${simState.running?`<p class="note">Simulación en marcha. Toca un interruptor para cambiarlo, y los breakers del tablero para apagarlos o rearmarlos.</p>`:`<p class="note">Presiona <b>Probar</b> para energizar la pared y ver qué pasa.</p>`}
     ${simState.log.length?`<h3>Lo que pasó</h3>${evList(simState.log.slice(0,8))}`:""}${res?`<h3>Estado actual</h3>${evList(res.status)}`:""}`;
   if(w){const ta=terms.get(w.a),tb=terms.get(w.b),i=S.wall.wires.indexOf(w),len=ta&&tb?wirePath(w,i,terms).len/WK:0;
@@ -265,7 +270,13 @@ function renderPropsWall(){const P=$("paneP"),it=S.wall.items.find(i=>i.id===sel
   P.querySelectorAll("[data-wire]").forEach(li=>li.onclick=()=>{sel=+li.dataset.wire;renderAll()})}
 function posFields(it){const d=DEV[it.type];return`<div class="fields"><label class="field"><span>Desde la izquierda (m)</span><input class="txt" id="pp-x" type="number" step="0.05" min="0" value="${it.x}"></label><label class="field"><span>Altura del centro (m)</span><input class="txt" id="pp-y" type="number" step="0.05" min="0" value="${it.y}"></label></div>
   ${d.std&&Math.abs(it.y-d.std)>.01?`<div class="row-btns"><button class="btn" id="pp-std">Usar altura estándar (${fmtM2(d.std)})</button></div>`:""}`}
-function wallDelete(){if(!sel)return;const id=sel;sel=null;reconn=null;mutate(()=>{if(S.wall.wires.some(w=>w.id===id)){S.wall.wires=S.wall.wires.filter(w=>w.id!==id);return}
+/* Quita un breaker de la caja y los cables conectados a su tornillo en todas las paredes */
+function deleteBreaker(id){const b=S.lc.items.find(x=>x.id===id);if(!b)return;const c=circLabel(b);let n=0;
+  mutate(()=>{S.lc.items=S.lc.items.filter(x=>x.id!==id);for(const wl of S.walls){const pn=wl.items.find(i=>i.type==="panel");
+    if(pn){const pre=`${pn.id}/b${id}.`,before=wl.wires.length;wl.wires=wl.wires.filter(w=>!w.a.startsWith(pre)&&!w.b.startsWith(pre));n+=before-wl.wires.length}
+    for(const f of wl.items)if(f.type==="feed"&&f.p.brk===id)f.p.brk=null}});
+  simState.trip.delete(id);toast(`Breaker del circuito ${c} eliminado${n?` junto con ${n} cable${n>1?"s":""}`:""}.`)}
+function wallDelete(){if(!sel)return;if(S.lc.items.some(b=>b.id===sel)){const id=sel;sel=null;deleteBreaker(id);return}const id=sel;sel=null;reconn=null;mutate(()=>{if(S.wall.wires.some(w=>w.id===id)){S.wall.wires=S.wall.wires.filter(w=>w.id!==id);return}
   S.wall.items=S.wall.items.filter(i=>i.id!==id);S.wall.wires=S.wall.wires.filter(w=>!w.a.startsWith(id+"/")&&!w.b.startsWith(id+"/"))})}
 
 /* ---------- pointer interaction ---------- */
@@ -301,9 +312,9 @@ wallEl.addEventListener("pointerdown",e=>{const hd=e.target.closest(".wh");if(hd
   const hb=e.target.closest(".wbh");if(hb){const b=S.lc.items.find(x=>x.id===+hb.dataset.brk);if(!b)return;pending=null;reconn=null;
     if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste el breaker del circuito ${circLabel(b)}.`});runSim();renderAll();toast(`Circuito ${circLabel(b)}: rearmado.`);return}
     mutate(()=>{b.p.on=!b.p.on});toast(`Circuito ${circLabel(b)}: ${b.p.on?"encendido":"apagado"}.`);return}
-  const wb=e.target.closest(".wb");if(wb&&!simState.running){const b=S.lc.items.find(x=>x.id===+wb.dataset.brk),id=b&&brkTerm(b,e);if(!id)return;const had=pending;terminalClick(id);if(!had&&pending)wireDrag={sx:e.clientX,sy:e.clientY,moved:false};return}
-  if(wb){const b=S.lc.items.find(x=>x.id===+wb.dataset.brk);if(!b)return;
-    if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste el breaker del circuito ${circLabel(b)}.`});runSim();renderAll()}else mutate(()=>{b.p.on=!b.p.on});return}
+  const wb=e.target.closest(".wb");if(wb){const b=S.lc.items.find(x=>x.id===+wb.dataset.brk),id=b&&brkTerm(b,e);if(!id)return;
+    if(pending&&pending!==id){terminalClick(id);return}
+    pending=null;terminalClick(id);wireDrag={sx:e.clientX,sy:e.clientY,moved:false,brk:b.id};return}
   if(e.target.closest(".wm")){mutate(()=>{S.lc.mainOn=S.lc.mainOn===false});return}
   const ww=e.target.closest(".ww");if(ww){sel=+ww.dataset.id;pending=null;reconn=null;renderAll();return}
   const wi=e.target.closest(".wi");if(wi){const it=S.wall.items.find(i=>i.id===+wi.dataset.id);if(!it)return;
@@ -322,6 +333,7 @@ window.addEventListener("pointermove",e=>{
   if(reconn&&!reconn.moved&&reconn.sx!=null&&Math.hypot(e.clientX-reconn.sx,e.clientY-reconn.sy)>4)reconn.moved=true;
   const pv=$("wpv");if(!pv||!from)return;const q=toWall(e);if(wireDrag&&!wireDrag.moved&&Math.hypot(e.clientX-wireDrag.sx,e.clientY-wireDrag.sy)>6)wireDrag.moved=true;pv.setAttribute("pointer-events","none");pv.innerHTML=`<path d="M${from.x} ${from.y}L${q.x} ${q.y}" stroke="#1c74e0" stroke-width="3" stroke-dasharray="6 4" fill="none" opacity=".85"/>${C(q.x,q.y,6,"#1c74e0",{op:.6})}`});
 window.addEventListener("pointerup",e=>{
+  if(wireDrag&&!wireDrag.moved&&wireDrag.brk){const id=wireDrag.brk;wireDrag=null;pending=null;sel=id;renderAll();return}
   if(wireDrag){const d=wireDrag;wireDrag=null;if(d.moved&&pending){if(!finishWireAt(e.clientX,e.clientY))toast("Suelta el cable sobre un aparato o un tornillo. También puedes tocar el destino ahora.")}return}
   if(reconn&&reconn.moved){const el=document.elementFromPoint(e.clientX,e.clientY),t=el&&el.closest&&el.closest(".wt");if(t)applyReconn(t.dataset.t);else{reconn=null;toast("Suelta la punta encima de un terminal.");renderAll()}return}
   if(reconn){reconn.sx=null;renderAll();return}
