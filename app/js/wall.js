@@ -48,7 +48,7 @@ const DEV={
 const LIB_WALL=[["Alimentación",["panel","supply","feed"]],["Protección y respaldo",["estabw","protw","upsw","invw"]],["Puntos eléctricos",["toma","toma240","inter","inter3","luz"]],["Aparatos para probar",["ac","heater","pump"]]];
 const WALL_DEFS=`<pattern id="pBlk" width="88" height="44" patternUnits="userSpaceOnUse"><rect width="88" height="44" fill="#b9b6ae"/><path d="M0 0.5H88M0 22.5H88M0.5 0V22M44.5 22V44" stroke="#9a978f" stroke-width="2"/></pattern>
 <pattern id="pTile" width="66" height="66" patternUnits="userSpaceOnUse"><rect width="66" height="66" fill="#f3f4f1"/><path d="M0 0.5H66M0.5 0V66" stroke="#cfd3d0" stroke-width="1.5"/></pattern>
-<radialGradient id="gGlow"><stop offset="0" stop-color="#fff3b0" stop-opacity=".95"/><stop offset=".5" stop-color="#ffd84d" stop-opacity=".35"/><stop offset="1" stop-color="#ffd84d" stop-opacity="0"/></radialGradient>`;
+<linearGradient id="gMot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4d6d82"/><stop offset=".22" stop-color="#8fb0c4"/><stop offset=".55" stop-color="#5d7f96"/><stop offset="1" stop-color="#36505f"/></linearGradient><linearGradient id="gMotF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f5b6c"/><stop offset=".22" stop-color="#7393a7"/><stop offset=".55" stop-color="#4d6d82"/><stop offset="1" stop-color="#2c4350"/></linearGradient><linearGradient id="gPump" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2556a3"/><stop offset=".22" stop-color="#5c95e6"/><stop offset=".55" stop-color="#2f6fd0"/><stop offset="1" stop-color="#1c4686"/></linearGradient><radialGradient id="gGlow"><stop offset="0" stop-color="#fff3b0" stop-opacity=".95"/><stop offset=".5" stop-color="#ffd84d" stop-opacity=".35"/><stop offset="1" stop-color="#ffd84d" stop-opacity="0"/></radialGradient>`;
 
 let wallMode="move",wColor="Auto",wAwg="12",pending=null,wdrag=null,reconn=null,wireDrag=null,leverPress=null;
 const simState={running:false,blackout:false,trip:new Set(),burnt:new Set(),res:null,log:[],sparks:[],timer:null,ctl:[],pressed:new Set(),forced:new Set(),tm:{},ctlT:null};
@@ -101,36 +101,36 @@ function autoColor(ta,tb){const sp=[ta,tb].find(t=>t.item&&t.item.type==="supply
 /* ---------- device drawings (origin = center) ---------- */
 function drawDev(type,p,st){const on=st&&(st.s==="on"||st.s==="weak"),burnt=st&&st.s==="burnt";let s="";
   switch(type){
-  case"toma":{s=R(-23,-38,46,76,"#f7f7f3",{rx:6,s:"#b9bab4"})+C(0,0,2.2,"#c8c8c2");
-    for(const y of [-18,18])s+=R(-15,y-13,30,26,"#efefea",{rx:8,s:"#c4c5bf"})+R(-8,y-8,3,10,"#333",{rx:1})+R(5,y-7,3,8,"#333",{rx:1})+`<path d="M-2.5 ${y+9}v-2.5a2.5 2.5 0 0 1 5 0v2.5z" fill="#333"/>`;
-    if(p.carga&&p.carga!=="Nada")s+=R(-10,8,20,18,"#2b2e31",{rx:4})+`<path d="M10 17 q22 0 24 26" fill="none" stroke="#2b2e31" stroke-width="3"/>`;break}
-  case"toma240":{s=R(-26,-38,52,76,"#f7f7f3",{rx:6,s:"#b9bab4"})+C(0,-6,18,"#efefea",{s:"#c4c5bf"})+R(-12,-15,4,12,"#333",{rx:1})+R(8,-15,4,12,"#333",{rx:1})+R(-2,1,4,10,"#333",{rx:1})+T(0,28,"240 V",{fs:7,fw:400});
-    if(p.carga&&p.carga!=="Nada")s+=R(-15,-21,30,30,"#2b2e31",{rx:6})+`<path d="M15 -6 q24 0 26 40" fill="none" stroke="#2b2e31" stroke-width="4"/>`;break}
-  case"inter":case"inter3":{const up=type==="inter"?p.on:p.pos!==2;s=R(-22,-36,44,72,"#f7f7f3",{rx:6,s:"#b9bab4"})+R(-12,-23,24,46,"#e9e9e4",{rx:4,s:"#c4c5bf"})+R(-9,-20,18,40,"#fbfbf8",{rx:3,s:"#c9cac4"})+R(-9,up?-20:0,18,20,"#dcdcd6",{rx:3});
+  case"toma":{s=box(-23,-38,46,76,"#f7f7f3",{rx:6,s:"#b9bab4"})+screw(0,0,2.6);
+    for(const y of [-18,18])s+=R(-15,y-12,30,26,"#000",{rx:8,op:.12})+R(-15,y-13,30,26,"#efefea",{rx:8,s:"#c4c5bf"})+R(-13,y-12,26,2,"#fff",{rx:1,op:.8})+R(-8,y-8,3,10,"url(#gHole)",{rx:1})+R(5,y-7,3,8,"url(#gHole)",{rx:1})+`<path d="M-2.5 ${y+9}v-2.5a2.5 2.5 0 0 1 5 0v2.5z" fill="#1b1e20"/>`;
+    if(p.carga&&p.carga!=="Nada")s+=R(-9,10,20,18,"#000",{rx:4,op:.3})+R(-10,8,20,18,"url(#gBkS)",{rx:4})+`<path d="M10 17 q22 0 24 26" fill="none" stroke="#2b2e31" stroke-width="3"/>`;break}
+  case"toma240":{s=box(-26,-38,52,76,"#f7f7f3",{rx:6,s:"#b9bab4"})+C(0,-5,18,"#000",{op:.1})+C(0,-6,18,"#efefea",{s:"#c4c5bf"})+R(-12,-15,4,12,"url(#gHole)",{rx:1})+R(8,-15,4,12,"url(#gHole)",{rx:1})+R(-2,1,4,10,"url(#gHole)",{rx:1})+T(0,28,"240 V",{fs:7,fw:400});
+    if(p.carga&&p.carga!=="Nada")s+=R(-14,-19,30,30,"#000",{rx:6,op:.3})+R(-15,-21,30,30,"url(#gBkS)",{rx:6})+`<path d="M15 -6 q24 0 26 40" fill="none" stroke="#2b2e31" stroke-width="4"/>`;break}
+  case"inter":case"inter3":{const up=type==="inter"?p.on:p.pos!==2;s=box(-22,-36,44,72,"#f7f7f3",{rx:6,s:"#b9bab4"})+R(-12,-23,24,46,"#e9e9e4",{rx:4,s:"#c4c5bf"})+R(-12,-23,24,46,"url(#gWin)",{rx:4,op:.4})+R(-8,-19,18,40,"#000",{rx:3,op:.18})+R(-9,-20,18,40,"#fbfbf8",{rx:3,s:"#c9cac4"})+R(-9,up?-20:0,18,20,"#dcdcd6",{rx:3})+R(-8,up?-19:1,16,1.6,"#fff",{rx:.8})+R(-8,up?-1:18,16,1.4,"#000",{rx:.7,op:.12});
     s+=type==="inter"?T(0,up?-26:31,up?"ON":"OFF",{fs:6.5,c:"#6a6f72"}):T(0,up?-26:31,"3V · "+(up?"1":"2"),{fs:6.5,c:"#6a6f72"});break}
-  case"supply":{const tri=S.lc.sys==="3F";s=R(-66,-48,132,96,"#a7aeb2",{rx:5,s:"#5f676c",sw:1.5})+R(-58,-40,116,80,"#c3c9cc",{rx:3,s:"#7d858a"})+T(0,-26,"ACOMETIDA",{fs:9,ff:SANS,fw:700,c:"#1d2326"})+R(-30,-18,60,22,"#a9bb94",{rx:2,s:"#6f7d61"})+T(0,-3,"kWh",{fs:9,c:"#1c2615"});
+  case"supply":{const tri=S.lc.sys==="3F";s=box(-66,-48,132,96,"#a7aeb2",{rx:5,s:"#5f676c",sw:1.5})+box(-58,-40,116,80,"#c3c9cc",{rx:3,s:"#7d858a",so:.12})+T(0,-26,"ACOMETIDA",{fs:9,ff:SANS,fw:700,c:"#1d2326"})+scr(-30,-18,60,22,"#a9bb94")+T(0,-3,"kWh",{fs:9,c:"#1c2615"});
     s+=T(0,18,tri?"208Y/120 V · 3F 4 hilos":"120/240 V · 1F 3 hilos",{fs:7,fw:400,c:"#1d2326"})+T(0,30,"60 Hz",{fs:7,fw:400,c:"#3a4044"});if(st&&st.s==="off")s+=R(-66,-48,132,96,"#2b1d10",{rx:5,op:.35});break}
-  case"feed":{s=R(-32,-32,64,64,"#9aa1a6",{rx:4,s:"#6d757a"})+R(-26,-26,52,52,"#b9bfc2",{rx:3,s:"#868e92"});for(const [x,y] of [[-20,-20],[20,-20],[-20,20],[20,20]])s+=screw(x,y,3.5);
+  case"feed":{s=box(-32,-32,64,64,"#9aa1a6",{rx:4,s:"#6d757a"})+box(-26,-26,52,52,"#b9bfc2",{rx:3,s:"#868e92",so:.12});for(const [x,y] of [[-20,-20],[20,-20],[-20,20],[20,20]])s+=screw(x,y,3.5);
     const b=srcById(p.brk);s+=T(0,0,b?cutText(b.short,6):"—",{fs:11,c:"#1d2326"})+T(0,12,b?b.In+" A":"elige",{fs:6.5,fw:400,c:"#2a2e31"});break}
   case"estabw":case"upsw":case"invw":{const d=DEV[type],e=EXT[d.ext],ep=Object.assign({},e.d,p,{sys:"Monofásico 120V",kind:"Interactiva",on:st?["on","bat","idle"].includes(st.s):p.on!==false});
     const W=e.w(ep),H=e.h(ep);s=`<g transform="scale(${d.sc}) translate(${-W/2} ${-H/2})">${DRAWX[d.ext](ep,W,H)}</g>`;break}
-  case"protw":{const ok=st?st.s==="on":p.on!==false;s=R(-25,-38,50,76,"#f4f4f0",{rx:10,s:"#b9bab4"})+R(-17,-30,34,17,"#0d1a10",{rx:2})+T(0,-17.5,st?(ok?"120":"---"):"120",{fs:10,c:"#5cff7a"});
-    s+=C(-10,-4,2.6,ok?"#3bd16b":"#24452f")+C(10,-4,2.6,ok?"#5a1f1f":"#ff3b30")+R(-15,4,30,26,"#efefea",{rx:8,s:"#c4c5bf"})+R(-8,9,3,10,"#333",{rx:1})+R(5,10,3,8,"#333",{rx:1})+`<path d="M-2.5 26v-2.5a2.5 2.5 0 0 1 5 0v2.5z" fill="#333"/>`;break}
-  case"luz":{if(on)s+=C(0,8,48,"url(#gGlow)");s+=R(-15,-32,30,10,"#bdb7aa",{rx:3})+R(-3,-22,6,10,"#a9a396")+R(-8,-14,16,10,"#b9b4a8",{rx:2});
+  case"protw":{const ok=st?st.s==="on":p.on!==false;s=box(-25,-38,50,76,"#f4f4f0",{rx:10,s:"#b9bab4"})+scr(-17,-30,34,17,"#0d1a10")+T(0,-17.5,st?(ok?"120":"---"):"120",{fs:10,c:"#5cff7a"});
+    s+=led(-10,-4,2.4,"#3bd16b",ok,"#24452f")+led(10,-4,2.4,"#ff3b30",!ok,"#5a1f1f")+R(-15,5,30,26,"#000",{rx:8,op:.12})+R(-15,4,30,26,"#efefea",{rx:8,s:"#c4c5bf"})+R(-8,9,3,10,"url(#gHole)",{rx:1})+R(5,10,3,8,"url(#gHole)",{rx:1})+`<path d="M-2.5 26v-2.5a2.5 2.5 0 0 1 5 0v2.5z" fill="#1b1e20"/>`;break}
+  case"luz":{if(on)s+=C(0,8,48,"url(#gGlow)");s+=box(-15,-32,30,10,"#bdb7aa",{rx:3})+R(-3,-22,6,10,"url(#gNi)")+R(-8,-14,16,10,"url(#gNi)",{rx:2,s:"#8d918d",sw:.5});
     s+=C(0,8,16,burnt?"#4a4743":on?"#fff6c8":"#f2f0e6",{s:"#b9b3a0"})+`<path d="M-5 10 q2.5 -6 5 0 q2.5 6 5 0" fill="none" stroke="${on?"#ff9a1a":"#9a958a"}" stroke-width="1.4"/>`+C(0,8,16,"url(#gLens)",{op:.6});
     if(burnt)s+=`<path d="M-8 2 l6 5 -3 4 7 4" fill="none" stroke="#222" stroke-width="1.2"/>`;break}
-  case"ac":{s=R(-95,-33,190,66,"#f8f9f8",{rx:14,s:"#c8ccc9"})+R(-88,8,176,2,"#dfe2df")+R(-80,16,160,9,"#d6dad6",{rx:4})+C(72,-14,3.2,on?"#4fd1ff":"#cfd3d0")+T(54,-11,on?"24°":"",{fs:8,c:"#4fa8d8"});
+  case"ac":{s=box(-95,-33,190,66,"#f8f9f8",{rx:14,s:"#c8ccc9"})+R(-93,-6,186,37,"#000",{rx:12,op:.03})+R(-88,8,176,2,"#dfe2df")+R(-88,10,176,1,"#fff")+R(-80,16,160,9,"url(#gHole)",{rx:4,op:.35})+[0,1,2,3].map(k=>R(-78,17.5+k*2,156,.6,"#fff",{op:.5})).join("")+C(72,-14,3.2,on?"#4fd1ff":"#cfd3d0")+T(54,-11,on?"24°":"",{fs:8,c:"#4fa8d8"});
     if(on)for(const x of [-66,-40,40,66])s+=`<path class="flow" d="M${x} 28 q8 14 0 28" fill="none" stroke="#7cc4ef" stroke-width="2.5" stroke-linecap="round"/>`;break}
-  case"heater":{s=R(-20,-76,6,14,"#c88a4a")+R(14,-76,6,14,"#2f6fd0")+R(-38,-65,76,130,"#f4f4f1",{rx:18,s:"#bfc2bd"})+R(-38,-65,76,16,"#d8dad6",{rx:10})+R(-24,-22,48,36,"#e8e9e5",{rx:3,s:"#cfd1cc"});
+  case"heater":{s=R(-20,-76,6,14,"url(#gCu)")+R(14,-76,6,14,"#2f6fd0")+R(15,-76,1.5,14,"#fff",{op:.35})+box(-38,-65,76,130,"#f4f4f1",{rx:18,s:"#bfc2bd"})+R(-38,-65,76,16,"#d8dad6",{rx:10})+scr(-24,-22,48,36,"#e8e9e5");
     s+=T(0,-7,"CALENTADOR",{fs:6})+T(0,7,p.W+" W",{fs:7.5});if(on)s+=C(0,30,11,"#ff6b5e",{op:.5,flt:"blur"});s+=C(0,30,5,on?"#ff4b3b":"#5a1f1f");break}
-  case"motor3":{const rev=st&&st.rev,hum=st&&st.s==="fase";s=R(-60,30,120,9,"#3a3e41",{rx:2})+R(-50,20,10,12,"#3a3e41")+R(30,20,10,12,"#3a3e41");
-    s+=R(-54,-26,92,52,"#5d7f96",{rx:12,s:"#3d5a6d",sw:1.5});for(let k=0;k<8;k++)s+=R(-46+k*10,-26,3.5,52,"#4d6d82");
-    s+=R(-34,-42,40,18,"#4d6d82",{rx:3,s:"#3d5a6d"})+T(-14,-29,"3~",{fs:9,c:"#fff"})+R(38,-20,18,40,"#8a9aa4",{rx:6,s:"#5f6d75"})+R(56,-4,8,8,"#9aa1a6");
+  case"motor3":{const rev=st&&st.rev,hum=st&&st.s==="fase";s=R(-60,30,120,9,"url(#gBkS)",{rx:2})+R(-50,20,10,12,"#3a3e41")+R(30,20,10,12,"#3a3e41");
+    s+=R(-53,-23,92,52,"#000",{rx:12,op:.2})+R(-54,-26,92,52,"url(#gMot)",{rx:12,s:"#3d5a6d",sw:1.5});for(let k=0;k<8;k++)s+=R(-46+k*10,-26,3.5,52,"url(#gMotF)")+R(-46+k*10,-26,1,52,"#fff",{op:.18});
+    s+=box(-34,-42,40,18,"#4d6d82",{rx:3,s:"#3d5a6d"})+T(-14,-29,"3~",{fs:9,c:"#fff"})+R(38,-20,18,40,"url(#gMot)",{rx:6,s:"#5f6d75"})+R(56,-4,8,8,"url(#gNi)");
     s+=`<g transform="translate(47 0)"><g class="${on?(rev?"spinr":"spin"):hum?"hum":""}"><path d="M0 -14V14M-14 0H14M-10 -10L10 10M-10 10L10 -10" stroke="#2f3a40" stroke-width="2.4" stroke-linecap="round"/></g></g>`;
     s+=T(-8,6,p.hp,{fs:10,c:"#fff"})+T(-8,18,"208 V",{fs:7,fw:400,c:"#e8eef2"});
     if(on){const c=rev?"#d9822b":"#2f9e44",ex=rev?34:60;s+=`<path d="M${rev?60:34} -36 a14 14 0 0 ${rev?0:1} ${rev?-26:26} 0" fill="none" stroke="${c}" stroke-width="2.4"/><polygon points="${ex-4.5},-37 ${ex+4.5},-37 ${ex},-29" fill="${c}"/>`}break}
-  case"pump":{s=R(-50,24,100,8,"#3a3e41",{rx:2})+R(-44,-22,54,46,"#2f6fd0",{rx:10,s:"#1d4d94"});for(let k=0;k<5;k++)s+=R(-38+k*9,-22,3,46,"#2a5fb5");
-    s+=R(20,-38,14,18,"#aab0b4",{rx:2})+C(28,0,20,"#9aa1a6",{s:"#5f666b"})+`<g class="${on?"spin":""}"><path d="M28 -13V13M15 0H41M19 -9L37 9M19 9L37 -9" stroke="#3a3f43" stroke-width="2.6" stroke-linecap="round"/></g>`+C(28,0,4,"#5f666b")+T(-17,4,p.hp,{fs:8,c:"#fff"});break}
+  case"pump":{s=R(-50,24,100,8,"#3a3e41",{rx:2})+R(-43,-19,54,46,"#000",{rx:10,op:.2})+R(-44,-22,54,46,"url(#gPump)",{rx:10,s:"#1d4d94"});for(let k=0;k<5;k++)s+=R(-38+k*9,-22,3,46,"#2a5fb5")+R(-38+k*9,-22,.9,46,"#fff",{op:.2});
+    s+=R(20,-38,14,18,"url(#gNi)",{rx:2,s:"#7d8589",sw:.5})+C(29,2,20,"#000",{op:.2})+C(28,0,20,"url(#gScr)",{s:"#5f666b"})+`<g class="${on?"spin":""}"><path d="M28 -13V13M15 0H41M19 -9L37 9M19 9L37 -9" stroke="#3a3f43" stroke-width="2.6" stroke-linecap="round"/></g>`+C(28,0,4,"#5f666b")+T(-17,4,p.hp,{fs:8,c:"#fff"});break}
   }
   if(burnt){const d=DEV[type];s+=R(-d.w/2,-d.h/2,d.w,d.h,"#2b1d10",{rx:6,op:.35})+`<g class="smoke">${C(-6,-d.h/2-8,7,"#7d7a76",{op:.55})}${C(5,-d.h/2-16,9,"#8f8c88",{op:.45})}${C(-2,-d.h/2-28,11,"#a3a09c",{op:.35})}</g>`}
   return s}

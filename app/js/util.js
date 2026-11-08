@@ -59,3 +59,13 @@ function lever(x,w,on,top=44,h=52){const lh=22,ly=on?top+4:top+h-lh-4;
    R(x+1.5,on?ly+1:ly+lh-5,w-3,4,on?"#9aa1a6":"#2a2e31",{rx:1.2})+[7,10.5,14].map(k=>R(x+2.5,ly+k+(on?2:0),w-5,.9,"#000",{op:.45})).join("")}
 /* ventana del indicador de estado (rojo = cerrado, verde = abierto) */
 const flag=(x,y,w,h,on)=>R(x-1,y-1,w+2,h+2,"#2a2e31",{rx:1.5})+R(x,y,w,h,on?"#d23a2f":"#3a9d55",{rx:1})+R(x,y,w,h,"url(#gWin)",{rx:1})+R(x+1,y+1,w*.4,1,"#fff",{op:.5});
+/* bloque elevado: sombra, cara, sombreado lateral y brillo superior */
+const box=(x,y,w,h,f,o={})=>{const rx=o.rx||0,i=rx*.6+1;return R(x+1,y+2,w,h,"#000",{rx,op:o.so??.2})+R(x,y,w,h,f,o)+R(x,y,w,h,"url(#gSide)",{rx})+R(x+i,y+1,w-2*i,Math.min(2.5,h*.08),"#fff",{rx:1,op:o.hl??.6})};
+/* pantalla o ventana hundida con vidrio */
+const scr=(x,y,w,h,f,o={})=>{const rx=o.rx||2;return R(x-1,y-1,w+2,h+2,"#fff",{rx:rx+1,op:.5})+R(x-1,y-1.5,w+2,h+1.5,"#000",{rx:rx+1,op:.35})+R(x,y,w,h,f,{rx})+R(x,y,w,h,"url(#gWin)",{rx})+`<path d="M${x+w*.55} ${y}h${w*.18}l${-w*.22} ${h}h${-w*.18}z" fill="#fff" opacity=".07"/>`};
+/* LED: con brillo difuso cuando está encendido */
+const led=(cx,cy,r,col,on,dim)=>(on?C(cx,cy,r+2.5,col,{op:.6,flt:"blur"}):"")+C(cx,cy+.6,r+.8,"#000",{op:.25})+C(cx,cy,r,on?col:(dim||"#3a3f43"))+C(cx,cy,r,"url(#gLens)",{op:.85});
+/* botón rectangular que sobresale */
+const rbtn=(x,y,w,h,f,o={})=>R(x+.5,y+1.6,w,h,"#000",{rx:o.rx||2,op:.4})+R(x,y,w,h,f,{rx:o.rx||2})+R(x,y,w,h,"url(#gLvX)",{rx:o.rx||2})+R(x+1,y+.8,w-2,1.4,"#fff",{rx:.7,op:.45});
+/* botón redondo con aro metálico */
+const rbtnC=(cx,cy,r,f)=>C(cx,cy+2,r+3,"#000",{op:.3})+C(cx,cy,r+3,"url(#gScr)",{s:"#6d7276",sw:.6})+C(cx,cy,r,f,{s:"rgba(0,0,0,.35)",sw:.8})+C(cx,cy,r,"url(#gLens)");
