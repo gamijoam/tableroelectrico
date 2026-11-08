@@ -19,10 +19,11 @@ const DRAW={
   s+=led(16,86,2.8,"#3bd16b",p.on,"#2c4a35")+T(22,88,"OK",{fs:5.5,a:"start",fw:400})+led(46,86,2.8,"#ff3b30",!p.on,"#5a1f1f")+T(52,88,"ERR",{fs:5.5,a:"start",fw:400});
   return s+rbtn(12,97,14,8,"#555a5e")+rbtn(46,97,14,8,"#555a5e")+T(36,122,p.In+"A",{fs:9.5,fw:700})+T(36,132,"Protector V",{fs:6,fw:400})},
  supv(p,w){const tri=p.sys.startsWith("Trif");let s=std(w);
-  s+=led(14,47,2.8,"#3bd16b",p.on,"#24452f")+led(36,47,2.8,"#ffc533",p.on,"#5a4a1d")+led(58,47,2.8,"#ff3b30",!p.on,"#5a1f1f");
+  /* en retardo: tiene voltaje bueno (PWR) pero aún no cierra el relé; no es falla */
+  const wt=!!p.wait;s+=led(14,47,2.8,"#3bd16b",p.on||wt,"#24452f")+led(36,47,2.8,"#ffc533",p.on,"#5a4a1d")+led(58,47,2.8,"#ff3b30",!p.on&&!wt,"#5a1f1f");
   s+=T(14,57,"PWR",{fs:4.8,fw:400})+T(36,57,"RELÉ",{fs:4.8,fw:400})+T(58,57,"FALLA",{fs:4.8,fw:400});
   s+=knob(14,74,7,-50)+knob(36,74,7,40)+knob(58,74,7,10)+T(14,90,"U<",{fs:5.5})+T(36,90,"U>",{fs:5.5})+T(58,90,"t",{fs:5.5});
-  return s+R(6,97,w-12,36,"#fbfbf8",{rx:1.5,s:"#d3d5d0",sw:.5})+T(36,108,(tri?"3Φ ":"1Φ ")+p.sys.replace(/^\D+/,""),{fs:9,fw:700})+T(36,119,tri?"Secuencia · falta fase":"Sobre / bajo voltaje",{fs:5,fw:400})+T(36,130,"Supervisor",{fs:6,fw:400})},
+  return s+R(6,97,w-12,36,"#fbfbf8",{rx:1.5,s:"#d3d5d0",sw:.5})+T(36,108,(tri?"3Φ ":"1Φ ")+p.sys.replace(/^\D+/,""),{fs:9,fw:700})+T(36,119,tri?"Secuencia · falta fase":"Sobre / bajo voltaje",{fs:5,fw:400})+(wt?R(10,124,w-20,9,"#ffc533",{rx:1.5})+T(36,131,"RETARDO…",{fs:6,fw:700,c:"#3a2f05"}):T(36,130,"Supervisor",{fs:6,fw:400}))},
  cont(p,w){let s=std(w)+T(8,46,"A1",{fs:6,a:"start",fw:400})+T(w-8,46,p.coil,{fs:6,a:"end",fw:400});
   s+=R(w/2-14,52,28,16,"url(#gHole)",{rx:2})+R(w/2-11,p.on?58:54,22,8,p.on?"#ffcf33":"#8a8f93",{rx:1.2})+T(w/2,p.on?64.5:60.5,p.on?"I":"0",{fs:6.5,c:"#2a2e31",fw:700})+R(w/2-14,52,28,16,"url(#gWin)",{rx:2});
   return s+R(w/2-5,76,10,26,"url(#gHole)",{rx:2})+rbtn(w/2-4,p.on?77:89,8,12,"#4a4f54")+T(w/2,118,p.In+"A AC-3",{fs:9,fw:700})+T(w/2,129,p.cts,{fs:7,fw:400})+T(8,133,"A2",{fs:6,a:"start",fw:400})},
