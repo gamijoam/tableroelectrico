@@ -224,9 +224,14 @@ function simCore(prevTrip,burnt,ctl){
     else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: ${st.why}.`})}
   if(PG&&PG.din)for(const it of S.items){const c=res.coil[it.id];if(!c)continue;const lab=it.p.des||CAT[it.type].n;
     if(it.type==="pilot"){if(c.on)res.status.push({lvl:"ok",msg:`${lab} (piloto ${String(it.p.color).toLowerCase()}): encendida.`});else if(c.why.startsWith("poco"))res.status.push({lvl:"warn",msg:`${lab}: luz piloto de ${c.r} V con ${c.v} V, casi no se ve.`});continue}
-    if(it.type==="supv"){if(c.why!=="sin tensión")res.status.push(c.on?{lvl:"ok",msg:`${lab}: red normal, cierra 11-14.`}:{lvl:"warn",msg:`${lab}: ${c.why}. Abre 11-14 y no deja arrancar.`});continue}
+    if(it.type==="supv"){const tc=k=>`${P.id}/c${it.id}.${k}`,used=[...supvL(it.p),"11","12","14"].some(k=>S.wall.wires.some(w=>w.a===tc(k)||w.b===tc(k)));
+      if(c.why!=="sin tensión")res.status.push(c.on?{lvl:"ok",msg:`${lab}: red normal, cierra 11-14.`}:{lvl:"warn",msg:`${lab}: ${c.why}. Abre 11-14 y no deja arrancar.`});
+      else if(used)res.status.push({lvl:"warn",msg:`${lab}: no tiene tensión en ${supvL(it.p).join(" y ")}, así que su contacto 11-14 queda abierto.`});continue}
     if(c.forced)res.status.push({lvl:"warn",msg:`${lab}: accionado a mano para probar (su bobina tiene ${c.v||0} V). En la realidad lo cierra la bobina A1-A2.`});
     else if(c.on)res.status.push({lvl:"ok",msg:`${lab}: bobina con ${c.v} V, ${it.type==="timer"?(timerOp(it,ctl)?"contacto 15-18 cerrado":`contando ${timerT(it.p)} s`):"contactos cerrados"}.`});
-    else if(c.why.startsWith("poco"))res.status.push({lvl:"warn",msg:`${lab}: la bobina es de ${c.r} V y recibe ${c.v} V. Zumba y no cierra.`})}
+    else if(c.why.startsWith("poco"))res.status.push({lvl:"warn",msg:`${lab}: la bobina es de ${c.r} V y recibe ${c.v} V. Zumba y no cierra.`});
+    else if(c.why==="sin tensión"&&it.type!=="pilot"){const tc=k=>`${P.id}/c${it.id}.${k}`,cab=["A1","A2"].some(k=>S.wall.wires.some(w=>w.a===tc(k)||w.b===tc(k)));
+      /* sin ningún cable en la bobina todavía no se avisa; esperar el pulsador de marcha es normal */
+      const cw=cab&&coilWhy(it,{terms,nets,pot,SRC,trips:res.trips,ctl});if(cw)res.status.push({lvl:/^([^;]+ no está presionado(; )?)+$/.test(cw)?"off":"warn",msg:`${lab}: la bobina no tiene tensión: ${cw}.`})}}
   const order={crit:0,warn:1,ok:2,off:3};res.status.sort((a,b)=>order[a.lvl]-order[b.lvl]);
   return res}
