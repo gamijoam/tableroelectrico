@@ -113,7 +113,7 @@ document.addEventListener("keydown",e=>{const tag=(e.target.tagName||"").toLower
   else if(mod&&e.key.toLowerCase()==="d"){e.preventDefault();dup()}else if(e.key==="Escape"){sel=null;renderAll()}});
 
 /* ---------- modals ---------- */
-function openModal(html){$("dlg").innerHTML=html;$("modal").hidden=false}
+function openModal(html){const d=$("dlg");d.className="dlg";d.onclick=d.onchange=d.oninput=null;d.innerHTML=html;$("modal").hidden=false}
 function closeModal(){$("modal").hidden=true}
 $("modal").addEventListener("click",e=>{if(e.target.id==="modal"||e.target.closest("[data-close]"))closeModal()});
 function showPng(svg,Wd,H,title,msg){const sc=2,src=`<svg xmlns="http://www.w3.org/2000/svg" width="${Wd*sc}" height="${H*sc}" viewBox="0 0 ${Wd} ${H}"><defs>${DEFS}</defs><rect width="${Wd}" height="${H}" fill="#ffffff"/>${svg}</svg>`;

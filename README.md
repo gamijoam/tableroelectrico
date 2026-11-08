@@ -23,6 +23,8 @@ js/control.js       Mando de motores: bornes de contactor, térmico, relé, temp
                     pilotos y supervisor; qué contactos cierran; motor trifásico
 js/flow.js          Flujo de energía animado, lectura de cada borne, multímetro y diagnóstico de por qué no funciona
 js/touch.js         Pantallas táctiles: desplazar con el dedo, pellizcar para zoom, avance automático al arrastrar
+js/calc.js          Calculadora: breaker, cable, tubo y caída de tensión; arranque de motores; estabilizador,
+                    UPS e inversor con baterías; demanda de la casa, principal, acometida y circuitos
 js/info.js          Ficha de cada elemento: para qué sirve, cómo funciona, cómo se conecta, errores y si se simula
 js/wall.js          Vista Pared: varias paredes, dispositivos, cableado, tubería y panel de prueba
 js/layout.js        Paneles laterales plegables, pantalla completa y alertas de la prueba

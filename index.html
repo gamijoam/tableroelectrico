@@ -29,6 +29,7 @@
       </select>
       <button class="btn" id="undo" title="Deshacer (Ctrl+Z)">Deshacer</button>
       <button class="btn" id="redo" title="Rehacer (Ctrl+Shift+Z)">Rehacer</button>
+      <button class="btn" id="calc">Calculadora</button>
       <button class="btn" id="file">Proyectos</button>
       <button class="btn" id="new">Nuevo</button>
       <button class="btn" id="png">Exportar imagen</button>
@@ -78,7 +79,7 @@
       <span class="chip money" id="total" title="Total del presupuesto"></span>
       <span class="sp"></span>
       <div class="zoom"><button class="btn" id="zout" aria-label="Alejar">−</button><output id="zval">100%</output><button class="btn" id="zin" aria-label="Acercar">+</button><button class="btn" id="zfit">Ajustar</button></div>
-      <span class="tgroup focus-only"><button class="btn" id="fUndo">Deshacer</button><button class="btn" id="fRedo">Rehacer</button><button class="btn" id="fPng">Exportar imagen</button><button class="btn" id="fPdf">PDF</button></span>
+      <span class="tgroup focus-only"><button class="btn" id="fUndo">Deshacer</button><button class="btn" id="fRedo">Rehacer</button><button class="btn" id="fCalc">Calculadora</button><button class="btn" id="fPng">Exportar imagen</button><button class="btn" id="fPdf">PDF</button></span>
       <button class="btn" id="fs" aria-pressed="false">Pantalla completa</button>
     </div>
     <div id="stagebox"><div id="alert" hidden></div><div id="selbar" class="selbar" hidden></div><div id="stage"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg><svg id="wall" xmlns="http://www.w3.org/2000/svg" hidden></svg></div></div>
@@ -122,6 +123,7 @@
 <script src="js/selbar.js"></script>
 <script src="js/projects.js"></script>
 <script src="js/pdf.js"></script>
+<script src="js/calc.js"></script>
 <script src="js/actions.js"></script>
 <script src="js/touch.js"></script>
 <script src="js/main.js"></script>
