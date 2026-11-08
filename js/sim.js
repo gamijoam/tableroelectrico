@@ -40,8 +40,12 @@ function simCore(prevTrip,burnt,ctl){
   const P=S.wall.items.find(i=>i.type==="panel");
   const terms=new Map();for(const it of S.wall.items)for(const t of itemTerms(it))terms.set(t.id,Object.assign(t,{item:it}));
   const nets=new Nets();for(const id of terms.keys())nets.add(id);
+  /* además de unir redes, se guarda cada unión para poder seguir el recorrido de la corriente */
+  const adj=new Map(),seenE=new Set(),edge=(a,b,wid)=>{if(!terms.has(a)||!terms.has(b)||a===b)return;const k=a<b?a+"|"+b+"|"+wid:b+"|"+a+"|"+wid;if(seenE.has(k))return;seenE.add(k);
+    for(const [x,y] of [[a,b],[b,a]]){if(!adj.has(x))adj.set(x,[]);adj.get(x).push({to:y,wid})}};
+  const u0=nets.union.bind(nets);nets.union=(a,b,wid=null)=>{u0(a,b);edge(a,b,wid)};const loadPts=[];
   const wires=S.wall.wires.filter(w=>terms.has(w.a)&&terms.has(w.b));
-  wires.forEach(w=>nets.union(w.a,w.b));
+  wires.forEach(w=>nets.union(w.a,w.b,w.id));
   for(const it of S.wall.items){if(it.type==="inter"&&it.p.on)nets.union(`${it.id}/COM`,`${it.id}/L`);if(it.type==="inter3")nets.union(`${it.id}/COM`,`${it.id}/T${it.p.pos===2?2:1}`)}
   const feeds=S.wall.items.filter(i=>i.type==="feed");
   /* barras del tablero (y borneras de neutro/tierra del riel) unidas entre sí */
@@ -74,8 +78,9 @@ function simCore(prevTrip,burnt,ctl){
       for(let it=0;it<12;it++){let ch=false;
         for(const b of SRC){if(b.p.on===false||res.trips.has(b.id))continue;
           for(let k=0;k<b.poles;k++){const out=`${P.id}/b${b.id}.${k}`;if(!terms.has(out))continue;let L=null,ii=null;
-            if(isDin())ii=info.get(nets.find(`${P.id}/t${b.id}.${k}`));else if(mainOk)ii=info.get(nets.find(`${P.id}/M${PH().indexOf(b.ph(k))}`));
-            if(ii&&ii.ph.size===1)L=[...ii.ph][0];if(!L)continue;const no=get(nets.find(out));
+            const inT=isDin()?`${P.id}/t${b.id}.${k}`:`${P.id}/M${PH().indexOf(b.ph(k))}`;
+            if(isDin()||mainOk)ii=info.get(nets.find(inT));
+            if(ii&&ii.ph.size===1)L=[...ii.ph][0];if(!L)continue;edge(inT,out,null);const no=get(nets.find(out));
             if(!no.feed.some(f=>f.b===b&&f.k===k)){no.ph.add(L);no.feed.push({b,k});ch=true}}}
         if(!ch)break}}
     else if(P){for(const b of SRC)for(let k=0;k<b.poles;k++){const id=`${P.id}/b${b.id}.${k}`;if(!terms.has(id))continue;const ni=get(nets.find(id));
@@ -118,11 +123,11 @@ function simCore(prevTrip,burnt,ctl){
       const [k0,k1]=d.terms.filter(t=>t[1]!=="T").map(t=>`${it.id}/${t[0]}`);
       const a=pot(k0),b=pot(k1),v=volt(a,b),W=d.W(it.p)||0;let st;
       if(burnt.has(it.id))st={s:"burnt",v};
-      else if(v===0)st={s:"off",v,why:a==null||b==null?"circuito abierto":"sin tensión"};
+      else if(v===0)st={s:"off",v,why:whyOff(it,k0,k1,{terms,nets,pot,SRC,trips:res.trips,ctl})};
       else if(d.V===120&&v>=208){st={s:"burnt",v};if(!res.newBurnt.includes(it.id)){res.newBurnt.push(it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)} recibió ${v} V en vez de 120 V y se quemó.`})}}
       else if(d.V===240&&v===120)st={s:"weak",v};
       else st={s:W>0?"on":"idle",v};
-      st.I=st.s==="on"?W/(d.V===120?120:v):st.s==="weak"?W/4/120:0;res.loads[it.id]=st;
+      st.I=st.s==="on"?W/(d.V===120?120:v):st.s==="weak"?W/4/120:0;res.loads[it.id]=st;st.W=st.s==="on"?W:st.s==="weak"?W/4:0;if(st.I)loadPts.push({t:k0,I:st.I},{t:k1,I:st.I});
       if(st.s==="on")for(const k of [k0,k1]){const i=netOf(k);if(i)for(const ph of i.ph)if(ph[0]==="U")res.batW[ph.slice(1)]=(res.batW[ph.slice(1)]||0)+W}
       if(st.I)for(const k of [k0,k1]){const r=nets.find(k);netCur.set(r,(netCur.get(r)||0)+st.I);const i=netOf(k);if(i&&i.ph.size===1&&i.feed.length){const f=i.feed[0],key=f.b.id+"."+f.k;res.pcur[key]=(res.pcur[key]||0)+st.I}}
       /* curva B: el arranque de un motor (5 a 7 veces su corriente) la hace disparar */
@@ -137,12 +142,23 @@ function simCore(prevTrip,burnt,ctl){
       else if(u.size===3){const ix=ph.map(x=>"ABC".indexOf(x));st={s:"on",v:208,I:fla,rev:(ix[1]-ix[0]+3)%3!==1}}
       else if(u.size===2)st={s:"fase",v:208,I:fla*1.73};
       else st={s:"off",v:0,I:0,why:u.size?"le llega una sola fase":"sin tensión"};
-      res.loads[it.id]=st;
-      if(st.I)ks.forEach((k,j)=>{if(!ph[j])return;const r=nets.find(k);netCur.set(r,(netCur.get(r)||0)+st.I);const i=netOf(k);if(i&&i.ph.size===1&&i.feed.length){const f=i.feed[0],key=f.b.id+"."+f.k;res.pcur[key]=(res.pcur[key]||0)+st.I}});
+      res.loads[it.id]=st;st.W=st.s==="on"?Math.round(st.I*208*1.73*.85):0;
+      if(st.I)ks.forEach((k,j)=>{if(!ph[j])return;loadPts.push({t:k,I:st.I});const r=nets.find(k);netCur.set(r,(netCur.get(r)||0)+st.I);const i=netOf(k);if(i&&i.ph.size===1&&i.feed.length){const f=i.feed[0],key=f.b.id+"."+f.k;res.pcur[key]=(res.pcur[key]||0)+st.I}});
       if(st.s==="on")for(const k of ks){const i=netOf(k);if(!i)continue;const f=i.feed.find(f=>f.b.din&&f.b.ref.type==="mcb"&&f.b.ref.p.curve==="B");
         if(f&&!res.trips.has(f.b.id)){res.trips.add(f.b.id);gfci=true;res.log.push({lvl:"crit",msg:`Al arrancar, ${devLabel(it)} pidió varias veces su corriente y disparó ${f.b.lab} (curva B). Para motores usa curva C o D, o un guardamotor.`})}}}
     if(!gfci)break}
   res.coil=ctlEval(P,pot,volt,burnt,res);
+  /* recorrido de la energía y lectura de cada terminal */
+  for(const [id,c] of Object.entries(res.coil))if(c.on&&c.v){const it=S.items.find(i=>i.id===+id);if(!it||it.type==="supv")continue;const [a,b]=it.type==="pilot"?["X1","X2"]:["A1","A2"];loadPts.push({t:`${P.id}/c${id}.${a}`,I:.1},{t:`${P.id}/c${id}.${b}`,I:.1})}
+  {const phSrc=[],nSrc=[];
+    if(WIRED){["L1","L2","L3"].forEach(k=>phSrc.push(`${SUP.id}/${k}`));nSrc.push(`${SUP.id}/N`)}
+    else if(P){for(const t of terms.values())if(t.srcId!=null&&t.item===P)phSrc.push(t.id);nSrc.push(`${P.id}/N0`)}
+    for(const f of feeds){phSrc.push(`${f.id}/F1`,`${f.id}/F2`);nSrc.push(`${f.id}/N`)}
+    for(const id of batOn){phSrc.push(`${id}/OF`);nSrc.push(`${id}/ON`)}
+    const isPhase=t=>isPh(pot(t)),isNeutral=t=>{const i=netOf(t);return!!i&&i.N&&!i.ph.size};
+    res.flow={w:flowCompute(adj,phSrc,nSrc,loadPts,isPhase,isNeutral),live:new Set(wires.filter(w=>isPhase(w.a)).map(w=>w.id))};
+    res.tp={};for(const id of terms.keys())res.tp[id]=pot(id);
+    res.tfeed={};for(const id of terms.keys()){const i=netOf(id);if(i&&i.feed.length)res.tfeed[id]=[...new Set(i.feed.map(f=>f.b.short+" ("+f.b.In+" A)"))]}}
 
   /* la corriente de cada circuito también pasa por las protecciones de arriba (y por el principal) */
   if(WIRED){const own={...res.pcur},parent={};
@@ -199,7 +215,7 @@ function simCore(prevTrip,burnt,ctl){
     if(st.s==="on")res.status.push({lvl:"ok",msg:`${L}: funcionando a ${st.v} V (${fmtA(st.I)}).`});
     else if(st.s==="idle")res.status.push({lvl:"ok",msg:`${L}: tiene ${st.v} V, sin aparato conectado.`});
     else if(st.s==="weak")res.status.push({lvl:"warn",msg:`${L}: recibe solo 120 V y necesita ${S.lc.sys==="1F"?240:208} V. Conéctalo a dos fases.`});
-    else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: apagado (${st.why}).`})}
+    else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: no funciona, ${st.why}`.replace(/([^.])$/,"$1.")})}
   for(const it of passDev){const st=res.loads[it.id],L=devLabel(it),d=DEV[it.type];
     if(st.s==="on")res.status.push({lvl:"ok",msg:`${L}: con 120 V en la entrada, alimentando su salida.`});
     else if(st.s==="bat"){const w=res.batW[it.id]||0,cap=d.cap(Object.assign({},d.d,it.p));res.status.push(w>cap?{lvl:"crit",msg:`${L}: tiene ${w} W conectados y solo aguanta ${cap} W con batería.`}:{lvl:"ok",msg:`${L}: funcionando con batería (${w} W de ${cap} W).`})}

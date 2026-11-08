@@ -162,6 +162,8 @@ function setView(v){if(S.view===v)return;if(v!=="wall"&&simState.running){simSta
 $("vBoard").onclick=()=>setView("board");
 $("goWire").onclick=()=>{setView("wall");wallMode="wire";renderAll();
   showAlert("ok","Cablear y probar","Toca un tornillo (de un breaker, de la barra de neutro N o de tierra T, o de un aparato) y luego otro para tender el cable. Las tomas, interruptores y bombillos están en Abrir componentes. Al terminar, presiona Probar.")};$("vWall").onclick=()=>setView("wall");
+$("mMeter").onclick=()=>{wallMode="meter";meterA=null;pending=null;tubeDraft=null;renderAll();if(!simState.running)toast("Presiona ▶ Probar y luego toca dos terminales para medir el voltaje entre ellos.")};
+$("wFlow").onchange=e=>{showFlow=e.target.checked;renderAll()};
 $("mMove").onclick=()=>{wallMode="move";tubeDraft=null;renderAll()};$("mWire").onclick=()=>{wallMode="wire";tubeDraft=null;renderAll()};
 $("mTube").onclick=()=>{wallMode="tube";pending=null;sel=null;if(!S.wall.tube){S.wall.tube=true}renderAll();if(!(S.wall.tubes||[]).length)showAlert("ok","Dibuja la tubería","Toca la pared donde empieza el tubo, toca en cada codo y toca dos veces para terminar. Los cables pasan solos por dentro del tubo más cercano y cada uno va en su carril.")};
 $("wColor").innerHTML=`<option value="Auto">Automático (norma)</option>`+Object.keys(WCOL).map(c=>`<option>${c}</option>`).join("");

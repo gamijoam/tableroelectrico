@@ -21,6 +21,7 @@ js/routing.js       Recorrido de cables: por la tubería dibujada (camino más c
 js/panelsrc.js      El tablero en la pared, sea caja de breakers o riel DIN: protecciones, tornillos y barras
 js/control.js       Mando de motores: bornes de contactor, térmico, relé, temporizador, pulsadores,
                     pilotos y supervisor; qué contactos cierran; motor trifásico
+js/flow.js          Flujo de energía animado, lectura de cada borne, multímetro y diagnóstico de por qué no funciona
 js/info.js          Ficha de cada elemento: para qué sirve, cómo funciona, cómo se conecta, errores y si se simula
 js/wall.js          Vista Pared: varias paredes, dispositivos, cableado, tubería y panel de prueba
 js/layout.js        Paneles laterales plegables, pantalla completa y alertas de la prueba
@@ -56,6 +57,12 @@ fase (desde un breaker cerrado), neutro o tierra. Con eso detecta:
 - Relé térmico: mide la corriente del motor y dispara antes que el breaker; abre 95-96 y cierra 97-98.
 - Motor trifásico: gira con tres fases, gira al revés si se cruzan dos y con falta de fase consume 1,7 veces más
   (sin relé térmico se quema).
+
+Durante la prueba, "Ver flujo de energía" anima cada cable que lleva corriente (amarillo por la fase,
+celeste de regreso por el neutro, más rápido con más corriente) y resalta los que tienen tensión sin corriente.
+Al tocar un aparato se ve qué recibe en cada borne, su voltaje, corriente y potencia, y por qué no funciona
+(qué borne no llega y qué lo corta: breaker apagado, interruptor abierto, contacto del mando). El modo
+Multímetro mide el voltaje entre dos terminales cualesquiera.
 
 Es una herramienta de enseñanza y presupuesto, no un cálculo según el Código Eléctrico Nacional.
 

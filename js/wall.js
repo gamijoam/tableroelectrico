@@ -134,7 +134,7 @@ function drawDev(type,p,st){const on=st&&(st.s==="on"||st.s==="weak"),burnt=st&&
   return s}
 
 /* ---------- wall rendering ---------- */
-function wallBadge(st,d){if(!st)return"";const map={bat:["#d9822b","BATERÍA"],on:["#2f9e44",`${st.v} V`],idle:["#2f9e44",`${st.v} V`],off:["#8a9195","0 V"],weak:["#d9822b",`${st.v} V · bajo`],burnt:["#c0322a","QUEMADO"],fase:["#c0322a","FALTA DE FASE"]};let [c,t]=map[st.s]||map.off;if(st.rev){c="#d9822b";t="GIRA AL REVÉS"}
+function wallBadge(st,d){if(!st)return"";const map={bat:["#d9822b","BATERÍA"],on:["#2f9e44",`${st.v} V · ${fmtNum(st.I||0,1)} A`],idle:["#2f9e44",`${st.v} V`],off:["#8a9195","0 V"],weak:["#d9822b",`${st.v} V · bajo`],burnt:["#c0322a","QUEMADO"],fase:["#c0322a","FALTA DE FASE"]};let [c,t]=map[st.s]||map.off;if(st.rev){c="#d9822b";t="GIRA AL REVÉS"}
   const w=t.length*5.6+14;return`<g transform="translate(0 ${-d.h/2-15})">${R(-w/2,-9,w,17,c,{rx:8.5})}${T(0,3.5,t,{fs:8.5,c:"#fff"})}</g>`}
 function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.running,res=run?simState.res:null,terms=allTerms();
   const fill={"Frisado y pintado":"#e9e3d7","Bloque sin frisar":"url(#pBlk)","Cerámica":"url(#pTile)"}[W.finish]||"#e9e3d7";
@@ -175,6 +175,7 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
     s+=`<g class="ww" data-id="${w.id}"${moving?` opacity=".35"`:""}>`;if(res&&res.hot.has(w.id))s+=`<path d="${p.d}" fill="none" stroke="#ff7a1a" stroke-width="${sw+8}" opacity=".45" stroke-linejoin="round"/>`;
     s+=`<path d="${p.d}" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="${sw+2}" stroke-linejoin="round"/><path d="${p.d}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linejoin="round"/>`;
     if(!forExport)s+=`<path d="${p.d}" fill="none" stroke="#000" stroke-opacity="0" stroke-width="12"/>`;
+    if(res&&showFlow)s+=flowSvg(w,p,res,sw);
     if(bad&&!forExport)s+=C(p.mid.x,p.mid.y,7,"#f08a2b",{s:"#fff",sw:1.5})+T(p.mid.x,p.mid.y+3.5,"!",{fs:9,c:"#fff",ff:SANS,fw:700});
     if(w.id===sel&&!forExport)s+=`<path d="${p.d}" fill="none" stroke="#1c74e0" stroke-width="2" stroke-dasharray="5 4"/>`;s+="</g>"}
   /* componentes del mando: encima de los cables para poder pulsarlos siempre */
@@ -187,7 +188,8 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
   /* terminals */
   for(const t of terms.values()){const fillT={F:"#d9a441",S:"#d9a441",N:"#dfe3e5",T:"#2f9e44"}[t.role];
     if(t.item.type!=="panel"){s+=C(t.x,t.y,5,fillT,{s:"#5d5548",sw:1.2})+T(t.x,t.y+15,t.label,{fs:6.5,c:"#5b5650"})}
-    if(!forExport){const hot=pending===t.id,target=reconn||pending;s+=`<circle class="wt" data-t="${t.id}" cx="${t.x}" cy="${t.y}" r="${t.item.type==="panel"?8:9}" fill="${hot?"#1c74e0":"#000"}" fill-opacity="${hot?.35:0}"${wallMode==="wire"||hot||target?` stroke="#1c74e0" stroke-width="1.4"`:""}><title>${esc(termName(t))}</title></circle>`}}
+    if(!forExport){const hot=pending===t.id,target=reconn||pending;s+=`<circle class="wt" data-t="${t.id}" cx="${t.x}" cy="${t.y}" r="${t.item.type==="panel"?8:9}" fill="${hot?"#1c74e0":"#000"}" fill-opacity="${hot?.35:0}"${wallMode==="wire"||hot||target?` stroke="#1c74e0" stroke-width="1.4"`:""}><title>${esc(termName(t))}${res&&res.tp?" · "+esc(potTxt(res.tp[t.id],t.role))+(res.tfeed[t.id]?" · desde "+esc(res.tfeed[t.id].join(", ")):""):""}</title></circle>`;
+      if(meterA===t.id)s+=`<g pointer-events="none">${C(t.x,t.y,10,"none",{s:"#d3312b",sw:3})}${T(t.x,t.y-14,"+",{fs:13,c:"#d3312b",ff:SANS,fw:700})}</g>`}}
   /* handles to move the ends of the selected wire */
   const sw=!forExport&&valid.find(([w])=>w.id===sel);
   if(sw){for(const end of ["a","b"]){const t=terms.get(sw[0][end]),act=reconn&&reconn.end===end;s+=`<g class="wh" data-end="${end}"><circle cx="${t.x}" cy="${t.y}" r="9" fill="${act?"#1c74e0":"#fff"}" stroke="#1c74e0" stroke-width="2.5"/><circle cx="${t.x}" cy="${t.y}" r="3" fill="${act?"#fff":"#1c74e0"}"/><title>Arrastra este extremo a otro terminal</title></g>`}}
@@ -217,7 +219,7 @@ function setRunning(on){simState.running=on;simState.blackout=false;ctlReset();c
     if(!simState.log.length){const r=simState.res,L=Object.values(r.loads),ok=L.filter(l=>l.s==="on"||l.s==="idle").length,warn=r.status.filter(s=>s.lvl==="warn"||s.lvl==="crit").length;
       const off=L.length-ok,bad=warn||off;
       showAlert(bad?"warn":"ok",!L.length?"Prueba en marcha: no hay aparatos":off?"Prueba en marcha: hay aparatos sin tensión":warn?"Prueba en marcha, con avisos":"Prueba en marcha: todo bien",
-        !L.length?"Agrega un bombillo, una toma o un aparato y cablealo al tablero.":`${ok} de ${L.length} aparatos con tensión en ${S.wall.name}.${off?(isDin()&&S.items.some(i=>i.type==="push"&&i.p.ct!=="NC")?" Para arrancar un motor, mantén presionado el pulsador de marcha en el tablero.":" A los que no encienden les falta la fase o el neutro: revisa sus dos cables."):""}${warn?` Hay ${warn} aviso${warn>1?"s":""} de norma o de carga.`:""}${!bad?" Prueba unir una fase con el neutro para ver qué pasa.":""}`)}}
+        !L.length?"Agrega un bombillo, una toma o un aparato y cablealo al tablero.":`${ok} de ${L.length} aparatos con tensión en ${S.wall.name}.${off?(isDin()&&S.items.some(i=>i.type==="push"&&i.p.ct!=="NC")?" Para arrancar un motor, mantén presionado el pulsador de marcha en el tablero.":" "+((r.status.find(x=>/no funciona,/.test(x.msg))||{}).msg||"A los que no encienden les falta la fase o el neutro: revisa sus dos cables.")+" Toca cada aparato para ver qué está recibiendo."):""}${warn?` Hay ${warn} aviso${warn>1?"s":""} de norma o de carga.`:""}${!bad?" Prueba unir una fase con el neutro para ver qué pasa.":""}`)}}
   else{simState.res=null;hideAlert()}renderAll()}
 function toggleBlackout(){if(!simState.running)return;simState.blackout=!simState.blackout;
   simState.log.unshift({lvl:simState.blackout?"warn":"ok",msg:simState.blackout?"Se fue la luz (apagón simulado).":"Volvió la luz."});runSim();
@@ -262,6 +264,7 @@ function renderPropsWall(){const bs=srcById(sel);
     $("pb-on").onclick=()=>mutate(()=>{bs.p.on=bs.p.on===false});$("pb-board").onclick=()=>setView("board");$("pb-del").onclick=()=>{sel=null;deleteBreaker(bs.id)};return}
   const P=$("paneP"),it=S.wall.items.find(i=>i.id===sel),w=S.wall.wires.find(i=>i.id===sel),terms=allTerms(),res=simState.running?simState.res:null;
   const sim=`<h3>Prueba</h3>${simState.running?`<p class="note">Simulación en marcha. Toca un interruptor para cambiarlo, y los breakers del tablero para apagarlos o rearmarlos.${isDin()?" Los pulsadores del tablero se mantienen presionados; el paro de emergencia y el selector se tocan.":""}</p>`:`<p class="note">Presiona <b>Probar</b> para energizar la pared y ver qué pasa.</p>`}
+    ${simState.running&&showFlow?`<div class="legend flow-leg"><span><i style="background:#ffe14d"></i>Corriente por la fase (sale de la fuente)</span><span><i style="background:#8fdcff"></i>Regreso por el neutro</span><span><i style="background:#ffe14d;opacity:.4"></i>Con tensión, sin corriente</span></div><p class="note">Los puntos se mueven más rápido cuanto más corriente lleva el cable. En corriente alterna el sentido cambia 60 veces por segundo; aquí se muestra de la fuente hacia el aparato.</p>`:""}
     ${simState.log.length?`<h3>Lo que pasó</h3>${evList(simState.log.slice(0,8))}`:""}${res?`<h3>Estado actual</h3>${evList(res.status)}`:""}`;
   const dc=isDin()&&S.items.find(i=>i.id===sel&&CTL_TYPES.has(i.type));
   if(dc){const c=CAT[dc.type],co=res&&res.coil[dc.id],PI=S.wall.items.find(i=>i.type==="panel"),lab=dc.p.des||c.n;
@@ -297,7 +300,7 @@ function renderPropsWall(){const bs=srcById(sel);
       ${it.type==="feed"?`<label class="field wide"><span>Circuito del tablero</span><select class="sel" id="pp-brk">${srcList().map(b=>`<option value="${b.id}"${b.id===it.p.brk?" selected":""}>${esc(srcOption(b))}</option>`).join("")}</select></label>`:""}
       ${(d.f||[]).map(([k,l,o])=>`<label class="field${o.length>4?" wide":""}"><span>${esc(l)}</span><select class="sel" id="pp-${k}">${o.map(v=>opt(v,it.p[k])).join("")}</select></label>`).join("")}</div>
       ${it.type==="inter"?`<label class="switch"><input type="checkbox" id="pp-on"${it.p.on?" checked":""}> Encendido</label>`:""}
-      ${d.tip?`<p class="note">${esc(d.tip)}</p>`:""}${infoCard(it.type)}
+      ${res&&res.loads[it.id]?readCard(it,res):""}${d.tip?`<p class="note">${esc(d.tip)}</p>`:""}${infoCard(it.type)}
       ${posFields(it)}<div class="row-btns"><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>${sim}`;
     const pe=$("pp-edit");if(pe)pe.onclick=()=>setView("board");const pg=$("pp-peine");if(pg)pg.onchange=e=>mutate(()=>{it.p.peine=e.target.checked});
     const nm=$("pp-name");if(nm)nm.onchange=e=>mutate(()=>{it.p.name=e.target.value});
@@ -316,6 +319,12 @@ function renderPropsWall(){const bs=srcById(sel);
    ${sim}<h3>Colores según norma</h3><div class="legend">${[["Negro","Fase"],["Rojo","Fase / retorno"],["Azul","Fase C"],["Amarillo","Viajero 3 vías"],["Blanco","Neutro"],["Verde","Tierra"]].map(([c,l])=>`<span><i style="background:${WCOL[c]}"></i>${l}</span>`).join("")}</div>`;
   $("pw-name").onchange=e=>mutate(()=>{S.wall.name=e.target.value.trim()||S.wall.name});$("pw-add").onclick=addWall;const dw=$("pw-delwall");if(dw)dw.onclick=delWall;
   P.querySelectorAll("[data-wire]").forEach(li=>li.onclick=()=>{sel=+li.dataset.wire;renderAll()})}
+/* Lo que recibe un aparato durante la prueba: cada borne, voltaje, corriente y potencia */
+function readCard(it,res){const d=DEV[it.type],st=res.loads[it.id],rows=d.terms.filter(t=>!(it.type==="supply"&&t[0]==="L3"&&S.lc.sys!=="3F")).map(([k,role,l])=>{const id=`${it.id}/${k}`,p=res.tp[id],f=res.tfeed[id];
+    return`<tr><th>${esc(l)}</th><td>${esc(potTxt(p,role))}${f?` <span class="meta">desde ${esc(f.join(", "))}</span>`:""}</td></tr>`}).join("");
+  const S2={on:"Funcionando",idle:"Con tensión, sin consumo",off:"No funciona",weak:"Voltaje bajo",burnt:"Quemado",bat:"Con batería",fase:"Falta de fase"}[st.s]||st.s;
+  const kv=[["Estado",S2+(st.rev?" · gira al revés":"")],["Voltaje",`${st.v||0} V${d.V?` (necesita ${d.V} V)`:""}`],...(st.I?[["Corriente",fmtA(st.I)]]:[]),...(st.W?[["Potencia",fmtNum(st.W,0)+" W"]]:[])];
+  return`<div class="reading"><h3>Qué está recibiendo</h3><table>${kv.map(([a,b])=>`<tr><th>${a}</th><td><b>${esc(b)}</b></td></tr>`).join("")}${rows}</table>${st.s==="off"&&st.why?`<p class="note why">Por qué: ${esc(st.why)}</p>`:""}</div>`}
 function posFields(it){const d=DEV[it.type];return`<div class="fields"><label class="field"><span>Desde la izquierda (m)</span><input class="txt" id="pp-x" type="number" step="0.05" min="0" value="${it.x}"></label><label class="field"><span>Altura del centro (m)</span><input class="txt" id="pp-y" type="number" step="0.05" min="0" value="${it.y}"></label></div>
   ${d.std&&Math.abs(it.y-d.std)>.01?`<div class="row-btns"><button class="btn" id="pp-std">Usar altura estándar (${fmtM2(d.std)})</button></div>`:""}`}
 /* Quita un breaker de la caja y los cables conectados a su tornillo en todas las paredes */
@@ -380,6 +389,7 @@ function terminalClick(id){if(reconn){applyReconn(id);return}const terms=allTerm
 wallEl.addEventListener("pointerdown",e=>{if(wallMode==="tube"&&!simState.running){tubeClick(e);return}
   const tbh=e.target.closest(".tb");if(tbh&&!e.target.closest(".wt,.wb,.wbh,.wi,.ww,.wh")){sel=+tbh.dataset.id;pending=null;reconn=null;renderAll();return}
   const hd=e.target.closest(".wh");if(hd){reconn={id:sel,end:hd.dataset.end,moved:false,sx:e.clientX,sy:e.clientY};pending=null;renderWall();return}
+  if(wallMode==="meter"){const tm=e.target.closest(".wt");if(tm)meterClick(tm.dataset.t);else if(!e.target.closest(".wc,.wbh"))toast("Toca un tornillo o borne con cada punta del multímetro.");if(tm||!e.target.closest(".wc,.wbh"))return}
   const t=e.target.closest(".wt");if(t){const had=pending;terminalClick(t.dataset.t);if(!had&&pending)wireDrag={sx:e.clientX,sy:e.clientY,moved:false};return}
   /* palanca: un toque enciende/apaga o rearma; si se arrastra, sale un cable desde esa protección */
   const hb=e.target.closest(".wbh");if(hb){const b=srcById(+hb.dataset.brk);if(!b)return;
@@ -429,7 +439,7 @@ window.addEventListener("pointerup",e=>{
   if(!wdrag)return;const d=wdrag;wdrag=null;ghost.hidden=true;
   if(d.moved){hist.push(d.before);if(hist.length>100)hist.shift();fut=[];save();renderAll()}});
 function wallKey(e){const mod=e.ctrlKey||e.metaKey;if(tubeDraft&&e.key==="Enter"){e.preventDefault();finishTube();return true}
-  if(e.key==="Escape"){tubeDraft=null;pending=null;reconn=null;sel=null;renderAll();return true}
+  if(e.key==="Escape"){meterA=null;tubeDraft=null;pending=null;reconn=null;sel=null;renderAll();return true}
   if(!sel)return false;if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();wallDelete();return true}
   const it=S.wall.items.find(i=>i.id===sel);if(it&&/^Arrow/.test(e.key)){e.preventDefault();const st=.05,dx={ArrowLeft:-st,ArrowRight:st}[e.key]||0,dy={ArrowUp:st,ArrowDown:-st}[e.key]||0;mutate(()=>{it.x+=dx;it.y+=dy;clampItem(it)});return true}
   if(mod&&e.key.toLowerCase()==="d"&&it){e.preventDefault();$("pp-dup")&&$("pp-dup").click();return true}return false}

@@ -65,12 +65,12 @@
       </span>
       <span class="tgroup" id="wallTools" hidden>
         <select class="sel" id="wSel" aria-label="Pared activa"></select><button class="btn" id="wAdd" title="Agregar otra pared">+ Pared</button>
-        <span class="seg" role="group" aria-label="Modo"><button class="segb" id="mMove" aria-pressed="true">Mover</button><button class="segb" id="mWire" aria-pressed="false">Cablear</button><button class="segb" id="mTube" aria-pressed="false">Tubería</button></span>
+        <span class="seg" role="group" aria-label="Modo"><button class="segb" id="mMove" aria-pressed="true">Mover</button><button class="segb" id="mWire" aria-pressed="false">Cablear</button><button class="segb" id="mTube" aria-pressed="false">Tubería</button><button class="segb" id="mMeter" aria-pressed="false" title="Mide el voltaje entre dos terminales durante la prueba">Multímetro</button></span>
         <label>Cable <select class="sel" id="wColor"></select></label>
         <select class="sel" id="wAwg" aria-label="Calibre del cable"></select>
         <label>Pared <select class="sel" id="wSize"></select></label>
         <select class="sel" id="wFinish" aria-label="Acabado de la pared"></select>
-        <label class="chk"><input type="checkbox" id="wTube"> Ver tubería</label>
+        <label class="chk"><input type="checkbox" id="wTube"> Ver tubería</label><label class="chk" title="Durante la prueba, muestra por dónde circula la corriente"><input type="checkbox" id="wFlow" checked> Ver flujo de energía</label>
         <button class="btn play" id="play">▶ Probar</button><button class="btn" id="rearm" hidden>Rearmar</button><button class="btn" id="blackout" hidden>Simular apagón</button>
       </span>
       <span class="chip" id="usage"></span>
@@ -114,6 +114,7 @@
 <script src="js/wall.js"></script>
 <script src="js/panelsrc.js"></script>
 <script src="js/control.js"></script>
+<script src="js/flow.js"></script>
 <script src="js/routing.js"></script>
 <script src="js/info.js"></script>
 <script src="js/layout.js"></script>

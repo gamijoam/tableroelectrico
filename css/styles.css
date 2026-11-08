@@ -163,12 +163,15 @@ table.bom{width:100%;border-collapse:collapse;font-size:12.5px}
 @keyframes smoke{0%{transform:translateY(4px);opacity:.2}50%{opacity:.9}100%{transform:translateY(-14px);opacity:0}}
 .spin{transform-box:fill-box;transform-origin:center;animation:spin .5s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.reading table{width:100%;border-collapse:collapse;font-size:12.5px;margin:4px 0 6px}.reading th{text-align:left;font-weight:500;color:var(--muted);padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top}.reading td{padding:3px 0}.reading tr+tr{border-top:1px solid var(--line)}.why{color:var(--fg)}
+.fl{animation:flowd 1s linear infinite}.fl.rev{animation-direction:reverse}
+@keyframes flowd{from{stroke-dashoffset:0}to{stroke-dashoffset:-25}}
 .spinr{transform-box:fill-box;transform-origin:center;animation:spin .5s linear infinite reverse}
 .hum{transform-box:fill-box;transform-origin:center;animation:hum .09s linear infinite alternate}
 @keyframes hum{from{transform:translate(-.8px,0) rotate(-4deg)}to{transform:translate(.8px,0) rotate(4deg)}}
 .flow{stroke-dasharray:5 6;animation:flow .7s linear infinite}
 @keyframes flow{to{stroke-dashoffset:-22}}
-@media (prefers-reduced-motion:reduce){.spark,.smoke,.spin,.spinr,.hum,.flow{animation:none}}
+@media (prefers-reduced-motion:reduce){.spark,.smoke,.spin,.spinr,.hum,.flow,.fl{animation:none}}
 
 /* ---------- paneles plegables, pantalla completa y alertas ---------- */
 .app{--lw:268px;--sw:316px;grid-template-columns:var(--lw) minmax(0,1fr) var(--sw)}
