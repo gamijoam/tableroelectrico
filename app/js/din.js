@@ -3,12 +3,12 @@ const PILOT={Verde:["#38e266","#1f5a2e"],Rojo:["#ff3b30","#6a1f1b"],"Ámbar":["#
 const PUSH={Verde:"#2aa84a",Rojo:"#d3312b",Negro:"#2b2e31",Amarillo:"#e8c22c"};
 const TERM={Gris:"#9aa0a4",Azul:"#2f6fd0","Verde/amarillo":"url(#pGY)","Verde":"#2f9e44","Blanco":"#eeeeea","Marrón":"#7a4b2a",Negro:"#2b2d2f",Rojo:"#c63228"};
 const DRAW={
- mcb(p,w){const n=p.poles;let s=std(w);const ly=p.on?48:70;
-  for(let i=0;i<n;i++){const x=i*M;s+=R(x+9,46,18,48,"#24282a",{rx:3})+R(x+11,ly,14,22,"#3a3f43",{rx:2})+R(x+12,ly+1,12,4,"#61676b",{rx:1})+T(x+18,121,p.curve+p.In,{fs:10.5,fw:700})}
-  if(n>1)s+=R(11,ly+9,(n-1)*M+14,6,"#3a3f43",{rx:1});
-  s+=R(10,99,16,6,p.on?"#d23a2f":"#3a9d55",{rx:1})+R(8.5,126,19,9,"none",{s:"#555",sw:.8})+T(18,133,Math.round(p.kA*1000),{fs:6});return s},
- rcd(p,w){const ly=p.on?48:70;let s=std(w)+R(9,46,18,48,"#24282a",{rx:3})+R(11,ly,14,22,"#3a3f43",{rx:2})+R(12,ly+1,12,4,"#61676b",{rx:1});
-  s+=C(M+18,60,8,"#e7c23b",{s:"#9c7f19"})+T(M+18,63.5,"T",{fs:8,fw:700})+R(M+10,79,16,7,p.on?"#d23a2f":"#3a9d55",{rx:1});
+ mcb(p,w){const n=p.poles;let s=std(w);
+  for(let i=0;i<n;i++){const x=i*M;s+=lever(x+10.5,15,p.on)+T(x+18,121,p.curve+p.In,{fs:10.5,fw:700})}
+  if(n>1){const ly=p.on?48:70;s+=R(10.5,ly+9.5,(n-1)*M+15,6,"#000",{rx:1,op:.35})+R(10.5,ly+8.5,(n-1)*M+15,5,"url(#gLv)",{rx:1,s:"#0e1011",sw:.5})}
+  s+=flag(11,99,14,6,p.on)+R(8.5,126,19,9,"#fff",{s:"#555",sw:.8,rx:.5})+T(18,133,Math.round(p.kA*1000),{fs:6})+R(7,108,w-14,.8,"#1c5fa8",{op:.55});return s},
+ rcd(p,w){let s=std(w)+lever(10.5,15,p.on);
+  s+=C(M+18,61,9,"#000",{op:.25})+C(M+18,60,8,"#e7c23b",{s:"#9c7f19"})+C(M+18,60,8,"url(#gLens)",{op:.7})+T(M+18,63.5,"T",{fs:8,fw:700})+T(M+18,74,"TEST",{fs:4.6,fw:400})+flag(M+11,80,14,6,p.on);
   s+=T(w/2,111,p.In+"A",{fs:11,fw:700})+T(w/2,123,p.sens,{fs:8.5})+T(w/2,133,"IΔn · tipo "+p.type,{fs:6,fw:400});return s},
  sw(p,w){const ly=p.on?48:70;let s=std(w)+R(8,46,w-16,48,"#24282a",{rx:4})+R(12,ly,w-24,22,"#c8322a",{rx:3})+R(13,ly+1,w-26,4,"#e5665e",{rx:1})+T(w/2,ly+15.5,p.on?"I":"O",{fs:10,c:"#fff",fw:700});
   return s+T(w/2,114,p.In+"A",{fs:11,fw:700})+T(w/2,126,p.poles+"P · I–0",{fs:7,fw:400})},
@@ -25,9 +25,14 @@ const DRAW={
   return s+R(w/2-5,76,10,26,"#cfd2ce",{rx:2,s:"#9a9e99"})+R(w/2-5,p.on?76:90,10,12,"#3a3f43",{rx:2})+T(w/2,118,p.In+"A AC-3",{fs:9,fw:700})+T(w/2,129,p.cts,{fs:7,fw:400})+T(8,133,"A2",{fs:6,a:"start",fw:400})},
  icont(p,w){let s=body(w,"url(#gC)","#8d918d")+terms(w,8,3)+terms(w,142,3);const sp=w/3;
   ["1/L1","3/L2","5/L3"].forEach((t,i)=>s+=T(sp*i+sp/2,39,t,{fs:5.2,fw:400}));["2/T1","4/T2","6/T3"].forEach((t,i)=>s+=T(sp*i+sp/2,139,t,{fs:5.2,fw:400}));
-  s+=R(6,44,w-12,88,"url(#gF)",{rx:3,s:"#a9ada8"})+R(10,48,w-20,18,"#d7dad6",{rx:2,s:"#b3b6b1"})+T(16,60,"A1",{fs:6,a:"start"})+T(w-16,60,"A2",{fs:6,a:"end"});
-  s+=R(w/2-11,70,22,16,"#1e2124",{rx:2})+T(w/2,82,p.on?"I":"0",{fs:10,c:p.on?"#ffcf33":"#8a8f93",fw:700});
-  return s+T(w/2,101,p.In+"A",{fs:12,fw:700})+T(w/2,112,"Bobina "+p.coil,{fs:6,fw:400})+T(w/2,124,"Aux. "+p.aux,{fs:6,fw:400})},
+  /* bloque frontal elevado (cámara de arco) con su sombra */
+  s+=R(7.5,46.5,w-12,88,"#000",{rx:4,op:.2})+R(6,44,w-12,88,"url(#gF)",{rx:3.5,s:"#a9ada8"})+R(6,44,w-12,88,"url(#gSide)",{rx:3.5})+R(8,45,w-16,2,"#fff",{rx:1,op:.9});
+  /* placa de bornes de bobina */
+  s+=R(10,48,w-20,18,"#c9cdc8",{rx:2,s:"#a3a7a2"})+R(10,48,w-20,3,"#fff",{rx:1.5,op:.5})+screw(17,57,4.2)+screw(w-17,57,4.2)+T(25,60,"A1",{fs:6,a:"start"})+T(w-25,60,"A2",{fs:6,a:"end"});
+  /* ventana del indicador mecánico: la paleta baja al energizar la bobina */
+  s+=R(w/2-12,69,24,18,"url(#gHole)",{rx:2.5})+R(w/2-9,p.on?76:71,18,9,p.on?"#ffcf33":"#8a8f93",{rx:1.5})+R(w/2-9,p.on?76:71,18,9,"url(#gLvX)",{rx:1.5})+T(w/2,p.on?83:78,p.on?"I":"0",{fs:7.5,c:p.on?"#3a2f05":"#2a2e31",fw:700})+R(w/2-12,69,24,18,"url(#gWin)",{rx:2.5});
+  s+=R(10,92,w-20,36,"#fbfbf8",{rx:1.5,s:"#c3c6c1",sw:.6});
+  return s+T(w/2,105,p.In+"A",{fs:12,fw:700})+T(w/2,115,"Bobina "+p.coil,{fs:6,fw:400})+T(w/2,124,"Aux. "+p.aux,{fs:6,fw:400})},
  ovl(p,w){let s=body(w,"url(#gC)","#8d918d")+terms(w,142,3);const sp=w/3;
   for(let i=0;i<3;i++)s+=R(sp*i+sp/2-4,4,8,26,"url(#gCuH)",{rx:1,s:"#8a5426"});
   s+=R(6,36,w-12,96,"url(#gF)",{rx:3,s:"#a9ada8"})+C(30,66,13,"#f6f6f2",{s:"#777"})+`<line x1="30" y1="66" x2="30" y2="56" stroke="#333" stroke-width="2" transform="rotate(30 30 66)"/>`;
