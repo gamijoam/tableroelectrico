@@ -52,7 +52,7 @@ let wallMode="move",wColor="Auto",wAwg="12",pending=null,wdrag=null,reconn=null,
 const simState={running:false,blackout:false,trip:new Set(),burnt:new Set(),res:null,log:[],sparks:[],timer:null};
 const wallEl=$("wall");
 
-function blankWall(name="Pared 1",withPanel=true){return{name,w:6,h:2.7,finish:FINISH[0],tube:true,items:withPanel?[{id:uid++,type:"panel",x:1,y:1.6,p:{name:""}}]:[],wires:[]}}
+function blankWall(name="Pared 1",withPanel=true){return{name,w:6,h:2.7,finish:FINISH[0],tube:true,items:withPanel?[{id:uid++,type:"panel",x:1,y:1.6,p:{name:""}}]:[],wires:[],tubes:[]}}
 /* S.wall apunta siempre a la pared activa, sin duplicarse al guardar */
 function linkWall(v){if(Object.prototype.propertyIsEnumerable.call(v,"wall")){const w=v.wall;delete v.wall;if(w){if(!w.name)w.name="Pared 1";v.walls=[w];v.wallI=0}}
   if(!Array.isArray(v.walls)||!v.walls.length)v.walls=[blankWall()];if(!(v.wallI>=0&&v.wallI<v.walls.length))v.wallI=0;
@@ -75,16 +75,9 @@ function itemTerms(it,wl=S.wall){const [cx,cy]=toPx(it.x,it.y,wl),out=[];
 function allTerms(wl=S.wall){const m=new Map();for(const it of wl.items)for(const t of itemTerms(it,wl))m.set(t.id,Object.assign(t,{item:it}));return m}
 function termName(t){if(!t)return"?";const it=t.item;if(it.type==="panel"){if(t.brk)return`Tablero circ. ${brkCalc(t.brk).cs[+t.key.split(".")[1]]}`;return t.role==="N"?"Barra de neutro":"Barra de tierra"}return`${devLabel(it)} (${t.label})`}
 function wireEnds(w,terms){return`${termName(terms.get(w.a))} → ${termName(terms.get(w.b))}`}
-function wirePath(w,i,terms){const a=terms.get(w.a),b=terms.get(w.b);let ym;
-  if(Math.abs(a.y-b.y)<14)ym=Math.max(a.y,b.y)+22+(i%5)*5;else ym=(a.y+b.y)/2+((i%5)-2)*6;
-  const pts=[[a.x,a.y],[a.x,ym],[b.x,ym],[b.x,b.y]],len=Math.abs(ym-a.y)+Math.abs(b.x-a.x)+Math.abs(b.y-ym);
-  return{d:`M${a.x} ${a.y}V${ym}H${b.x}V${b.y}`,mid:{x:(a.x+b.x)/2,y:ym},len,pts}}
-function wallWireMeters(wl=S.wall){const terms=allTerms(wl),m=new Map();wl.wires.forEach((w,i)=>{if(!terms.has(w.a)||!terms.has(w.b))return;const k=w.awg+"|"+w.color;m.set(k,(m.get(k)||0)+wirePath(w,i,terms).len/WK)});return m}
-/* Tubería: tramos únicos recorridos por los cables, muestreados cada 5 cm */
-function tubeMeters(wl=S.wall){const terms=allTerms(wl),cells=new Set(),st=WK*.05;
-  wl.wires.forEach((w,i)=>{if(!terms.has(w.a)||!terms.has(w.b))return;const p=wirePath(w,i,terms).pts;
-    for(let k=0;k<3;k++){const [x1,y1]=p[k],[x2,y2]=p[k+1],n=Math.max(1,Math.round(Math.hypot(x2-x1,y2-y1)/st));for(let j=0;j<=n;j++)cells.add(Math.round((x1+(x2-x1)*j/n)/st)+","+Math.round((y1+(y2-y1)*j/n)/st))}});
-  return cells.size*.05}
+function wirePath(w,i,terms,wl=S.wall){const r=routesFor(wl,terms).get(w.id);if(r)return r;const a=terms.get(w.a),b=terms.get(w.b),ym=(a.y+b.y)/2;return pathFrom([[a.x,a.y],[a.x,ym],[b.x,ym],[b.x,b.y]])}
+function wallWireMeters(wl=S.wall){const terms=allTerms(wl),m=new Map();wl.wires.forEach((w,i)=>{if(!terms.has(w.a)||!terms.has(w.b))return;const k=w.awg+"|"+w.color;m.set(k,(m.get(k)||0)+wirePath(w,i,terms,wl).len/WK)});return m}
+const tubeMeters=(wl=S.wall)=>Object.values(tubeBySize(wl)).reduce((a,b)=>a+b,0);
 function autoColor(ta,tb){const r=[ta.role,tb.role];if(r.includes("T"))return"Verde";if(r.includes("N"))return"Blanco";
   if(ta.role==="S"&&tb.role==="S")return"Amarillo";if(r.includes("S"))return(ta.src||tb.src)?"Negro":"Rojo";return"Negro"}
 
@@ -131,14 +124,17 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
   for(const [m,l] of STD_H)if(m<W.h){const y=WM.t+wh-m*WK;s+=`<line x1="${WM.l}" y1="${y}" x2="${WM.l+ww}" y2="${y}" stroke="#7a6f60" stroke-width="1" stroke-dasharray="4 6" opacity=".45"/>`+T(WM.l+ww-8,y-5,l,{fs:8.5,a:"end",fw:400,c:"#7a6f60",ff:SANS})}
   /* conduit under the wires */
   const valid=W.wires.map((w,i)=>[w,i]).filter(([w])=>terms.has(w.a)&&terms.has(w.b));
-  /* Tubería PVC: borde oscuro, cuerpo gris, brillo; codos en cada esquina y total de metros */
-  if(W.tube!==false&&valid.length){let t1="",t2="",t3="",fit="";const seen=new Set();
-    for(const [w,i] of valid){const p=wirePath(w,i,terms),dd=p.d;
-      t1+=`<path d="${dd}" fill="none" stroke="#5f645e" stroke-width="22" stroke-linejoin="round" stroke-linecap="round"/>`;
-      t2+=`<path d="${dd}" fill="none" stroke="#cdd0c9" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/>`;
-      t3+=`<path d="${dd}" fill="none" stroke="#f3f4f0" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" opacity=".75" transform="translate(-3 -3)"/>`;
-      for(const [x,y] of [p.pts[1],p.pts[2]]){const k=Math.round(x/8)+","+Math.round(y/8);if(seen.has(k))continue;seen.add(k);fit+=C(x,y,12.5,"#bfc2bb",{s:"#5f645e",sw:1.6})+C(x,y,6,"#d9dbd5")}}
-    s+=`<g class="tube">${t1}${t2}${t3}${fit}</g>`+R(WM.l+ww-206,WM.t+wh-40,198,24,"#ffffff",{rx:5,op:.92,s:"#5f645e",sw:1})+T(WM.l+ww-107,WM.t+wh-24,`Tubería PVC 3/4": ${fmtNum(tubeMeters(),1)} m`,{fs:11,ff:SANS,fw:600,c:"#2a2e31"})}
+  /* Tubería PVC: los tubos dibujados a mano o, si no hay, uno automático por cada cable */
+  const tubeLine=(dd,extra="",tw=20)=>`<path d="${dd}" fill="none" stroke="#5f645e" stroke-width="${tw+4}" stroke-linejoin="round" stroke-linecap="round"/><path d="${dd}" fill="none" stroke="#cdd0c9" stroke-width="${tw}" stroke-linejoin="round" stroke-linecap="round"/><path d="${dd}" fill="none" stroke="#f3f4f0" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" opacity=".75" transform="translate(-3 -3)"/>${extra}`;
+  const elbow=(x,y)=>C(x,y,13.5,"#bfc2bb",{s:"#5f645e",sw:1.6})+C(x,y,6.5,"#d9dbd5");
+  if(W.tube!==false){const manual=(W.tubes||[]).length;let body="",fit="",hit="";
+    if(manual){const R=routesFor(W,terms),load=R.tubeLoad||new Map();let drops="";
+      for(const [w] of valid){const r=R.get(w.id);if(r&&r.stubs)for(const [a,b] of r.stubs)drops+=tubeLine(`M${a[0]} ${a[1]}L${b[0]} ${b[1]}`,"",13)}
+      body+=drops;
+      for(const t of tubePx(W)){const dd="M"+t.pts.map(p=>p[0]+" "+p[1]).join("L");body+=tubeLine(dd,"",Math.max(20,(load.get(t.id)||0)*LANE+10));t.pts.slice(1,-1).forEach(p=>fit+=elbow(p[0],p[1]));
+        if(!forExport){hit+=`<path class="tb" data-id="${t.id}" d="${dd}" fill="none" stroke="#000" stroke-opacity="0" stroke-width="26" stroke-linejoin="round"/>`;if(t.id===sel)hit+=`<path d="${dd}" fill="none" stroke="#1c74e0" stroke-width="3" stroke-dasharray="7 5" pointer-events="none"/>`}}}
+    else{const seen=new Set();for(const [w,i] of valid){const p=wirePath(w,i,terms);body+=tubeLine(p.d);for(const [x,y] of p.pts.slice(1,-1)){const k=Math.round(x/8)+","+Math.round(y/8);if(!seen.has(k)){seen.add(k);fit+=elbow(x,y)}}}}
+    const tm=tubeMeters();if(body)s+=`<g class="tube">${body}${fit}</g>${hit}`+R(WM.l+ww-236,WM.t+wh-40,228,24,"#ffffff",{rx:5,op:.92,s:"#5f645e",sw:1})+T(WM.l+ww-122,WM.t+wh-24,`Tubería PVC${manual?"":" (automática)"}: ${fmtNum(tm,1)} m`,{fs:11,ff:SANS,fw:600,c:"#2a2e31"})}
   /* items */
   for(const it of W.items){const [cx,cy]=toPx(it.x,it.y),{w,h}=itemSize(it);let g;
     if(it.type==="panel"){const sc=PANEL_W/PW;g=`<svg x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" viewBox="0 0 ${PW} ${lcPH()}">${lcPanelSvg({wall:true,trip:simState.trip})}</svg>`;
@@ -170,6 +166,7 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
   if(!forExport&&W.items.filter(i=>i.type!=="panel").length===0){const cx=WM.l+ww*.62,cy=WM.t+wh*.42;
     s+=`<g pointer-events="none">${R(cx-250,cy-74,500,148,"#ffffff",{rx:12,op:.88,s:"#1c74e0",sw:1.5,da:"6 5"})}${T(cx,cy-38,"Esta pared está vacía",{fs:17,ff:SANS,fw:700,c:"#1d2326"})}`+
       `${T(cx,cy-8,"1. Abre «Componentes» y arrastra tomas, interruptores o bombillos aquí.",{fs:12,ff:SANS,fw:400,c:"#3a3530"})}${T(cx,cy+14,"2. Toca un tornillo y luego otro para tender cada cable.",{fs:12,ff:SANS,fw:400,c:"#3a3530"})}${T(cx,cy+36,"3. Presiona «Probar» para energizar y ver qué pasa.",{fs:12,ff:SANS,fw:400,c:"#3a3530"})}</g>`}
+  if(!forExport)s+=tubeDraftSvg();
   return s+`<g id="wpv"></g>`}
 function renderWall(){const {Wd,H}=wallDims();wallEl.setAttribute("viewBox",`0 0 ${Wd} ${H}`);wallEl.setAttribute("width",Math.round(Wd*zoom));wallEl.setAttribute("height",Math.round(H*zoom));wallEl.innerHTML=wallSvg(false);$("zval").textContent=Math.round(zoom*100)+"%"}
 
@@ -276,7 +273,7 @@ function deleteBreaker(id){const b=S.lc.items.find(x=>x.id===id);if(!b)return;co
     if(pn){const pre=`${pn.id}/b${id}.`,before=wl.wires.length;wl.wires=wl.wires.filter(w=>!w.a.startsWith(pre)&&!w.b.startsWith(pre));n+=before-wl.wires.length}
     for(const f of wl.items)if(f.type==="feed"&&f.p.brk===id)f.p.brk=null}});
   simState.trip.delete(id);toast(`Breaker del circuito ${c} eliminado${n?` junto con ${n} cable${n>1?"s":""}`:""}.`)}
-function wallDelete(){if(!sel)return;if(S.lc.items.some(b=>b.id===sel)){const id=sel;sel=null;deleteBreaker(id);return}const id=sel;sel=null;reconn=null;mutate(()=>{if(S.wall.wires.some(w=>w.id===id)){S.wall.wires=S.wall.wires.filter(w=>w.id!==id);return}
+function wallDelete(){if(!sel)return;if((S.wall.tubes||[]).some(t=>t.id===sel)){const id=sel;sel=null;mutate(()=>{S.wall.tubes=S.wall.tubes.filter(t=>t.id!==id)});toast("Tubo eliminado.");return}if(S.lc.items.some(b=>b.id===sel)){const id=sel;sel=null;deleteBreaker(id);return}const id=sel;sel=null;reconn=null;mutate(()=>{if(S.wall.wires.some(w=>w.id===id)){S.wall.wires=S.wall.wires.filter(w=>w.id!==id);return}
   S.wall.items=S.wall.items.filter(i=>i.id!==id);S.wall.wires=S.wall.wires.filter(w=>!w.a.startsWith(id+"/")&&!w.b.startsWith(id+"/"))})}
 
 /* ---------- pointer interaction ---------- */
@@ -307,7 +304,9 @@ function terminalClick(id){if(reconn){applyReconn(id);return}const terms=allTerm
   if(pending===id){pending=null;renderAll();return}
   const a=pending,b=id;pending=null;if(!linkOk(a,b,terms)){renderAll();return}
   const ta=terms.get(a),tb=terms.get(b),w={id:uid++,a,b,color:wColor==="Auto"?autoColor(ta,tb):wColor,awg:wAwg};mutate(()=>{S.wall.wires.push(w)});sel=w.id;renderAll()}
-wallEl.addEventListener("pointerdown",e=>{const hd=e.target.closest(".wh");if(hd){reconn={id:sel,end:hd.dataset.end,moved:false,sx:e.clientX,sy:e.clientY};pending=null;renderWall();return}
+wallEl.addEventListener("pointerdown",e=>{if(wallMode==="tube"&&!simState.running){tubeClick(e);return}
+  const tbh=e.target.closest(".tb");if(tbh&&!e.target.closest(".wt,.wb,.wbh,.wi,.ww,.wh")){sel=+tbh.dataset.id;pending=null;reconn=null;renderAll();return}
+  const hd=e.target.closest(".wh");if(hd){reconn={id:sel,end:hd.dataset.end,moved:false,sx:e.clientX,sy:e.clientY};pending=null;renderWall();return}
   const t=e.target.closest(".wt");if(t){const had=pending;terminalClick(t.dataset.t);if(!had&&pending)wireDrag={sx:e.clientX,sy:e.clientY,moved:false};return}
   const hb=e.target.closest(".wbh");if(hb){const b=S.lc.items.find(x=>x.id===+hb.dataset.brk);if(!b)return;pending=null;reconn=null;
     if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste el breaker del circuito ${circLabel(b)}.`});runSim();renderAll();toast(`Circuito ${circLabel(b)}: rearmado.`);return}
@@ -329,6 +328,7 @@ window.addEventListener("pointermove",e=>{
   if(wdrag){if(!wdrag.moved&&Math.hypot(e.clientX-wdrag.sx,e.clientY-wdrag.sy)<4)return;wdrag.moved=true;const it=S.wall.items.find(i=>i.id===wdrag.id),q=toWall(e),[x,y]=fromPx(q.x-wdrag.dx,q.y-wdrag.dy);
     it.x=x;it.y=y;clampItem(it);renderWall();ghost.hidden=false;ghost.textContent=`${fmtM2(it.x)} desde la izq. · altura ${fmtM2(it.y)}`;ghost.style.left=e.clientX+"px";ghost.style.top=e.clientY+"px";return}
   if(S.view!=="wall")return;
+  if(wallMode==="tube"&&tubeDraft){const pv=$("wpv");if(pv){pv.setAttribute("pointer-events","none");pv.innerHTML=tubeDraftSvg(tubeSnap(toWall(e)))}return}
   const from=reconn?(()=>{const w=S.wall.wires.find(x=>x.id===reconn.id);return w&&allTerms().get(w[reconn.end==="a"?"b":"a"])})():pending?allTerms().get(pending):null;
   if(reconn&&!reconn.moved&&reconn.sx!=null&&Math.hypot(e.clientX-reconn.sx,e.clientY-reconn.sy)>4)reconn.moved=true;
   const pv=$("wpv");if(!pv||!from)return;const q=toWall(e);if(wireDrag&&!wireDrag.moved&&Math.hypot(e.clientX-wireDrag.sx,e.clientY-wireDrag.sy)>6)wireDrag.moved=true;pv.setAttribute("pointer-events","none");pv.innerHTML=`<path d="M${from.x} ${from.y}L${q.x} ${q.y}" stroke="#1c74e0" stroke-width="3" stroke-dasharray="6 4" fill="none" opacity=".85"/>${C(q.x,q.y,6,"#1c74e0",{op:.6})}`});
@@ -339,7 +339,8 @@ window.addEventListener("pointerup",e=>{
   if(reconn){reconn.sx=null;renderAll();return}
   if(!wdrag)return;const d=wdrag;wdrag=null;ghost.hidden=true;
   if(d.moved){hist.push(d.before);if(hist.length>100)hist.shift();fut=[];save();renderAll()}});
-function wallKey(e){const mod=e.ctrlKey||e.metaKey;if(e.key==="Escape"){pending=null;reconn=null;sel=null;renderAll();return true}
+function wallKey(e){const mod=e.ctrlKey||e.metaKey;if(tubeDraft&&e.key==="Enter"){e.preventDefault();finishTube();return true}
+  if(e.key==="Escape"){tubeDraft=null;pending=null;reconn=null;sel=null;renderAll();return true}
   if(!sel)return false;if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();wallDelete();return true}
   const it=S.wall.items.find(i=>i.id===sel);if(it&&/^Arrow/.test(e.key)){e.preventDefault();const st=.05,dx={ArrowLeft:-st,ArrowRight:st}[e.key]||0,dy={ArrowUp:st,ArrowDown:-st}[e.key]||0;mutate(()=>{it.x+=dx;it.y+=dy;clampItem(it)});return true}
   if(mod&&e.key.toLowerCase()==="d"&&it){e.preventDefault();$("pp-dup")&&$("pp-dup").click();return true}return false}

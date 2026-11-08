@@ -75,7 +75,7 @@ function normalize(v){if(!v||typeof v!=="object")return null;const b=blankAll();
   let walls=Array.isArray(v.walls)?v.walls.filter(okW):[];if(!walls.length&&okW(v.wall))walls=[v.wall];if(Object.prototype.propertyIsEnumerable.call(v,"wall"))delete v.wall;
   if(!walls.length){uid=Math.max(uid,1+Math.max(0,...v.items.map(i=>+i.id||0),...((v.lc&&v.lc.items)||[]).map(i=>+i.id||0),...v.ext.map(i=>+i.id||0)));
     walls=Array.isArray(v.lc&&v.lc.items)?[demoWall(v.lc.items),demoStairs(v.lc.items)]:[blankWall()]}
-  walls.forEach((w,k)=>{if(!w.name)w.name="Pared "+(k+1);if(w.tube==null)w.tube=true});v.walls=walls;if(!(Number.isInteger(v.wallI)&&v.wallI<walls.length))v.wallI=0;linkWall(v);
+  walls.forEach((w,k)=>{if(!w.name)w.name="Pared "+(k+1);if(w.tube==null)w.tube=true;if(!Array.isArray(w.tubes))w.tubes=[];w.tubes=w.tubes.filter(t=>t&&Array.isArray(t.pts)&&t.pts.length>1)});v.walls=walls;if(!(Number.isInteger(v.wallI)&&v.wallI<walls.length))v.wallI=0;linkWall(v);
   if(!v.lc)v.lc=TPL.casaVE().lc;
   const okDin=Number.isInteger(v.board.rows)&&Number.isInteger(v.board.mods)&&v.items.every(i=>CAT[i.type]&&i.p&&Number.isInteger(i.row)&&Number.isInteger(i.x));
   const okLc=SPACES.includes(v.lc.spaces)&&Array.isArray(v.lc.items)&&v.lc.items.every(i=>i.p&&(i.side==="L"||i.side==="R")&&Number.isInteger(i.slot));

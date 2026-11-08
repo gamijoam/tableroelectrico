@@ -5,7 +5,8 @@
    ===================================================================== */
 let sbTarget=null;
 function selTarget(){if(!sel)return null;
-  if(S.view==="wall"){const bk=S.lc.items.find(i=>i.id===sel);if(bk)return{kind:"brk",it:bk,el:wallEl.querySelector(`.wb[data-brk="${sel}"]`)};
+  if(S.view==="wall"){const tb=(S.wall.tubes||[]).find(t=>t.id===sel);if(tb)return{kind:"tb",it:tb,el:wallEl.querySelector(`.tb[data-id="${sel}"]`)};
+    const bk=S.lc.items.find(i=>i.id===sel);if(bk)return{kind:"brk",it:bk,el:wallEl.querySelector(`.wb[data-brk="${sel}"]`)};
     const it=S.wall.items.find(i=>i.id===sel);if(it)return{kind:"wi",it,el:wallEl.querySelector(`.wi[data-id="${sel}"]`)};
     const w=S.wall.wires.find(i=>i.id===sel);if(w)return{kind:"ww",w,el:wallEl.querySelector(`.ww[data-id="${sel}"]`)};return null}
   const ax=selAux();if(ax)return{kind:"ax",it:ax,el:board.querySelector(`.ax[data-id="${sel}"]`)};
@@ -24,6 +25,7 @@ function renderSelBar(){const bar=$("selbar"),t=selTarget(),dragging=(typeof dra
   else if(t.kind==="din"||t.kind==="ax"){const c=CAT[t.it.type];h=`<span class="sb-t">${esc(t.it.p.des||c.n)} · ${esc(c.n)}</span>${c.st?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
   else if(t.kind==="ex"){const c=EXT[t.it.type];h=`<span class="sb-t">${esc(c.n)}</span>${c.st?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${B("sb-dup","Duplicar")}${B("sb-del","Eliminar","danger")}`}
   else if(t.kind==="wi"){const d=DEV[t.it.type];h=`<span class="sb-t">${esc(t.it.p.name||d.short)}</span>${t.it.type==="inter"?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${t.it.type==="panel"?B("sb-edit","Poner o quitar breakers","primary"):B("sb-dup","Duplicar")}${B("sb-del",t.it.type==="panel"?"Quitar":"Eliminar","danger")}`}
+  else if(t.kind==="tb"){let m=0;for(let k=1;k<t.it.pts.length;k++)m+=Math.hypot(t.it.pts[k][0]-t.it.pts[k-1][0],t.it.pts[k][1]-t.it.pts[k-1][1]);h=`<span class="sb-t">Tubo PVC · ${fmtNum(m,2)} m</span><select class="sel" id="sb-ts" aria-label="Diámetro">${O(TUBE_SIZES,t.it.size)}</select>${B("sb-del","Eliminar","danger")}`}
   else if(t.kind==="ww"){h=`<span class="sb-t">Cable #${t.w.awg}</span><select class="sel" id="sb-col" aria-label="Color del cable">${O(Object.keys(WCOL),t.w.color)}</select>${B("sb-del","Eliminar","danger")}`}
   h+=B("sb-more","Más opciones");bar.innerHTML=h;bar.hidden=false;
   const on=(id,ev,fn)=>{const el=$(id);if(el)el[ev]=fn};
@@ -32,6 +34,7 @@ function renderSelBar(){const bar=$("selbar"),t=selTarget(),dragging=(typeof dra
   on("sb-on","onclick",()=>mutate(()=>{t.it.p.on=!t.it.p.on}));
   on("sb-dup","onclick",()=>{if(t.kind==="wi"){const p=$("pp-dup");if(p)p.click()}else dup()});
   on("sb-del","onclick",()=>{if(S.view==="wall")wallDelete();else del()});
+  on("sb-ts","onchange",e=>mutate(()=>{t.it.size=e.target.value}));
   on("sb-col","onchange",e=>mutate(()=>{t.w.color=e.target.value}));
   on("sb-edit","onclick",()=>setView("board"));
   on("sb-more","onclick",()=>{setPanel("side",true);$("tabP").click()});

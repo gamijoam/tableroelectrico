@@ -17,6 +17,7 @@ js/state.js         Estado, plantillas, guardado local, deshacer y reglas de ubi
 js/render.js        Dibujo del tablero (DIN y caja de breakers) y rótulo del plano
 js/panels.js        Biblioteca, panel de propiedades y presupuesto
 js/sim.js           Simulador: redes, cortocircuitos, voltajes, sobrecargas y reglas de norma
+js/routing.js       Recorrido de cables: por la tubería dibujada (camino más corto, un carril por cable) o en Z sin encimarse
 js/wall.js          Vista Pared: varias paredes, dispositivos, cableado, tubería y panel de prueba
 js/layout.js        Paneles laterales plegables, pantalla completa y alertas de la prueba
 js/selbar.js        Barra flotante junto a lo seleccionado (amperaje, polos, encender, eliminar)

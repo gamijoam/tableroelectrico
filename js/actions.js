@@ -161,7 +161,8 @@ function setView(v){if(S.view===v)return;if(v!=="wall"&&simState.running){simSta
 $("vBoard").onclick=()=>setView("board");
 $("goWire").onclick=()=>{setView("wall");wallMode="wire";renderAll();
   showAlert("ok","Cablear y probar","Toca un tornillo (de un breaker, de la barra de neutro N o de tierra T, o de un aparato) y luego otro para tender el cable. Las tomas, interruptores y bombillos están en Abrir componentes. Al terminar, presiona Probar.")};$("vWall").onclick=()=>setView("wall");
-$("mMove").onclick=()=>{wallMode="move";renderAll()};$("mWire").onclick=()=>{wallMode="wire";renderAll()};
+$("mMove").onclick=()=>{wallMode="move";tubeDraft=null;renderAll()};$("mWire").onclick=()=>{wallMode="wire";tubeDraft=null;renderAll()};
+$("mTube").onclick=()=>{wallMode="tube";pending=null;sel=null;if(!S.wall.tube){S.wall.tube=true}renderAll();if(!(S.wall.tubes||[]).length)showAlert("ok","Dibuja la tubería","Toca la pared donde empieza el tubo, toca en cada codo y toca dos veces para terminar. Los cables pasan solos por dentro del tubo más cercano y cada uno va en su carril.")};
 $("wColor").innerHTML=`<option value="Auto">Automático (norma)</option>`+Object.keys(WCOL).map(c=>`<option>${c}</option>`).join("");
 $("wAwg").innerHTML=Object.keys(AWG_W).map(a=>`<option value="${a}">#${a} AWG</option>`).join("");
 $("wSize").innerHTML=[[4,2.6],[6,2.7],[8,2.7],[10,3]].map(([w,h])=>`<option value="${w}x${h}">${w} × ${fmtNum(h,1)} m</option>`).join("");

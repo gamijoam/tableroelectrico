@@ -135,11 +135,11 @@ function quoteData(){const Q=S.quote,m=new Map(),add=(desc,cost,ref,q=1,u="")=>{
    [...cab].filter(([,mts])=>mts>0).sort((a,b)=>parseInt(b[0])-parseInt(a[0])).forEach(([a,mts])=>add(`Cable THHN/THW cobre #${a} AWG`,AWG_P[a]||1,null,mts,"m"))}
   else{for(const it of [...S.items].sort((a,b)=>a.row-b.row||a.x-b.x))add(CAT[it.type].desc(it.p),PRICE_DIN[it.type](it.p),it.p.des);add(dinBoxDesc(),dinBoxPrice())}
   for(const x of S.ext)add(EXT[x.type].desc(x.p),Math.round(EXT[x.type].price(x.p)),x.p.name);
-  const wm=new Map();let tube=0;
+  const wm=new Map(),tubeSz={};
   for(const wl of S.walls){for(const it of wl.items){const dv=DEV[it.type];if(dv&&dv.price)add(devQn(dv,it.p),devPrice(dv,it.p),it.p.name?`${it.p.name} (${wl.name})`:wl.name)}
-    for(const [k,m] of wallWireMeters(wl))wm.set(k,(wm.get(k)||0)+m);if(wl.tube!==false)tube+=tubeMeters(wl)}
+    for(const [k,m] of wallWireMeters(wl))wm.set(k,(wm.get(k)||0)+m);if(wl.tube!==false)for(const [sz,m] of Object.entries(tubeBySize(wl)))tubeSz[sz]=(tubeSz[sz]||0)+m}
   [...wm].sort().forEach(([k,mts])=>{const [awg,col]=k.split("|");add(`Cable THHN/THW cobre #${awg} AWG ${col.toLowerCase()} (pared)`,AWG_P[awg]||1,null,Math.round(mts*1.1*2)/2,"m")});
-  if(tube>0)add('Tubo PVC 3/4" para pared',.9,null,Math.round(tube*1.1*2)/2,"m");
+  for(const sz of TUBE_SIZES)if(tubeSz[sz]>0)add(`Tubo PVC ${sz} para pared`,TUBE_PRICE[sz],null,Math.round(tubeSz[sz]*1.1*2)/2,"m");
   const k=1+(+Q.margin||0)/100;
   const mat=[...m.values()].map(e=>{const ov=Q.over[e.desc]!=null,cost=ov?+Q.over[e.desc]:e.def;return Object.assign(e,{cost,ov,unit:r2(cost*k),total:r2(cost*k*e.q)})});
   const n=S.kind==="lc"?S.lc.items.length:S.items.filter(i=>i.type!=="term"&&i.type!=="blank").length,lab=[];
@@ -200,11 +200,11 @@ function renderTools(){const lc=S.kind==="lc";$("projName").textContent=S.projec
    :"Arrastra componentes al riel o toca uno para sumarlo a la fila activa · <kbd>Doble clic</kbd> enciende/apaga · <kbd>←</kbd><kbd>→</kbd> mueven · <kbd>Supr</kbd> borra";
   const wall=S.view==="wall";$("vBoard").setAttribute("aria-pressed",String(!wall));$("vWall").setAttribute("aria-pressed",String(wall));
   $("boardTools").hidden=wall;$("goWire").hidden=wall;$("wallTools").hidden=!wall;$("usage").hidden=wall;
-  if(wall){$("mMove").setAttribute("aria-pressed",String(wallMode==="move"));$("mWire").setAttribute("aria-pressed",String(wallMode==="wire"));
+  if(wall){$("mMove").setAttribute("aria-pressed",String(wallMode==="move"));$("mWire").setAttribute("aria-pressed",String(wallMode==="wire"));$("mTube").setAttribute("aria-pressed",String(wallMode==="tube"));
     $("wColor").value=wColor;$("wAwg").value=wAwg;$("wSize").value=S.wall.w+"x"+S.wall.h;$("wFinish").value=S.wall.finish;$("wSel").innerHTML=S.walls.map((w,i)=>`<option value="${i}">${esc(w.name)}</option>`).join("");$("wSel").value=S.wallI;$("wTube").checked=S.wall.tube!==false;
     $("play").textContent=simState.running?"■ Detener":"▶ Probar";$("blackout").hidden=!simState.running;$("blackout").textContent=simState.blackout?"Volver la luz":"Simular apagón";$("blackout").classList.toggle("primary",simState.blackout);$("play").classList.toggle("running",simState.running);$("rearm").hidden=!simState.running;
     $("hint").innerHTML=reconn?"Toca o suelta sobre el terminal nuevo para ese extremo del cable · <kbd>Esc</kbd> cancela":pending?"Ahora toca el segundo terminal para tender el cable · <kbd>Esc</kbd> cancela"
-     :(wallMode==="wire"?"<b>Cablear</b>: arrastra desde un breaker o tornillo hasta el aparato, o toca uno y luego el otro":"<b>Mover</b>: arrastra los aparatos · para tender un cable arrastra desde un breaker o tornillo hasta el aparato")+" · <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> mueven 5 cm · <kbd>Supr</kbd> borra · <b>Probar</b> energiza la pared"}
+     :wallMode==="tube"?(tubeDraft?"<b>Tubería</b>: toca en cada codo · toca dos veces en el mismo punto o presiona <kbd>Enter</kbd> para terminar · <kbd>Esc</kbd> cancela":"<b>Tubería</b>: toca la pared donde empieza el tubo; si tocas un tubo existente, el nuevo se une a él"):(wallMode==="wire"?"<b>Cablear</b>: arrastra desde un breaker o tornillo hasta el aparato, o toca uno y luego el otro":"<b>Mover</b>: arrastra los aparatos · para tender un cable arrastra desde un breaker o tornillo hasta el aparato")+" · <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> mueven 5 cm · <kbd>Supr</kbd> borra · <b>Probar</b> energiza la pared"}
   $("total").textContent=fmtUSD(quoteData().total);
   $("undo").disabled=!hist.length;$("redo").disabled=!fut.length}
 function renderAll(){if(S.view==="wall"&&simState.running&&!wdrag)runSim();renderBoard();renderProps();renderQuote();renderTools();renderSelBar()}
