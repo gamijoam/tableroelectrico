@@ -57,7 +57,11 @@ function coilWhy(d,ctx){ctx.cw=ctx.cw||new Set();if(ctx.cw.has(d.id))return"";ct
   if(v&&v<r*.85)return`su bobina es de ${r} V y recibe ${v} V${r>=200?": A2 debe ir a la otra fase, no al neutro":""}`;
   if(v)return"";
   if(isPh(pa)&&pa===pb)return`A1 y A2 tienen la misma fase (${pa}); A2 va a ${other}`;
-  const R=new Set([...wireReach(A1),...wireReach(A2)]);
+  const R1=wireReach(A1),R2=wireReach(A2),R=new Set([...R1,...R2]);
+  /* A1 y A2 en el mismo contacto del supervisor: al cerrar, la bobina queda en corto consigo misma */
+  for(const s of S.items.filter(i=>i.type==="supv")){const sl=s.p.des||"el supervisor",pin=Rx=>["11","12","14"].find(k=>Rx.has(ctlT(ctx,s,k)));const p1=pin(R1),p2=pin(R2);
+    if(p1&&p2)return`A1 está en el borne ${p1} y A2 en el borne ${p2} de ${sl}: cuando el supervisor cierra, A1 y A2 quedan unidos y la bobina no ve voltaje. Deja A1 en el 14, lleva una fase al 11 (por ejemplo, la salida L1 del breaker de mando) y conecta A2 a ${other}`}
+  if(ctx.nets.find(A1)===ctx.nets.find(A2))return`A1 y A2 quedan unidos entre sí, así que la bobina no ve voltaje. A1 recibe la fase que manda y A2 va a ${other}`;
   for(const s of S.items.filter(i=>i.type==="supv")){const sl=s.p.des||"el supervisor",t11=ctlT(ctx,s,"11"),t12=ctlT(ctx,s,"12"),t14=ctlT(ctx,s,"14");
     if(R.has(t12)&&!R.has(t14))return`la bobina está en el borne 12 de ${sl}, que cierra cuando HAY falla. Pásala al 14, que cierra cuando el voltaje está bien`;
     if(!R.has(t14)&&!R.has(t11))continue;
