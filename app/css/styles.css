@@ -76,6 +76,7 @@ input.txt,textarea.txt{width:100%;border:1px solid var(--line);background:var(--
 .pop.open .pop-body label{justify-content:space-between}
 .pop.open .pop-body label.chk{justify-content:flex-start}
 #wallTools:not([data-mode="wire"]) .wire-only{display:none}
+.app.panelwire #wSel,.app.panelwire #wAdd,.app.panelwire #wallPop{display:none!important}
 .zoom .btn{padding:5px 9px}
 .zoom output{font-family:var(--f-mono);font-size:12px;min-width:44px;text-align:center;color:var(--muted)}
 .chip{font-family:var(--f-mono);font-size:12px;padding:3px 8px;border-radius:99px;background:var(--accent-soft);color:var(--fg)}
