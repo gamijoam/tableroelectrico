@@ -69,7 +69,9 @@
     <div class="tools">
       <span class="seg" role="group" aria-label="Vista"><button class="segb" id="vBoard" aria-pressed="true">Tablero</button><button class="segb" id="vWall" aria-pressed="false">Pared<span class="d-only"> y cableado</span></button></span>
       <button class="btn wire-cta" id="goWire" title="Ir a la pared para tender cables y probar">Cablear y probar →</button>
-      <span class="tgroup" id="boardTools">
+      <span class="tgroup pop" id="boardTools">
+      <button class="btn pop-btn" aria-expanded="false" aria-haspopup="true">Ajustes del tablero ▾</button>
+      <span class="pop-body">
       <label>Tipo <select class="sel" id="kind"><option value="lc">Caja de breakers</option><option value="din">Riel DIN</option></select></label>
       <span class="tgroup" id="lcTools">
         <label>Espacios <select class="sel" id="spaces"></select></label>
@@ -83,24 +85,25 @@
         <label>Gabinete <select class="sel" id="style"><option value="metal">Metálico</option><option value="plastic">Plástico</option></select></label>
       </span>
       </span>
+      </span>
       <span class="tgroup" id="wallTools" hidden>
         <select class="sel opt" id="wSel" aria-label="Pared activa"></select><button class="btn opt" id="wAdd" title="Agregar otra pared">+ Pared</button>
         <span class="seg" role="group" aria-label="Modo"><button class="segb" id="mMove" aria-pressed="true">Mover</button><button class="segb" id="mWire" aria-pressed="false">Cablear</button><button class="segb" id="mTube" aria-pressed="false">Tubería</button><button class="segb" id="mMeter" aria-pressed="false" title="Mide el voltaje entre dos terminales durante la prueba">Multímetro</button></span>
-        <label class="opt">Cable <select class="sel" id="wColor"></select></label>
-        <select class="sel opt" id="wAwg" aria-label="Calibre del cable"></select>
+        <label class="opt wire-only">Cable <select class="sel" id="wColor"></select></label>
+        <select class="sel opt wire-only" id="wAwg" aria-label="Calibre del cable"></select>
+        <span class="pop" id="wallPop"><button class="btn pop-btn" aria-expanded="false" aria-haspopup="true">Ajustes de pared ▾</button><span class="pop-body">
         <label class="opt">Pared <select class="sel" id="wSize"></select></label>
-        <select class="sel opt" id="wFinish" aria-label="Acabado de la pared"></select>
+        <label class="opt">Acabado <select class="sel" id="wFinish" aria-label="Acabado de la pared"></select></label>
         <label class="chk opt"><input type="checkbox" id="wTube"> Ver tubería</label><label class="chk opt" title="Durante la prueba, muestra por dónde circula la corriente"><input type="checkbox" id="wFlow" checked> Ver flujo de energía</label>
+        </span></span>
         <button class="btn play" id="play">▶ Probar</button><button class="btn" id="rearm" hidden>Rearmar</button><button class="btn" id="blackout" hidden>Simular apagón</button>
       </span>
       <span class="chip" id="usage"></span>
       <span class="chip money" id="total" title="Total del presupuesto"></span>
       <span class="sp"></span>
-      <div class="zoom"><button class="btn" id="zout" aria-label="Alejar">−</button><output id="zval">100%</output><button class="btn" id="zin" aria-label="Acercar">+</button><button class="btn" id="zfit">Ajustar</button></div>
       <span class="tgroup focus-only"><button class="btn" id="fUndo">Deshacer</button><button class="btn" id="fRedo">Rehacer</button><button class="btn" id="fCalc">Calculadora</button><button class="btn" id="fPng">Exportar imagen</button><button class="btn" id="fPdf">PDF</button></span>
-      <button class="btn" id="fs" aria-pressed="false">Pantalla completa</button>
     </div>
-    <div id="stagebox"><div id="alert" hidden></div><div id="selbar" class="selbar" hidden></div><div id="stage"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg><svg id="wall" xmlns="http://www.w3.org/2000/svg" hidden></svg></div></div>
+    <div id="stagebox"><div class="stagectl"><div class="zoom"><button class="btn" id="zout" aria-label="Alejar" title="Alejar">−</button><output id="zval">100%</output><button class="btn" id="zin" aria-label="Acercar" title="Acercar">+</button><button class="btn" id="zfit" title="Ver todo el dibujo">Ajustar</button></div><button class="btn" id="fs" aria-pressed="false" title="Pantalla completa">⛶</button></div><div id="alert" hidden></div><div id="selbar" class="selbar" hidden></div><div id="stage"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg><svg id="wall" xmlns="http://www.w3.org/2000/svg" hidden></svg></div></div>
     <div class="hint" id="hint"></div>
   </section>
 

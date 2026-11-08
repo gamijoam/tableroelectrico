@@ -7,7 +7,7 @@ const UIKEY="taller-tableros-ui";
 const ui=(()=>{let v={};try{v=JSON.parse(localStorage.getItem(UIKEY)||"{}")||{}}catch(e){}return{lib:!!v.lib,side:!!v.side,focus:false,prev:null}})();
 function applyUI(){const a=$("app");a.classList.toggle("lib-closed",!ui.lib);a.classList.toggle("side-closed",!ui.side);a.classList.toggle("focus",ui.focus);
   $("libRail").setAttribute("aria-expanded",String(ui.lib));$("sideRail").setAttribute("aria-expanded",String(ui.side));
-  $("fs").textContent=ui.focus?"Salir de pantalla completa":"Pantalla completa";$("fs").setAttribute("aria-pressed",String(ui.focus));
+  $("fs").textContent=ui.focus?"Salir":"⛶";$("fs").title=ui.focus?"Salir de pantalla completa":"Pantalla completa";$("fs").setAttribute("aria-pressed",String(ui.focus));
   try{localStorage.setItem(UIKEY,JSON.stringify({lib:ui.lib,side:ui.side}))}catch(e){}
   if(autoFit&&S)requestAnimationFrame(()=>S&&fit())}
 function setPanel(which,open){ui[which]=open;applyUI()}
@@ -36,3 +36,9 @@ function showAlert(lvl,title,msg,extra=""){const el=$("alert");clearTimeout(aler
   if(lvl!=="crit")alertTimer=setTimeout(hideAlert,7000)}
 function hideAlert(){clearTimeout(alertTimer);$("alert").hidden=true}
 applyUI();
+
+/* menús desplegables de ajustes (tablero y pared): se abren con su botón y se cierran al tocar fuera */
+function closePops(except){document.querySelectorAll(".pop.open").forEach(p=>{if(p!==except){p.classList.remove("open");p.querySelector(".pop-btn").setAttribute("aria-expanded","false")}})}
+document.querySelectorAll(".pop-btn").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();const p=b.closest(".pop"),open=!p.classList.contains("open");closePops(p);p.classList.toggle("open",open);b.setAttribute("aria-expanded",String(open))}));
+document.addEventListener("pointerdown",e=>{if(!e.target.closest(".pop"))closePops()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closePops()});

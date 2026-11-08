@@ -120,4 +120,6 @@ function sceneSvg(forExport){return S.kind==="lc"?lcSvg(forExport):dinSvg(forExp
 function renderBoard(){const wall=S.view==="wall";board.toggleAttribute("hidden",wall);wallEl.toggleAttribute("hidden",!wall);if(typeof posSelBar==="function")requestAnimationFrame(()=>{if(drag&&drag.moving||wdrag&&wdrag.moved)$("selbar").hidden=true;else posSelBar()});if(wall){renderWall();return}const {Wd,H}=dims();board.setAttribute("viewBox",`0 0 ${Wd} ${H}`);board.setAttribute("width",Math.round(Wd*zoom));board.setAttribute("height",Math.round(H*zoom));board.innerHTML=sceneSvg(false);$("zval").textContent=Math.round(zoom*100)+"%"}
 function fit(){const st=$("stage"),wall=S.view==="wall",{Wd,H}=wall?wallDims():dims();zoom=Math.max(.2,Math.min(1.3,(st.clientWidth-48)/Wd));
   /* teléfono vertical: la pared se ajusta a la altura y se recorre de lado con el dedo */
-  if(wall&&typeof isMobile==="function"&&isMobile()&&st.clientHeight>st.clientWidth)zoom=Math.max(zoom,Math.min(1,(st.clientHeight-24)/H));renderBoard()}
+  if(wall&&typeof isMobile==="function"&&isMobile()&&st.clientHeight>st.clientWidth)zoom=Math.max(zoom,Math.min(1,(st.clientHeight-24)/H));
+  /* computadora y tablet horizontal: la pared completa entra en pantalla, de arriba a abajo */
+  else if(wall)zoom=Math.max(.2,Math.min(zoom,(st.clientHeight-20)/H));renderBoard()}

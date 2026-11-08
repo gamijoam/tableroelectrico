@@ -436,7 +436,8 @@ wallEl.addEventListener("pointerdown",e=>{if(wallMode==="tube"&&!simState.runnin
     if(simState.running&&it.type==="inter"){mutate(()=>{it.p.on=!it.p.on});return}
     if(simState.running&&it.type==="inter3"){mutate(()=>{it.p.pos=it.p.pos===2?1:2});return}
     sel=it.id;pending=null;reconn=null;
-    if(wallMode==="move"){const q=toWall(e),[cx,cy]=toPx(it.x,it.y);wdrag={id:it.id,dx:q.x-cx,dy:q.y-cy,moved:false,before:JSON.stringify(S),sx:e.clientX,sy:e.clientY};try{wallEl.setPointerCapture(e.pointerId)}catch(_){}}
+    /* el aparato se arrastra en cualquier modo; los cables salen de sus tornillos */
+    if(wallMode!=="meter"){const q=toWall(e),[cx,cy]=toPx(it.x,it.y);wdrag={id:it.id,dx:q.x-cx,dy:q.y-cy,moved:false,before:JSON.stringify(S),sx:e.clientX,sy:e.clientY};try{wallEl.setPointerCapture(e.pointerId)}catch(_){}}
     renderAll();return}
   /* fondo de la pared: arrastrar desplaza la vista */
   startPan(e);if(pending||sel||reconn){pending=null;sel=null;reconn=null;renderAll()}});
