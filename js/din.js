@@ -3,69 +3,81 @@ const PILOT={Verde:["#38e266","#1f5a2e"],Rojo:["#ff3b30","#6a1f1b"],"Ámbar":["#
 const PUSH={Verde:"#2aa84a",Rojo:"#d3312b",Negro:"#2b2e31",Amarillo:"#e8c22c"};
 const TERM={Gris:"#9aa0a4",Azul:"#2f6fd0","Verde/amarillo":"url(#pGY)","Verde":"#2f9e44","Blanco":"#eeeeea","Marrón":"#7a4b2a",Negro:"#2b2d2f",Rojo:"#c63228"};
 const DRAW={
- mcb(p,w){const n=p.poles;let s=std(w);const ly=p.on?48:70;
-  for(let i=0;i<n;i++){const x=i*M;s+=R(x+9,46,18,48,"#24282a",{rx:3})+R(x+11,ly,14,22,"#3a3f43",{rx:2})+R(x+12,ly+1,12,4,"#61676b",{rx:1})+T(x+18,121,p.curve+p.In,{fs:10.5,fw:700})}
-  if(n>1)s+=R(11,ly+9,(n-1)*M+14,6,"#3a3f43",{rx:1});
-  s+=R(10,99,16,6,p.on?"#d23a2f":"#3a9d55",{rx:1})+R(8.5,126,19,9,"none",{s:"#555",sw:.8})+T(18,133,Math.round(p.kA*1000),{fs:6});return s},
- rcd(p,w){const ly=p.on?48:70;let s=std(w)+R(9,46,18,48,"#24282a",{rx:3})+R(11,ly,14,22,"#3a3f43",{rx:2})+R(12,ly+1,12,4,"#61676b",{rx:1});
-  s+=C(M+18,60,8,"#e7c23b",{s:"#9c7f19"})+T(M+18,63.5,"T",{fs:8,fw:700})+R(M+10,79,16,7,p.on?"#d23a2f":"#3a9d55",{rx:1});
+ mcb(p,w){const n=p.poles;let s=std(w);
+  for(let i=0;i<n;i++){const x=i*M;s+=lever(x+10.5,15,p.on)+T(x+18,121,p.curve+p.In,{fs:10.5,fw:700})}
+  if(n>1){const ly=p.on?48:70;s+=R(10.5,ly+9.5,(n-1)*M+15,6,"#000",{rx:1,op:.35})+R(10.5,ly+8.5,(n-1)*M+15,5,"url(#gLv)",{rx:1,s:"#0e1011",sw:.5})}
+  s+=flag(11,99,14,6,p.on)+R(8.5,126,19,9,"#fff",{s:"#555",sw:.8,rx:.5})+T(18,133,Math.round(p.kA*1000),{fs:6})+R(7,108,w-14,.8,"#1c5fa8",{op:.55});return s},
+ rcd(p,w){let s=std(w)+lever(10.5,15,p.on);
+  s+=C(M+18,61,9,"#000",{op:.25})+C(M+18,60,8,"#e7c23b",{s:"#9c7f19"})+C(M+18,60,8,"url(#gLens)",{op:.7})+T(M+18,63.5,"T",{fs:8,fw:700})+T(M+18,74,"TEST",{fs:4.6,fw:400})+flag(M+11,80,14,6,p.on);
   s+=T(w/2,111,p.In+"A",{fs:11,fw:700})+T(w/2,123,p.sens,{fs:8.5})+T(w/2,133,"IΔn · tipo "+p.type,{fs:6,fw:400});return s},
- sw(p,w){const ly=p.on?48:70;let s=std(w)+R(8,46,w-16,48,"#24282a",{rx:4})+R(12,ly,w-24,22,"#c8322a",{rx:3})+R(13,ly+1,w-26,4,"#e5665e",{rx:1})+T(w/2,ly+15.5,p.on?"I":"O",{fs:10,c:"#fff",fw:700});
+ sw(p,w){const ly=p.on?48:70;let s=std(w)+R(8,46,w-16,48,"url(#gHole)",{rx:4})+R(8,93,w-16,1.2,"#fff",{op:.35});
+  s+=R(12.5,ly+(p.on?3:-2),w-24,22,"#000",{rx:3,op:.45})+R(12,ly,w-24,22,"#c8322a",{rx:3,s:"#7a1410",sw:.6})+R(12,ly,w-24,22,"url(#gLvX)",{rx:3})+R(13.5,p.on?ly+1:ly+17,w-27,4,p.on?"#ef7b73":"#8f241f",{rx:1});
+  s+=[7,10.5,14].map(k=>R(16,ly+k+(p.on?2:0),w-32,.9,"#000",{op:.3})).join("")+T(w/2,ly+15.5,p.on?"I":"O",{fs:10,c:"#fff",fw:700});
   return s+T(w/2,114,p.In+"A",{fs:11,fw:700})+T(w/2,126,p.poles+"P · I–0",{fs:7,fw:400})},
- spd(p,w){let s=body(w)+terms(w,8)+terms(w,142);for(let i=0;i<p.poles;i++){const x=i*M;s+=R(x+4,38,28,98,"url(#gF)",{rx:2,s:"#b6b9b4"})+R(x+11,52,14,9,p.on?"#3cae5e":"#d23a2f",{rx:1})+T(x+18,80,"T2",{fs:8,fw:700})+T(x+18,94,p.Imax+"kA",{fs:7})+T(x+18,106,"150V",{fs:6,fw:400})}return s},
- prot(p,w){let s=std(w)+R(8,46,56,28,"#140707",{rx:2})+T(36,67,p.on?"121":"- - -",{fs:17,fw:700,c:"#ff4b3b"});
-  s+=C(16,86,3,p.on?"#3bd16b":"#2c4a35")+T(22,88,"OK",{fs:5.5,a:"start",fw:400})+C(46,86,3,p.on?"#5a1f1f":"#ff3b30")+T(52,88,"ERR",{fs:5.5,a:"start",fw:400});
-  return s+R(12,97,14,8,"#555a5e",{rx:2})+R(46,97,14,8,"#555a5e",{rx:2})+T(36,122,p.In+"A",{fs:9.5,fw:700})+T(36,132,"Protector V",{fs:6,fw:400})},
+ spd(p,w){let s=body(w)+terms(w,8)+terms(w,142);for(let i=0;i<p.poles;i++){const x=i*M;s+=box(x+4,38,28,98,"url(#gF)",{rx:2.5,s:"#b6b9b4"})+R(x+8,40,20,3,"#9da19c",{rx:1})+flag(x+11,52,14,9,!p.on)+T(x+18,80,"T2",{fs:8,fw:700})+T(x+18,94,p.Imax+"kA",{fs:7})+T(x+18,106,"150V",{fs:6,fw:400})}return s},
+ prot(p,w){let s=std(w)+scr(8,46,56,28,"#140707")+T(36,67,p.on?"121":"- - -",{fs:17,fw:700,c:"#ff4b3b"});
+  s+=led(16,86,2.8,"#3bd16b",p.on,"#2c4a35")+T(22,88,"OK",{fs:5.5,a:"start",fw:400})+led(46,86,2.8,"#ff3b30",!p.on,"#5a1f1f")+T(52,88,"ERR",{fs:5.5,a:"start",fw:400});
+  return s+rbtn(12,97,14,8,"#555a5e")+rbtn(46,97,14,8,"#555a5e")+T(36,122,p.In+"A",{fs:9.5,fw:700})+T(36,132,"Protector V",{fs:6,fw:400})},
  supv(p,w){const tri=p.sys.startsWith("Trif");let s=std(w);
-  s+=C(14,47,3,p.on?"#3bd16b":"#24452f")+C(36,47,3,p.on?"#ffc533":"#5a4a1d")+C(58,47,3,p.on?"#5a1f1f":"#ff3b30");
+  s+=led(14,47,2.8,"#3bd16b",p.on,"#24452f")+led(36,47,2.8,"#ffc533",p.on,"#5a4a1d")+led(58,47,2.8,"#ff3b30",!p.on,"#5a1f1f");
   s+=T(14,57,"PWR",{fs:4.8,fw:400})+T(36,57,"RELÉ",{fs:4.8,fw:400})+T(58,57,"FALLA",{fs:4.8,fw:400});
   s+=knob(14,74,7,-50)+knob(36,74,7,40)+knob(58,74,7,10)+T(14,90,"U<",{fs:5.5})+T(36,90,"U>",{fs:5.5})+T(58,90,"t",{fs:5.5});
-  return s+T(36,108,(tri?"3Φ ":"1Φ ")+p.sys.replace(/^\D+/,""),{fs:9,fw:700})+T(36,119,tri?"Secuencia · falta fase":"Sobre / bajo voltaje",{fs:5,fw:400})+T(36,130,"Supervisor",{fs:6,fw:400})},
- cont(p,w){let s=std(w)+T(8,46,"A1",{fs:6,a:"start",fw:400})+T(w-8,46,p.coil,{fs:6,a:"end",fw:400})+R(w/2-14,52,28,16,"#1e2124",{rx:2})+T(w/2,64,p.on?"I":"0",{fs:10,c:p.on?"#ffcf33":"#8a8f93",fw:700});
-  return s+R(w/2-5,76,10,26,"#cfd2ce",{rx:2,s:"#9a9e99"})+R(w/2-5,p.on?76:90,10,12,"#3a3f43",{rx:2})+T(w/2,118,p.In+"A AC-3",{fs:9,fw:700})+T(w/2,129,p.cts,{fs:7,fw:400})+T(8,133,"A2",{fs:6,a:"start",fw:400})},
+  return s+R(6,97,w-12,36,"#fbfbf8",{rx:1.5,s:"#d3d5d0",sw:.5})+T(36,108,(tri?"3Φ ":"1Φ ")+p.sys.replace(/^\D+/,""),{fs:9,fw:700})+T(36,119,tri?"Secuencia · falta fase":"Sobre / bajo voltaje",{fs:5,fw:400})+T(36,130,"Supervisor",{fs:6,fw:400})},
+ cont(p,w){let s=std(w)+T(8,46,"A1",{fs:6,a:"start",fw:400})+T(w-8,46,p.coil,{fs:6,a:"end",fw:400});
+  s+=R(w/2-14,52,28,16,"url(#gHole)",{rx:2})+R(w/2-11,p.on?58:54,22,8,p.on?"#ffcf33":"#8a8f93",{rx:1.2})+T(w/2,p.on?64.5:60.5,p.on?"I":"0",{fs:6.5,c:"#2a2e31",fw:700})+R(w/2-14,52,28,16,"url(#gWin)",{rx:2});
+  return s+R(w/2-5,76,10,26,"url(#gHole)",{rx:2})+rbtn(w/2-4,p.on?77:89,8,12,"#4a4f54")+T(w/2,118,p.In+"A AC-3",{fs:9,fw:700})+T(w/2,129,p.cts,{fs:7,fw:400})+T(8,133,"A2",{fs:6,a:"start",fw:400})},
  icont(p,w){let s=body(w,"url(#gC)","#8d918d")+terms(w,8,3)+terms(w,142,3);const sp=w/3;
   ["1/L1","3/L2","5/L3"].forEach((t,i)=>s+=T(sp*i+sp/2,39,t,{fs:5.2,fw:400}));["2/T1","4/T2","6/T3"].forEach((t,i)=>s+=T(sp*i+sp/2,139,t,{fs:5.2,fw:400}));
-  s+=R(6,44,w-12,88,"url(#gF)",{rx:3,s:"#a9ada8"})+R(10,48,w-20,18,"#d7dad6",{rx:2,s:"#b3b6b1"})+T(16,60,"A1",{fs:6,a:"start"})+T(w-16,60,"A2",{fs:6,a:"end"});
-  s+=R(w/2-11,70,22,16,"#1e2124",{rx:2})+T(w/2,82,p.on?"I":"0",{fs:10,c:p.on?"#ffcf33":"#8a8f93",fw:700});
-  return s+T(w/2,101,p.In+"A",{fs:12,fw:700})+T(w/2,112,"Bobina "+p.coil,{fs:6,fw:400})+T(w/2,124,"Aux. "+p.aux,{fs:6,fw:400})},
+  /* bloque frontal elevado (cámara de arco) con su sombra */
+  s+=R(7.5,46.5,w-12,88,"#000",{rx:4,op:.2})+R(6,44,w-12,88,"url(#gF)",{rx:3.5,s:"#a9ada8"})+R(6,44,w-12,88,"url(#gSide)",{rx:3.5})+R(8,45,w-16,2,"#fff",{rx:1,op:.9});
+  /* placa de bornes de bobina */
+  s+=R(10,48,w-20,18,"#c9cdc8",{rx:2,s:"#a3a7a2"})+R(10,48,w-20,3,"#fff",{rx:1.5,op:.5})+screw(17,57,4.2)+screw(w-17,57,4.2)+T(25,60,"A1",{fs:6,a:"start"})+T(w-25,60,"A2",{fs:6,a:"end"});
+  /* ventana del indicador mecánico: la paleta baja al energizar la bobina */
+  s+=R(w/2-12,69,24,18,"url(#gHole)",{rx:2.5})+R(w/2-9,p.on?76:71,18,9,p.on?"#ffcf33":"#8a8f93",{rx:1.5})+R(w/2-9,p.on?76:71,18,9,"url(#gLvX)",{rx:1.5})+T(w/2,p.on?83:78,p.on?"I":"0",{fs:7.5,c:p.on?"#3a2f05":"#2a2e31",fw:700})+R(w/2-12,69,24,18,"url(#gWin)",{rx:2.5});
+  s+=R(10,92,w-20,36,"#fbfbf8",{rx:1.5,s:"#c3c6c1",sw:.6});
+  return s+T(w/2,105,p.In+"A",{fs:12,fw:700})+T(w/2,115,"Bobina "+p.coil,{fs:6,fw:400})+T(w/2,124,"Aux. "+p.aux,{fs:6,fw:400})},
  ovl(p,w){let s=body(w,"url(#gC)","#8d918d")+terms(w,142,3);const sp=w/3;
-  for(let i=0;i<3;i++)s+=R(sp*i+sp/2-4,4,8,26,"url(#gCuH)",{rx:1,s:"#8a5426"});
-  s+=R(6,36,w-12,96,"url(#gF)",{rx:3,s:"#a9ada8"})+C(30,66,13,"#f6f6f2",{s:"#777"})+`<line x1="30" y1="66" x2="30" y2="56" stroke="#333" stroke-width="2" transform="rotate(30 30 66)"/>`;
-  for(let k=-2;k<=2;k++)s+=`<line x1="30" y1="51" x2="30" y2="54" stroke="#555" stroke-width="1" transform="rotate(${k*30} 30 66)"/>`;
-  s+=R(w-34,52,22,12,"#2f6fd0",{rx:2})+T(w-23,61,"R",{fs:7,c:"#fff"})+R(w-34,70,22,12,"#d3312b",{rx:2})+T(w-23,79,"STOP",{fs:5,c:"#fff"});
-  s+=R(w/2-10,90,20,7,p.on?"#3a9d55":"#f08a2b",{rx:1});
+  for(let i=0;i<3;i++){const x=sp*i+sp/2-4;s+=R(x+1,5,8,26,"#000",{rx:1,op:.3})+R(x,4,8,26,"url(#gCu)",{rx:1,s:"#8a5426",sw:.6})+R(x+1,5,6,1.2,"#fff",{op:.5})+R(x+1.5,21,5,5,"#6d3d17",{rx:.6,op:.6})}
+  s+=box(6,36,w-12,96,"url(#gF)",{rx:3,s:"#a9ada8"});
+  s+=C(30,67.5,14,"#000",{op:.25})+C(30,66,13.5,"url(#gScr)",{s:"#6d7276",sw:.6})+C(30,66,11,"#f6f6f2",{s:"#9a9e99",sw:.5});
+  for(let k=-2;k<=2;k++)s+=`<line x1="30" y1="56.5" x2="30" y2="59" stroke="#555" stroke-width=".9" transform="rotate(${k*30} 30 66)"/>`;
+  s+=`<g transform="rotate(30 30 66)">${R(28,57,4,13,"#2a2e31",{rx:1.5})}${R(28.6,57.5,1.2,11,"#fff",{op:.35})}</g>`+C(30,66,2,"#444");
+  s+=rbtn(w-34,52,22,12,"#2f6fd0")+T(w-23,61,"R",{fs:7,c:"#fff"})+rbtn(w-34,70,22,12,"#d3312b")+T(w-23,79,"STOP",{fs:5,c:"#fff"});
+  s+=flag(w/2-10,90,20,7,!p.on).replace(/#d23a2f/g,"#f08a2b");
   return s+T(w/2,112,p.range,{fs:8,fw:700})+T(w/2,124,"Relé térmico",{fs:6,fw:400})},
- relay(p,w){let s=std(w)+R(8,40,w-16,92,"#cfe3f2",{rx:4,s:"#8fb3cf",op:.9})+R(14,62,w-28,40,"#3d5f8a",{rx:2})+R(18,66,w-36,8,"#c88a4a",{rx:1})+C(w/2,50,3,p.on?"#ff3b30":"#5a1f1f");
+ relay(p,w){let s=std(w)+box(14,64,w-28,36,"#3d5f8a",{rx:2})+R(18,68,w-36,8,"url(#gCuH)",{rx:1})+[0,1,2,3].map(k=>R(18,69+k*2,w-36,.6,"#6d3d17",{op:.5})).join("");
+  s+=R(8,40,w-16,92,"#cfe3f2",{rx:4,s:"#8fb3cf",op:.45})+R(9.5,41.5,w-19,3,"#fff",{rx:1.5,op:.8})+`<path d="M${w-22} 41l-8 90h-6l8-90z" fill="#fff" opacity=".35"/>`+led(w/2,50,3,"#ff3b30",p.on,"#5a1f1f");
   return s+T(w/2,115,p.coil,{fs:6.5,fw:700})+T(w/2,125,p.ct,{fs:5.3,fw:400})},
- emerg(p,w){let s=std(w)+C(36,80,27,"#f2c62e",{s:"#a88a12"})+T(36,60,"EMERGENCIA",{fs:4.8,c:"#3a2f05"});
-  const r=p.on?19:16;s+=C(36,84,r+2,"#7a1410")+C(36,84,r,"#d3221b")+C(36,84,r,"url(#gLens)");
+ emerg(p,w){let s=std(w)+C(36,82,28,"#000",{op:.2})+C(36,80,27,"#f2c62e",{s:"#a88a12"})+C(36,80,27,"url(#gLens)",{op:.35})+T(36,60,"EMERGENCIA",{fs:4.8,c:"#3a2f05"});
+  const r=p.on?19:16;s+=C(36,84+(p.on?4:2),r+2,"#000",{op:.4})+C(36,84,r+2,"#7a1410")+C(36,84,r,"#d3221b")+C(36,84,r*.7,"none",{s:"#ff6a5e",sw:.8,op:.6})+C(36,84,r,"url(#gLens)");
   return s+(p.on?"":T(36,128,"ENCLAVADO",{fs:6,c:"#d3221b"}))},
  selector(p,w){const tri=p.lab.split("·").length===3;const ang={Izquierda:-45,Centro:tri?0:45,Derecha:45}[p.pos]??-45;
-  let s=std(w)+C(18,74,13,"#3a3e41",{s:"#222"})+`<g transform="rotate(${ang} 18 74)">${R(15,62,6,24,"#111",{rx:2})}${R(16.5,63,3,6,"#f2f2f2",{rx:1})}</g>`;
+  let s=std(w)+C(18,75.5,13.5,"#000",{op:.3})+C(18,74,13,"url(#gScr)",{s:"#555",sw:.6})+C(18,74,10.5,"#2e3236",{s:"#111"})+`<g transform="rotate(${ang} 18 74)">${R(15.5,64,7,24,"#000",{rx:2,op:.4})}${R(15,62,6,24,"#1a1c1e",{rx:2})}${R(15.6,62.5,2,23,"#fff",{rx:1,op:.25})}${R(16.5,63,3,6,"#f2f2f2",{rx:1})}</g>`;
   const L=p.lab.split("·").map(x=>x.trim());s+=T(5,52,L[0],{fs:5,a:"start"})+T(31,52,L[L.length-1],{fs:5,a:"end"});if(tri)s+=T(18,52,L[1],{fs:5});
   return s+T(18,112,tri?"3 pos.":"2 pos.",{fs:6,fw:400})},
- vam(p,w){let s=std(w)+R(7,44,58,40,"#120808",{rx:2})+T(60,62,p.read,{fs:15,a:"end",c:"#ff4b3b",fw:700})+T(60,78,{"Voltímetro":"VAC","Amperímetro":"AAC","Volt-amperímetro":"V · A"}[p.mode],{fs:7,a:"end",c:"#ff8a7a"});
-  return s+R(14,92,12,7,"#555a5e",{rx:2})+R(46,92,12,7,"#555a5e",{rx:2})+T(36,116,p.mode,{fs:6.3,fw:600})+T(36,127,"60 Hz",{fs:6,fw:400})},
- pilot(p,w){const c=PILOT[p.color]||PILOT.Verde;let s=std(w)+C(18,74,14,"#c9ccc8",{s:"#8e928d"});
-  if(p.on)s+=C(18,74,15,c[0],{op:.55,flt:"blur"});
-  return s+C(18,74,11,p.on?c[0]:c[1])+C(18,74,11,"url(#gLens)")+T(18,112,p.V,{fs:6.5,fw:400})+T(18,124,p.color.slice(0,3).toUpperCase(),{fs:6.5})},
- push(p,w){const c=PUSH[p.color]||PUSH.Verde;return std(w)+C(18,72,14,"#3a3e41")+C(18,72,11,c)+C(18,72,11,"url(#gLens)")+T(18,108,"1"+p.ct,{fs:7})+T(18,120,p.color==="Rojo"?"STOP":p.color==="Verde"?"START":"",{fs:6})},
+ vam(p,w){let s=std(w)+scr(7,44,58,40,"#120808")+T(60,62,p.read,{fs:15,a:"end",c:"#ff4b3b",fw:700})+T(60,78,{"Voltímetro":"VAC","Amperímetro":"AAC","Volt-amperímetro":"V · A"}[p.mode],{fs:7,a:"end",c:"#ff8a7a"});
+  return s+rbtn(14,92,12,7,"#555a5e")+rbtn(46,92,12,7,"#555a5e")+T(36,116,p.mode,{fs:6.3,fw:600})+T(36,127,"60 Hz",{fs:6,fw:400})},
+ pilot(p,w){const c=PILOT[p.color]||PILOT.Verde;let s=std(w)+C(18,76,15,"#000",{op:.25})+C(18,74,14,"url(#gScr)",{s:"#7d8589",sw:.6});
+  if(p.on)s+=C(18,74,16,c[0],{op:.55,flt:"blur"});
+  return s+C(18,74,11,p.on?c[0]:c[1],{s:"rgba(0,0,0,.3)",sw:.6})+(p.on?C(18,74,6,"#fff",{op:.35,flt:"blur"}):"")+C(18,74,11,"url(#gLens)")+T(18,112,p.V,{fs:6.5,fw:400})+T(18,124,p.color.slice(0,3).toUpperCase(),{fs:6.5})},
+ push(p,w){const c=PUSH[p.color]||PUSH.Verde;return std(w)+rbtnC(18,72,11,c)+T(18,108,"1"+p.ct,{fs:7})+T(18,120,p.color==="Rojo"?"STOP":p.color==="Verde"?"START":"",{fs:6})},
  timer(p,w){const a=p.on?40:-40;let s=std(w)+knob(18,62,10,a);
-  s+=C(11,85,2.7,p.on?"#38d36a":"#24452f")+C(25,85,2.7,p.on?"#ffc533":"#5a4a1d")+T(11,95,"U",{fs:5.5})+T(25,95,"R",{fs:5.5});
+  s+=led(11,85,2.5,"#38d36a",p.on,"#24452f")+led(25,85,2.5,"#ffc533",p.on,"#5a4a1d")+T(11,95,"U",{fs:5.5})+T(25,95,"R",{fs:5.5});
   return s+T(18,112,p.range,{fs:5.3,fw:400})+T(18,123,{"Retardo a la conexión":"TON","Retardo a la desconexión":"TOFF","Multifunción":"MULTI"}[p.fn]||"",{fs:6.5})},
- meter(p,w){const tri=p.ph==="Trifásico";let s=std(w)+R(6,44,w-12,28,"#a9bb94",{rx:2,s:"#6f7d61"})+T(10,51,"kWh",{fs:5.5,a:"start",fw:400,c:"#1c2615"})+T(w-10,67,p.kwh,{fs:tri?15:11,a:"end",c:"#1c2615"});
-  return s+C(14,85,3,"#e0302a")+T(21,87,"1000 imp/kWh",{fs:5.3,a:"start",fw:400})+T(w/2,108,tri?"3×208/120V 10(100)A":"120/240V 15(100)A",{fs:6.1,fw:400})+T(w/2,119,"60 Hz · Clase 1",{fs:6,fw:400})+T(w/2,131,tri?"TRIFÁSICO":"MONOFÁSICO",{fs:6.5})},
- psu(p,w){let s=std(w);for(let k=0;k<6;k++)s+=R(10,42+k*6,w-20,2.5,"#a3a7a2",{rx:1});
-  return s+C(18,86,3,p.on?"#36d06a":"#2a4a33")+T(25,88,"DC OK",{fs:5.5,a:"start",fw:400})+C(w-18,86,5,"#e8e8e2",{s:"#888"})+`<line x1="${w-21}" y1="83" x2="${w-15}" y2="89" stroke="#555" stroke-width="1.4"/>`+T(w-18,99,"ADJ",{fs:5})+T(w/2,115,p.V+" DC",{fs:12,fw:700})+T(w/2,128,p.A,{fs:8,fw:400})},
- socket(p,w){const cx=54,cy=82;let s=std(w)+R(16,40,76,94,"#ecece6",{rx:10,s:"#b3b6b0"});
-  s+=R(cx-14,cy-18,5,18,"#2c2f31",{rx:1.2})+R(cx+9,cy-16,5,14,"#2c2f31",{rx:1.2})+`<path d="M${cx-4} ${cy+16}v-4a4 4 0 0 1 8 0v4z" fill="#2c2f31"/>`;
+ meter(p,w){const tri=p.ph==="Trifásico";let s=std(w)+scr(6,44,w-12,28,"#a9bb94",{rx:2})+T(10,51,"kWh",{fs:5.5,a:"start",fw:400,c:"#1c2615"})+T(w-10,67,p.kwh,{fs:tri?15:11,a:"end",c:"#1c2615"});
+  return s+led(14,85,2.6,"#e0302a",true)+T(21,87,"1000 imp/kWh",{fs:5.3,a:"start",fw:400})+R(5,98,w-10,36,"#fbfbf8",{rx:1.5,s:"#d3d5d0",sw:.5})+T(w/2,108,tri?"3×208/120V 10(100)A":"120/240V 15(100)A",{fs:6.1,fw:400})+T(w/2,119,"60 Hz · Clase 1",{fs:6,fw:400})+T(w/2,131,tri?"TRIFÁSICO":"MONOFÁSICO",{fs:6.5})},
+ psu(p,w){let s=std(w);for(let k=0;k<6;k++)s+=R(10,42+k*6,w-20,2.6,"url(#gHole)",{rx:1.3})+R(10,44.6+k*6,w-20,.7,"#fff",{op:.6});
+  return s+led(18,86,2.8,"#36d06a",p.on,"#2a4a33")+T(25,88,"DC OK",{fs:5.5,a:"start",fw:400})+C(w-18,86.8,5.5,"#000",{op:.25})+C(w-18,86,5,"url(#gScr)",{s:"#888"})+`<line x1="${w-21}" y1="83" x2="${w-15}" y2="89" stroke="#555" stroke-width="1.4"/>`+T(w-18,99,"ADJ",{fs:5})+T(w/2,115,p.V+" DC",{fs:12,fw:700})+T(w/2,128,p.A,{fs:8,fw:400})},
+ socket(p,w){const cx=54,cy=82;let s=std(w)+box(16,40,76,94,"#ecece6",{rx:10,s:"#b3b6b0"})+C(cx,cy,26,"#e2e2dc",{s:"#cfd0ca",sw:.8});
+  s+=R(cx-14,cy-18,5,18,"url(#gHole)",{rx:1.2})+R(cx+9,cy-16,5,14,"url(#gHole)",{rx:1.2})+`<path d="M${cx-4} ${cy+16}v-4a4 4 0 0 1 8 0v4z" fill="#1b1e20"/>`;
   return s+T(cx,126,"15A 125V",{fs:6.5,fw:400})},
- blank(p,w){return body(w)+R(3,8,w-6,156,"url(#gF)",{rx:2,s:"#c3c6c1"})+R(6,84,w-12,1.2,"#c3c6c1")},
+ blank(p,w){return body(w)+box(3,8,w-6,156,"url(#gF)",{rx:2,s:"#c3c6c1"})+R(6,84,w-12,1.2,"#c3c6c1")+R(6,85.2,w-12,.8,"#fff")},
  term(p,w){const f=TERM[p.color]||TERM.Gris,n=String(p.des||"").replace(/\D/g,"")||"";
-  return R(1,19,16,134,f,{rx:2,s:"rgba(0,0,0,.45)"})+R(3,26,12,15,"#262829",{rx:1.5})+screw(9,33.5,5)+R(3,131,12,15,"#262829",{rx:1.5})+screw(9,138.5,5)+R(2,76,14,19,"#fff",{s:"#999",sw:.6})+T(9,89,n,{fs:7})+R(4,50,10,1,"rgba(0,0,0,.25)")+R(4,112,10,1,"rgba(0,0,0,.25)")},
+  return R(1,19,16,134,f,{rx:2,s:"rgba(0,0,0,.45)"})+R(1,19,16,134,"url(#gSide)",{rx:2})+R(2.5,20,13,1.5,"#fff",{rx:.7,op:.5})+R(3,26,12,15,"url(#gHole)",{rx:1.5})+screw(9,33.5,5)+R(3,131,12,15,"url(#gHole)",{rx:1.5})+screw(9,138.5,5)+R(2,76,14,19,"#fff",{s:"#999",sw:.6})+T(9,89,n,{fs:7})+R(4,50,10,1,"rgba(0,0,0,.25)")+R(4,51,10,.6,"#fff",{op:.4})+R(4,112,10,1,"rgba(0,0,0,.25)")+R(4,113,10,.6,"#fff",{op:.4})},
  mpcb(p,w){let s=body(w,"url(#gD)","#1f2225")+terms(w,8,3)+terms(w,142,3)+face(w,"#3b4045","#2a2e31")+T(45,47,"I",{fs:7,c:"#e9ecee"})+T(15,79,"O",{fs:7,c:"#e9ecee"});
-  s+=C(45,78,24,"#1b1d1f",{s:"#5b6166",sw:1.5})+`<g transform="rotate(${p.on?0:-90} 45 78)">${R(40,56,10,44,"#2f3336",{rx:4,s:"#686e73"})}<polygon points="45,58 41,66 49,66" fill="#f2f2f2"/></g>`;
-  return s+R(18,110,54,14,"#eceae3",{rx:2})+T(45,120,p.range,{fs:7.5})+R(70,40,12,6,p.on?"#3a3f43":"#d23a2f",{rx:1})},
+  s+=C(45,80,25,"#000",{op:.35})+C(45,78,24,"#1b1d1f",{s:"#5b6166",sw:1.5})+C(45,78,22,"url(#gLens)",{op:.25});
+  s+=`<g transform="rotate(${p.on?0:-90} 45 78)">${R(41,58,10,44,"#000",{rx:4,op:.45})}${R(40,56,10,44,"url(#gHd)",{rx:4,s:"#686e73",sw:.6})}${R(41.5,58,2,40,"#fff",{rx:1,op:.25})}<polygon points="45,58 41,66 49,66" fill="#f2f2f2"/></g>`;
+  return s+scr(18,110,54,14,"#eceae3")+T(45,120,p.range,{fs:7.5})+flag(70,40,12,6,!p.on).replace("#3a9d55","#3a3f43")},
 };
 const icontU=p=>p.In<=32?5:p.In<=65?6:8;
 const OVL=["0.63–1A","1–1.6A","1.6–2.5A","2.5–4A","4–6A","5.5–8A","7–10A","9–13A","12–18A","16–24A","23–32A","30–40A","37–50A","48–65A","63–80A","80–93A"];

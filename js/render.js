@@ -35,14 +35,18 @@ function dinSvg(forExport){const {W,encH,Wd,encX,tbY}=dims(),st=S.board.style===
 
 /* ---------- drawing: load center ---------- */
 function brkSvg(p,mir,V){const n=p.poles,h=n*SL,X=x=>mir?BW-x:x,RX=(x,w)=>mir?BW-x-w:x;
-  let b=R(0,3,BW,h-6,"url(#gBk)",{rx:5,s:"#0c0d0e"});
-  for(let r=1;r<n;r++)b+=R(3,r*SL-1,BW-6,2,"#0d0e0f");
-  for(let r=0;r<n;r++){const cy=r*SL+SL/2;b+=R(5,cy-9,24,18,"#0f1011",{rx:2})+screw(17,cy,6.5)+R(BW-7,cy-8,9,16,"#aeb3b6",{rx:2})}
+  /* carcasa negra con bisel superior y sombra en el borde inferior */
+  let b=R(0,3,BW,h-6,"url(#gBkS)",{rx:5,s:"#0c0d0e"})+R(2,4,BW-4,1.4,"#fff",{rx:.7,op:.22});
+  for(let r=1;r<n;r++)b+=R(3,r*SL-1,BW-6,2,"#0d0e0f")+R(3,r*SL+1,BW-6,.8,"#fff",{op:.08});
+  for(let r=0;r<n;r++){const cy=r*SL+SL/2;b+=R(5,cy-9,24,18,"url(#gHole)",{rx:2})+screw(17,cy,6.5)+R(BW-7,cy-8,9,16,"url(#gNi)",{rx:2,s:"#7d8589",sw:.5})}
   const spec=p.type!=="Estándar",lx0=spec?54:34;
-  b+=R(lx0,9,102-lx0,h-18,"#282a2d",{rx:3})+R(BW-74,9,50,h-18,"#111213",{rx:3});
-  const hx=p.trip?BW-60:p.on?BW-48:BW-71;if(p.trip)b+=R(BW-74,9,50,h-18,"#e0302a",{rx:3,op:.55});b+=R(hx,11,23,h-22,"#454a4f",{rx:3,s:p.trip?"#ff6b5e":"#5f656a"})+R(hx+2,13,4,h-26,"#6a7075",{rx:1});
+  b+=R(lx0,9,102-lx0,h-18,"#26292c",{rx:3})+R(lx0,9,102-lx0,1.2,"#000",{op:.5})+R(lx0,h-10,102-lx0,1,"#fff",{op:.1});
+  /* hueco de la palanca y palanca basculante con relieve; se inclina hacia el lado activo */
+  b+=R(BW-74,9,50,h-18,"url(#gHole)",{rx:3});
+  const hx=p.trip?BW-60:p.on?BW-48:BW-71;if(p.trip)b+=R(BW-74,9,50,h-18,"#e0302a",{rx:3,op:.5});
+  b+=R(hx+(p.on?-3:3),12,23,h-22,"#000",{rx:3,op:.45})+R(hx,11,23,h-22,"url(#gHd)",{rx:3,s:p.trip?"#ff6b5e":"#0e1011",sw:.8})+R(hx+2.5,13,3,h-26,"#fff",{rx:1,op:.22})+R(hx+17,13,2,h-26,"#000",{rx:1,op:.3});
   let s=mir?`<g transform="matrix(-1 0 0 1 ${BW} 0)">${b}</g>`:b;
-  if(spec)s+=R(RX(33,17),h/2-8,17,16,p.type==="GFCI"?"#f2f2ee":"#f2c62e",{rx:3,s:"#777"})+T(X(41.5),h/2+3,"T",{fs:7,c:"#222"});
+  if(spec)s+=R(RX(33,17),h/2-7,17,16,"#000",{rx:3,op:.3})+R(RX(33,17),h/2-8,17,16,p.type==="GFCI"?"#f2f2ee":"#f2c62e",{rx:3,s:"#777"})+R(RX(33,17),h/2-8,17,16,"url(#gLens)",{rx:3,op:.5})+T(X(41.5),h/2+3,"T",{fs:7,c:"#222"});
   const lc=(lx0+102)/2,mc=spec?9:12;
   s+=T(X(lc),h/2-1,cutText(p.name||"—",mc),{fs:6.5,c:"#e4e7e9",fw:500,ff:SANS})+T(X(lc),h/2+8,spec?p.type+" · "+V+"V":n+"P · "+V+"V",{fs:5.5,c:"#9aa1a6",fw:400});
   return s+T(X(hx+11.5),h/2+3.5,p.In,{fs:p.In>=100?8:9.5,c:"#fff",fw:700})}
