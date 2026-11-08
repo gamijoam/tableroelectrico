@@ -37,6 +37,8 @@ function renderSelBar(){const bar=$("selbar"),t=selTarget(),dragging=(typeof dra
   posSelBar()}
 function posSelBar(){const bar=$("selbar"),t=sbTarget;if(bar.hidden||!t||!t.el||!t.el.isConnected)return;
   const box=$("stagebox").getBoundingClientRect(),r=t.el.getBoundingClientRect(),bw=bar.offsetWidth,bh=bar.offsetHeight;
+  /* En la pared la barra va abajo al centro para no tapar tornillos ni cables */
+  if(S.view==="wall"){bar.style.left=Math.max(8,(box.width-bw)/2)+"px";bar.style.top=Math.max(8,box.height-bh-14)+"px";return}
   let x=r.right-box.left+10,y=r.top-box.top;
   if(x+bw>box.width-8){x=r.left-box.left-bw-10;if(x<8){x=Math.min(Math.max(8,r.left-box.left),box.width-bw-8);y=r.bottom-box.top+8}}
   y=Math.max(8,Math.min(box.height-bh-8,y));bar.style.left=Math.max(8,x)+"px";bar.style.top=y+"px"}

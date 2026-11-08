@@ -48,7 +48,7 @@ const WALL_DEFS=`<pattern id="pBlk" width="88" height="44" patternUnits="userSpa
 <pattern id="pTile" width="66" height="66" patternUnits="userSpaceOnUse"><rect width="66" height="66" fill="#f3f4f1"/><path d="M0 0.5H66M0.5 0V66" stroke="#cfd3d0" stroke-width="1.5"/></pattern>
 <radialGradient id="gGlow"><stop offset="0" stop-color="#fff3b0" stop-opacity=".95"/><stop offset=".5" stop-color="#ffd84d" stop-opacity=".35"/><stop offset="1" stop-color="#ffd84d" stop-opacity="0"/></radialGradient>`;
 
-let wallMode="move",wColor="Auto",wAwg="12",pending=null,wdrag=null,reconn=null;
+let wallMode="move",wColor="Auto",wAwg="12",pending=null,wdrag=null,reconn=null,wireDrag=null;
 const simState={running:false,blackout:false,trip:new Set(),burnt:new Set(),res:null,log:[],sparks:[],timer:null};
 const wallEl=$("wall");
 
@@ -157,7 +157,7 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
   /* terminals */
   for(const t of terms.values()){const fillT={F:"#d9a441",S:"#d9a441",N:"#dfe3e5",T:"#2f9e44"}[t.role];
     if(t.item.type!=="panel"){s+=C(t.x,t.y,5,fillT,{s:"#5d5548",sw:1.2})+T(t.x,t.y+15,t.label,{fs:6.5,c:"#5b5650"})}
-    if(!forExport){const hot=pending===t.id,target=reconn||pending;s+=`<circle class="wt" data-t="${t.id}" cx="${t.x}" cy="${t.y}" r="${t.item.type==="panel"?5:9}" fill="${hot?"#1c74e0":"#000"}" fill-opacity="${hot?.35:0}"${wallMode==="wire"||hot||target?` stroke="#1c74e0" stroke-width="1.4"`:""}><title>${esc(termName(t))}</title></circle>`}}
+    if(!forExport){const hot=pending===t.id,target=reconn||pending;s+=`<circle class="wt" data-t="${t.id}" cx="${t.x}" cy="${t.y}" r="${t.item.type==="panel"?8:9}" fill="${hot?"#1c74e0":"#000"}" fill-opacity="${hot?.35:0}"${wallMode==="wire"||hot||target?` stroke="#1c74e0" stroke-width="1.4"`:""}><title>${esc(termName(t))}</title></circle>`}}
   /* handles to move the ends of the selected wire */
   const sw=!forExport&&valid.find(([w])=>w.id===sel);
   if(sw){for(const end of ["a","b"]){const t=terms.get(sw[0][end]),act=reconn&&reconn.end===end;s+=`<g class="wh" data-end="${end}"><circle cx="${t.x}" cy="${t.y}" r="9" fill="${act?"#1c74e0":"#fff"}" stroke="#1c74e0" stroke-width="2.5"/><circle cx="${t.x}" cy="${t.y}" r="3" fill="${act?"#fff":"#1c74e0"}"/><title>Arrastra este extremo a otro terminal</title></g>`}}
@@ -180,7 +180,9 @@ function runSim(){if(!simState.running)return;const r=simulate(simState.trip,sim
 function setRunning(on){simState.running=on;simState.blackout=false;clearTimeout(simState.timer);simState.timer=null;simState.sparks=[];
   if(on){simState.trip.clear();simState.burnt.clear();simState.log=[];runSim();
     if(!simState.log.length){const r=simState.res,L=Object.values(r.loads),ok=L.filter(l=>l.s==="on"||l.s==="idle").length,warn=r.status.filter(s=>s.lvl==="warn"||s.lvl==="crit").length;
-      showAlert(warn?"warn":"ok",warn?"Prueba en marcha, con avisos":"Prueba en marcha: todo bien",`${ok} de ${L.length} aparatos con tensión en ${S.wall.name}.${warn?` Hay ${warn} aviso${warn>1?"s":""} de norma o de carga.`:" Prueba unir una fase con el neutro para ver qué pasa."}`)}}
+      const off=L.length-ok,bad=warn||off;
+      showAlert(bad?"warn":"ok",!L.length?"Prueba en marcha: no hay aparatos":off?"Prueba en marcha: hay aparatos sin tensión":warn?"Prueba en marcha, con avisos":"Prueba en marcha: todo bien",
+        !L.length?"Agrega un bombillo, una toma o un aparato y cablealo al tablero.":`${ok} de ${L.length} aparatos con tensión en ${S.wall.name}.${off?" A los que no encienden les falta la fase o el neutro: revisa sus dos cables.":""}${warn?` Hay ${warn} aviso${warn>1?"s":""} de norma o de carga.`:""}${!bad?" Prueba unir una fase con el neutro para ver qué pasa.":""}`)}}
   else{simState.res=null;hideAlert()}renderAll()}
 function toggleBlackout(){if(!simState.running)return;simState.blackout=!simState.blackout;
   simState.log.unshift({lvl:simState.blackout?"warn":"ok",msg:simState.blackout?"Se fue la luz (apagón simulado).":"Volvió la luz."});runSim();
@@ -269,18 +271,35 @@ function linkOk(a,b,terms,ignoreId){if(a===b){toast("Ese es el mismo terminal.")
 function applyReconn(tid){const w=S.wall.wires.find(x=>x.id===reconn.id),end=reconn.end;reconn=null;if(!w){renderAll();return}
   const other=w[end==="a"?"b":"a"];if(!linkOk(tid,other,allTerms(),w.id)){renderAll();return}
   mutate(()=>{w[end]=tid});sel=w.id;toast("Extremo del cable movido.")}
+/* Tornillo del breaker más cercano al punto tocado */
+function brkTerm(b,e){const P=S.wall.items.find(i=>i.type==="panel");if(!P)return null;const q=toWall(e);let best=null,d=1e9;
+  for(const t of itemTerms(P))if(t.brk&&t.brk.id===b.id){const dy=Math.abs(t.y-q.y);if(dy<d){d=dy;best=t.id}}return best}
+/* Al soltar un cable sobre un aparato: elige el terminal que corresponde según lo que viene */
+function pickTerm(it,fromId,py){const terms=allTerms(),from=terms.get(fromId);if(!from)return null;
+  if(it.type==="panel"){const role=from.role==="N"?"N":from.role==="T"?"T":null;if(!role)return null;let best=null,d=1e9;
+    for(const t of itemTerms(it))if(t.role===role&&!t.brk){const dy=Math.abs(t.y-(py??t.y));if(dy<d){d=dy;best=t.id}}return best}
+  const mine=itemTerms(it).filter(t=>t.id!==fromId),used=id=>S.wall.wires.some(w=>w.a===id||w.b===id);
+  const want=from.role==="N"?["N"]:from.role==="T"?["T"]:["S","F"];
+  const ok=mine.filter(t=>want.includes(t.role)).sort((a,b)=>want.indexOf(a.role)-want.indexOf(b.role));
+  return(ok.find(t=>!used(t.id))||ok[0]||{}).id||null}
+function finishWireAt(x,y){const el=document.elementFromPoint(x,y);if(!el||!el.closest)return false;
+  const t=el.closest(".wt");if(t){terminalClick(t.dataset.t);return true}
+  const wb=el.closest(".wb");if(wb){const b=S.lc.items.find(v=>v.id===+wb.dataset.brk),id=b&&brkTerm(b,{clientX:x,clientY:y});if(id){terminalClick(id);return true}}
+  const wi=el.closest(".wi");if(wi){const it=S.wall.items.find(i=>i.id===+wi.dataset.id),id=it&&pickTerm(it,pending,toWall({clientX:x,clientY:y}).y);if(id){terminalClick(id);return true}}
+  return false}
 function terminalClick(id){if(reconn){applyReconn(id);return}const terms=allTerms();if(!pending){pending=id;sel=null;renderAll();return}
   if(pending===id){pending=null;renderAll();return}
   const a=pending,b=id;pending=null;if(!linkOk(a,b,terms)){renderAll();return}
   const ta=terms.get(a),tb=terms.get(b),w={id:uid++,a,b,color:wColor==="Auto"?autoColor(ta,tb):wColor,awg:wAwg};mutate(()=>{S.wall.wires.push(w)});sel=w.id;renderAll()}
 wallEl.addEventListener("pointerdown",e=>{const hd=e.target.closest(".wh");if(hd){reconn={id:sel,end:hd.dataset.end,moved:false,sx:e.clientX,sy:e.clientY};pending=null;renderWall();return}
-  const t=e.target.closest(".wt");if(t){terminalClick(t.dataset.t);return}
-  const wb=e.target.closest(".wb");if(wb&&!simState.running){const pi=S.wall.items.find(i=>i.type==="panel");if(pi){sel=pi.id;pending=null;reconn=null;renderAll()}return}
+  const t=e.target.closest(".wt");if(t){const had=pending;terminalClick(t.dataset.t);if(!had&&pending)wireDrag={sx:e.clientX,sy:e.clientY,moved:false};return}
+  const wb=e.target.closest(".wb");if(wb&&!simState.running){const b=S.lc.items.find(x=>x.id===+wb.dataset.brk),id=b&&brkTerm(b,e);if(!id)return;const had=pending;terminalClick(id);if(!had&&pending)wireDrag={sx:e.clientX,sy:e.clientY,moved:false};return}
   if(wb){const b=S.lc.items.find(x=>x.id===+wb.dataset.brk);if(!b)return;
     if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste el breaker del circuito ${circLabel(b)}.`});runSim();renderAll()}else mutate(()=>{b.p.on=!b.p.on});return}
   if(e.target.closest(".wm")){mutate(()=>{S.lc.mainOn=S.lc.mainOn===false});return}
   const ww=e.target.closest(".ww");if(ww){sel=+ww.dataset.id;pending=null;reconn=null;renderAll();return}
   const wi=e.target.closest(".wi");if(wi){const it=S.wall.items.find(i=>i.id===+wi.dataset.id);if(!it)return;
+    if(pending&&!simState.running){const id=pickTerm(it,pending,toWall(e).y);if(id){terminalClick(id);return}}
     if(simState.running&&it.type==="inter"){mutate(()=>{it.p.on=!it.p.on});return}
     if(simState.running&&it.type==="inter3"){mutate(()=>{it.p.pos=it.p.pos===2?1:2});return}
     sel=it.id;pending=null;reconn=null;
@@ -293,8 +312,9 @@ window.addEventListener("pointermove",e=>{
   if(S.view!=="wall")return;
   const from=reconn?(()=>{const w=S.wall.wires.find(x=>x.id===reconn.id);return w&&allTerms().get(w[reconn.end==="a"?"b":"a"])})():pending?allTerms().get(pending):null;
   if(reconn&&!reconn.moved&&reconn.sx!=null&&Math.hypot(e.clientX-reconn.sx,e.clientY-reconn.sy)>4)reconn.moved=true;
-  const pv=$("wpv");if(!pv||!from)return;const q=toWall(e);pv.innerHTML=`<path d="M${from.x} ${from.y}L${q.x} ${q.y}" stroke="#1c74e0" stroke-width="3" stroke-dasharray="6 4" fill="none" opacity=".85"/>${C(q.x,q.y,6,"#1c74e0",{op:.6})}`});
+  const pv=$("wpv");if(!pv||!from)return;const q=toWall(e);if(wireDrag&&!wireDrag.moved&&Math.hypot(e.clientX-wireDrag.sx,e.clientY-wireDrag.sy)>6)wireDrag.moved=true;pv.setAttribute("pointer-events","none");pv.innerHTML=`<path d="M${from.x} ${from.y}L${q.x} ${q.y}" stroke="#1c74e0" stroke-width="3" stroke-dasharray="6 4" fill="none" opacity=".85"/>${C(q.x,q.y,6,"#1c74e0",{op:.6})}`});
 window.addEventListener("pointerup",e=>{
+  if(wireDrag){const d=wireDrag;wireDrag=null;if(d.moved&&pending){if(!finishWireAt(e.clientX,e.clientY))toast("Suelta el cable sobre un aparato o un tornillo. También puedes tocar el destino ahora.")}return}
   if(reconn&&reconn.moved){const el=document.elementFromPoint(e.clientX,e.clientY),t=el&&el.closest&&el.closest(".wt");if(t)applyReconn(t.dataset.t);else{reconn=null;toast("Suelta la punta encima de un terminal.");renderAll()}return}
   if(reconn){reconn.sx=null;renderAll();return}
   if(!wdrag)return;const d=wdrag;wdrag=null;ghost.hidden=true;
