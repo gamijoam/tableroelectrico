@@ -1,6 +1,6 @@
 # Video publicitario
 
-Video de ~1 min 22 s (1920×1080, 30 fps) hecho con código en [Remotion](https://www.remotion.dev),
+Video de ~58 s (1920×1080, 30 fps) hecho con código en [Remotion](https://www.remotion.dev),
 con capturas reales de la aplicación y voz en off generada con [Piper TTS](https://github.com/rhasspy/piper).
 El resultado final está en [`../media/taller-de-tableros-promo.mp4`](../media/taller-de-tableros-promo.mp4).
 

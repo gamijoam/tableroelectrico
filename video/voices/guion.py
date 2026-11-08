@@ -1,17 +1,15 @@
 # Guion de la voz en off. La escritura busca la pronunciación correcta (bréiker, pe de efe).
 import json, subprocess, sys
 L = [
- ("hook", "¿Todavía armas tableros a ojo? Un error de cableado cuesta tiempo, material... y seguridad."),
- ("brand", "Te presento Taller de Tableros: diseña, cablea y prueba tus tableros, antes de tocar un cable."),
- ("disena", "Arma tu caja de bréikers o tu tablero de riel, monofásico o trifásico, tal como quedará en la obra."),
- ("cablea", "Cablea la pared desde el bréiker hasta el aparato, y mira cómo fluye la corriente por cada cable."),
- ("prueba", "Simula cortocircuitos y sobrecargas, sin ningún peligro. Equivócate aquí, no en la obra."),
- ("diag", "Si algo no enciende, la aplicación te dice por qué: qué borne no recibe fase, y qué lo está cortando."),
- ("motores", "Aprende a arrancar motores con contactor, relé térmico y paro de emergencia."),
- ("calcula", "La calculadora te dice qué bréiker, qué cable y qué estabilizador o inversor necesitas, en segundos."),
- ("cotiza", "Y cuando todo está listo, genera el presupuesto y un pe de efe profesional con tu logo."),
- ("telefono", "Funciona en la computadora, en la tableta y en el teléfono, para llevarla a cualquier obra."),
- ("beneficios", "Ahorra tiempo, evita errores costosos y cotiza como un profesional. Hecha para el electricista de verdad."),
+ ("hook", "¿Todavía armas tableros a ojo? Un error de cableado sale caro."),
+ ("brand", "Taller de Tableros: diseña, cablea y prueba, antes de tocar un cable."),
+ ("disena", "Arma tu caja de bréikers o tu riel, con componentes que se ven como los reales."),
+ ("cablea", "Cablea el tablero, la pared y los subtableros, y mira cómo fluye la corriente."),
+ ("prueba", "Simula cortocircuitos, bajones y subidas de luz, con supervisor y estabilizador."),
+ ("diag", "Si algo no enciende, te dice exactamente por qué, y cómo corregirlo."),
+ ("calcula", "La calculadora te dice qué bréiker, qué cable y qué estabilizador necesitas."),
+ ("cotiza", "Además, crea el diagrama uni filar, el presupuesto y el pe de efe, para enviar por guatsap."),
+ ("telefono", "Instálala en tu teléfono y úsala sin internet, en cualquier obra."),
  ("cierre", "Taller de Tableros. Diseña, cablea, prueba y cotiza. ¡Pruébalo hoy!"),
 ]
 out = {}

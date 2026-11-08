@@ -85,7 +85,7 @@ export const Hook: React.FC = () => {
         </Rise>
         <Rise delay={0.9}>
           <div style={{ fontFamily: sans, fontSize: 40, color: "#d7dee1", textAlign: "center", maxWidth: 1300, lineHeight: 1.35 }}>
-            Un cable mal puesto cuesta tiempo, material… y seguridad.
+            Un error de cableado cuesta tiempo, material… y seguridad.
           </div>
         </Rise>
       </AbsoluteFill>
@@ -228,11 +228,11 @@ export const Phone: React.FC = () => {
             <div style={{ fontFamily: display, fontWeight: 700, fontSize: 34, letterSpacing: 6, color: C.energy }}>EN LA OBRA</div>
           </Rise>
           <Rise delay={0.25}>
-            <div style={{ fontFamily: display, fontWeight: 800, fontSize: 92, lineHeight: 0.98, color: "#fff", textTransform: "uppercase" }}>Desde tu teléfono o tablet</div>
+            <div style={{ fontFamily: display, fontWeight: 800, fontSize: 92, lineHeight: 0.98, color: "#fff", textTransform: "uppercase" }}>En tu teléfono, sin internet</div>
           </Rise>
           <Rise delay={0.8}>
             <div style={{ fontFamily: sans, fontSize: 34, color: "#e3e9eb", lineHeight: 1.4 }}>
-              Muéstrale al cliente cómo quedará su tablero y prueba el circuito ahí mismo.
+              Instálala como app: funciona sin conexión y guarda tus proyectos en el teléfono.
             </div>
           </Rise>
         </div>
@@ -336,7 +336,7 @@ export const Cta: React.FC = () => {
           </div>
         </Rise>
         <Rise delay={1.8}>
-          <div style={{ fontFamily: sans, fontSize: 30, color: C.muted }}>En tu computadora, tablet y teléfono</div>
+          <div style={{ fontFamily: sans, fontSize: 30, color: C.muted }}>Computadora, tablet y teléfono · funciona sin internet</div>
         </Rise>
       </AbsoluteFill>
     </AbsoluteFill>
