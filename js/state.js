@@ -64,7 +64,7 @@ function demoStairs(items){const W=blankWall("Pasillo (escalera)",false),b=items
   const wire=(x,y,color)=>W.wires.push({id:uid++,a:x,b:y,color,awg:"12"});
   wire(`${fd.id}/F1`,`${a.id}/COM`,"Negro");wire(`${a.id}/T1`,`${z.id}/T1`,"Amarillo");wire(`${a.id}/T2`,`${z.id}/T2`,"Amarillo");wire(`${z.id}/COM`,`${lz.id}/F`,"Rojo");wire(`${lz.id}/N`,`${fd.id}/N`,"Blanco");
   return W}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function save(){projSave()}
 function syncUid(){uid=Math.max(0,...S.items.map(i=>i.id),...S.lc.items.map(i=>i.id),...S.lc.aux.map(i=>i.id),...S.ext.map(i=>i.id),...S.walls.flatMap(w=>w.items.map(i=>i.id)),...S.walls.flatMap(w=>w.wires.map(i=>i.id)))+1}
 function normalize(v){if(!v||typeof v!=="object")return null;const b=blankAll();
   if(!v.kind)v.kind="din";v.project=Object.assign(b.project,v.project||{});if(!v.board)v.board=b.board;if(!Array.isArray(v.items))v.items=[];
@@ -80,10 +80,10 @@ function normalize(v){if(!v||typeof v!=="object")return null;const b=blankAll();
   const okDin=Number.isInteger(v.board.rows)&&Number.isInteger(v.board.mods)&&v.items.every(i=>CAT[i.type]&&i.p&&Number.isInteger(i.row)&&Number.isInteger(i.x));
   const okLc=SPACES.includes(v.lc.spaces)&&Array.isArray(v.lc.items)&&v.lc.items.every(i=>i.p&&(i.side==="L"||i.side==="R")&&Number.isInteger(i.slot));
   return okDin&&okLc?v:null}
-function load(){try{const t=localStorage.getItem(KEY);if(t){const v=normalize(JSON.parse(t));if(v){S=v;syncUid();return}}}catch(e){}
+function load(){if(projLoad())return;
   S=linkWall(blankAll());freshStart=true;
   try{const o=localStorage.getItem(OLDKEY);if(o){const v=JSON.parse(o);if(v&&v.board&&Array.isArray(v.items)&&v.items.every(i=>CAT[i.type])){S.board=v.board;S.items=v.items}}}catch(e){}
-  syncUid()}
+  syncUid();projSave()}
 function mutate(fn){const before=JSON.stringify(S);const r=fn();if(r===false)return false;hist.push(before);if(hist.length>100)hist.shift();fut=[];save();renderAll();return true}
 function undo(){if(!hist.length)return;fut.push(JSON.stringify(S));const k=S.kind;S=linkWall(JSON.parse(hist.pop()));fixSel();save();renderAll();if(k!==S.kind){renderLib();fit()}}
 function redo(){if(!fut.length)return;hist.push(JSON.stringify(S));const k=S.kind;S=linkWall(JSON.parse(fut.pop()));fixSel();save();renderAll();if(k!==S.kind){renderLib();fit()}}

@@ -95,14 +95,14 @@ function renderPropsLC(){const P=$("paneP"),b=selItem(),calc=lcCalc(),L=S.lc;
    const alerts=L.items.map(x=>({x,c:calc.per[x.id]})).filter(o=>o.c.st!=="ok").sort((a,b)=>a.c.cs[0]-b.c.cs[0]);
    P.innerHTML=`<h2>${esc(S.project.name)}</h2>${L.items.length?"":`<p class="note">La caja está vacía. Toca un espacio con <b>+</b> o arrastra breakers desde la biblioteca, con el amperaje que quieras.</p>`}
    <div class="row-btns"><button class="btn" id="lc-new">Vaciar o cambiar la caja</button></div>
-   <div class="calc"><div class="kv"><span>Carga instalada</span><b>${(calc.W/1000).toFixed(1).replace(".",",")} kW</b></div>
+   <div class="calc"><div class="kv"><span>Carga instalada</span><b>${(calc.W/1000).toFixed(1).replace(".",",")} kW</b></div>${(()=>{const dm=demandCalc();return calc.W?`<div class="kv"><span>Demanda estimada</span><b>${fmtNum(dm.dem/1000,1)} kW · ${fmtA(dm.I)}</b></div><div class="kv"><span>Principal sugerido</span><b>${dm.sug} A · #${dm.awg} AWG</b></div>`:""})()}
    <div class="kv"><span>Espacios usados</span><b>${used} / ${L.spaces}</b></div>
    ${L.main?`<div class="kv"><span>Principal ${L.main} A</span><b><span class="pill ${mainSt}">${mainSt==="ok"?"Alcanza":mainSt==="warn"?"Al límite":"Insuficiente"}</span></b></div>`:""}</div>
    <h3>Balance de fases</h3><div class="occ">${bars}</div>
    <p class="note"><span class="pill ${imbSt}">Desbalance ${Math.round(calc.imb)}%</span> ${imbSt==="ok"?"Las fases están parejas.":"Pasa algún circuito de 120 V a un espacio de la fase con menos carga."}</p>
    ${alerts.length?`<h3>Circuitos a revisar</h3><ul class="alerts">${alerts.map(o=>`<li><button class="${o.c.st}" data-goto="${o.x.id}">Circ. ${o.c.cs.join("-")} · ${esc(o.x.p.name||"Sin nombre")}: ${fmtA(o.c.I)} en ${o.x.p.In} A${o.c.sug?` → usar ${o.c.sug} A`:""}</button></li>`).join("")}</ul>`:""}
    <p class="note">Toca un breaker para editar su carga. Cálculo simplificado: 80% de la capacidad del breaker para carga continua y cable de cobre THHN/THW a 75 °C.</p>
-   ${projFields()}`;$("lc-new").onclick=()=>$("new").click();bindProj();P.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>{sel=+el.dataset.goto;renderAll()});return}
+   ${projFields()}`;$("lc-new").onclick=emptyDialog;bindProj();P.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>{sel=+el.dataset.goto;renderAll()});return}
   const c=calc.per[b.id],p=b.p;
   P.innerHTML=`<div><h2>${esc(BRK.n)} ${p.poles}P</h2><div class="meta">Circuito ${c.cs.join("-")} · fase ${c.ph.join("-")} · ${c.V} V</div></div>
    <div class="fields"><label class="field wide"><span>Nombre del circuito</span><input class="txt" id="pp-name" value="${esc(p.name)}" placeholder="Ej.: Tomas cocina"></label>
@@ -160,12 +160,12 @@ function renderQuote(){const Q=S.quote,d=quoteData(),lc=S.kind==="lc";
   ${d.lab.length?`<table class="qt"><thead><tr><th class="n">Cant.</th><th>Mano de obra</th><th class="n">Unit.</th><th class="n">Total</th></tr></thead><tbody>${d.lab.map(l=>`<tr><td class="n">${l.q}</td><td>${esc(l.desc)}</td><td class="n">${fmtUSD(l.unit)}</td><td class="n">${fmtUSD(l.total)}</td></tr>`).join("")}</tbody></table>`:""}
   <div class="calc tot"><div class="kv"><span>Materiales y equipos</span><b>${fmtUSD(d.matSale)}</b></div><div class="kv"><span>Mano de obra</span><b>${fmtUSD(d.labor)}</b></div>${Q.ivaOn?`<div class="kv"><span>IVA ${fmtNum(Q.iva,0)}%</span><b>${fmtUSD(d.iva)}</b></div>`:""}<div class="kv big"><span>Total</span><b>${fmtUSD(d.total)}</b></div>${+Q.rate>0?`<div class="kv"><span>En bolívares (${fmtNum(Q.rate)} Bs/$)</span><b>${fmtBs(d.total*Q.rate)}</b></div>`:""}</div>
   <p class="note">Tu ganancia: ${fmtUSD(d.gain)} en materiales más ${fmtUSD(d.labor)} de mano de obra. El cliente no ve la columna de costo. Los precios sugeridos son referenciales: ajústalos a lo que pagas en tu proveedor y quedan guardados para los próximos presupuestos.</p>
-  <div class="row-btns"><button class="btn primary" id="qz-img">Imagen del presupuesto</button><button class="btn" id="qz-copy">Copiar como texto</button>${Object.keys(Q.over).length?`<button class="btn" id="qz-reset">Volver a precios sugeridos</button>`:""}</div>`
+  <div class="row-btns"><button class="btn primary" id="qz-pdf">PDF completo</button><button class="btn" id="qz-img">Imagen del presupuesto</button><button class="btn" id="qz-co">Datos de tu empresa</button><button class="btn" id="qz-copy">Copiar como texto</button>${Object.keys(Q.over).length?`<button class="btn" id="qz-reset">Volver a precios sugeridos</button>`:""}</div>`
   :`<p class="note">Agrega componentes al tablero para armar el presupuesto.</p>`}`;
   ["margin","per","board","ext","point","cableM","valid","rate","iva"].forEach(k=>{const el=$("qz-"+k);if(el)el.addEventListener("change",()=>mutate(()=>{S.quote[k]=Math.max(0,+el.value||0)}))});
   $("qz-ivaOn").addEventListener("change",e=>mutate(()=>{S.quote.ivaOn=e.target.checked}));
   $("paneB").querySelectorAll("input[data-key]").forEach(el=>el.addEventListener("change",()=>{const e=d.mat[+el.dataset.key];mutate(()=>{if(el.value===""||+el.value===e.def)delete S.quote.over[e.desc];else S.quote.over[e.desc]=Math.max(0,+el.value)})}));
-  const bi=$("qz-img");if(bi)bi.onclick=quoteImage;
+  const bi=$("qz-img");if(bi)bi.onclick=quoteImage;const bp=$("qz-pdf");if(bp)bp.onclick=pdfDialog;const bq=$("qz-co");if(bq)bq.onclick=()=>companyDialog();
   const bc=$("qz-copy");if(bc)bc.onclick=()=>copyText(quoteText(d),"Presupuesto copiado al portapapeles");
   const br=$("qz-reset");if(br)br.onclick=()=>mutate(()=>{S.quote.over={}})}
 function quoteText(d){const P=S.project,Q=S.quote,L=[`PRESUPUESTO — ${P.name}`,`Cliente: ${P.client||"—"}`,`Fecha: ${P.date} · Válido por ${Q.valid} días · Precios en USD`,"","MATERIALES Y EQUIPOS"];
@@ -175,9 +175,10 @@ function quoteText(d){const P=S.project,Q=S.quote,L=[`PRESUPUESTO — ${P.name}`
   if(+Q.rate>0)L.push(`Equivalente: ${fmtBs(d.total*Q.rate)} (tasa ${fmtNum(Q.rate)} Bs/$)`);if(P.author)L.push("",`Elaborado por: ${P.author}`);return L.join("\n")}
 function quoteImage(){const d=quoteData(),Q=S.quote,P=S.project,W=820,D=dims(),F={ff:SANS};let y,s="";
   const t=(x,yy,v,o)=>T(x,yy,v,Object.assign({ff:SANS,fw:400,c:"#1d2326",a:"start"},o));
-  s+=R(0,0,W,100,"#1d2326")+t(32,48,"PRESUPUESTO",{fs:28,fw:700,c:"#fff"})+t(32,76,cutText(P.name,60),{fs:13,c:"#d6dde0"});
+  const co=getCompany(),lgw=co.logo?Math.min(130,64*((co.logoW||1)/(co.logoH||1))):0,tx0=32+(co.logo?lgw+24:0);
+  s+=R(0,0,W,100,"#1d2326")+(co.logo?R(26,14,lgw+12,72,"#ffffff",{rx:6})+`<image href="${co.logo}" x="32" y="18" width="${lgw}" height="64" preserveAspectRatio="xMidYMid meet"/>`:"")+t(tx0,48,"PRESUPUESTO",{fs:28,fw:700,c:"#fff"})+t(tx0,76,cutText(P.name,52),{fs:13,c:"#d6dde0"});
   s+=t(W-32,42,"Fecha: "+P.date,{fs:11,a:"end",c:"#fff"})+t(W-32,62,`Válido por ${Q.valid} días`,{fs:11,a:"end",c:"#d6dde0"})+t(W-32,82,"Precios en dólares (USD)",{fs:11,a:"end",c:"#d6dde0"});
-  y=126;s+=t(32,y,"CLIENTE / OBRA",{fs:8,fw:600,c:"#5b6266"})+t(32,y+20,cutText(P.client||"—",54),{fs:13,fw:600})+t(500,y,"ELABORADO POR",{fs:8,fw:600,c:"#5b6266"})+t(500,y+20,cutText(P.author||"—",34),{fs:13,fw:600});
+  y=126;s+=t(32,y,"CLIENTE / OBRA",{fs:8,fw:600,c:"#5b6266"})+t(32,y+20,cutText(P.client||"—",54),{fs:13,fw:600})+t(500,y,"ELABORADO POR",{fs:8,fw:600,c:"#5b6266"})+t(500,y+20,cutText(co.name||P.author||"—",34),{fs:13,fw:600})+t(500,y+36,cutText([co.rif&&"RIF "+co.rif,co.phone].filter(Boolean).join(" · "),44),{fs:10,c:"#5b6266"});
   y=166;const bw=W-64,bh=Math.min(430,bw*D.H/D.Wd);s+=R(32,y,bw,bh,"#f6f7f6",{rx:4,s:"#d3d8d4"})+`<svg x="38" y="${y+6}" width="${bw-12}" height="${bh-12}" viewBox="0 0 ${D.Wd} ${D.H}">${sceneSvg(true)}</svg>`;y+=bh+26;
   const head=()=>{s+=R(32,y,W-64,24,"#eef1ee")+t(70,y+16,"CANT.",{fs:8,fw:600,a:"end",c:"#5b6266"})+t(84,y+16,"DESCRIPCIÓN",{fs:8,fw:600,c:"#5b6266"})+t(W-150,y+16,"P. UNIT.",{fs:8,fw:600,a:"end",c:"#5b6266"})+t(W-44,y+16,"TOTAL",{fs:8,fw:600,a:"end",c:"#5b6266"});y+=24};
   const sec=x=>{s+=t(84,y+20,x,{fs:9,fw:700,c:"#1c5fa8"});y+=28};
@@ -192,7 +193,7 @@ function quoteImage(){const d=quoteData(),Q=S.quote,P=S.project,W=820,D=dims(),F
   s+=t(32,y,"Condiciones: precios en dólares estadounidenses, sujetos a disponibilidad. Incluye los materiales y la mano de obra indicados.",{fs:8.5,c:"#5b6266"});y+=15;
   s+=t(32,y,"Los cálculos de carga son referenciales y no sustituyen el cálculo según el Código Eléctrico Nacional (CEN).",{fs:8.5,c:"#5b6266"});y+=28;
   showPng(s,W,y,"Imagen del presupuesto",`Lista para enviar por WhatsApp. Haz clic derecho sobre la imagen y elige "Guardar imagen como…" (en el teléfono, mantenla presionada).`)}
-function renderTools(){const lc=S.kind==="lc";$("kind").value=S.kind;$("lcTools").hidden=!lc;$("dinTools").hidden=lc;
+function renderTools(){const lc=S.kind==="lc";$("projName").textContent=S.project.name+(S.project.client?" · "+S.project.client:"");$("kind").value=S.kind;$("lcTools").hidden=!lc;$("dinTools").hidden=lc;
   if(lc){$("usage").textContent=`${S.lc.items.reduce((a,x)=>a+x.p.poles,0)} / ${S.lc.spaces} esp.`;$("spaces").value=S.lc.spaces;$("sys").value=S.lc.sys;$("main").value=S.lc.main}
   else{const used=S.items.reduce((a,i)=>a+units(i),0);$("usage").textContent=`${fmtM(used/2)} / ${S.board.rows*S.board.mods} mód`;$("rows").value=S.board.rows;$("mods").value=S.board.mods;$("style").value=S.board.style}
   $("hint").innerHTML=lc?"Toca un espacio con <b>+</b> para poner un breaker · toca un breaker para cambiar su amperaje o eliminarlo · arrástralo para moverlo · <kbd>Doble clic</kbd> ON/OFF · <kbd>↑</kbd><kbd>↓</kbd> mueven · <kbd>←</kbd><kbd>→</kbd> cambian de lado · <kbd>Supr</kbd> borra"

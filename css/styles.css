@@ -226,3 +226,16 @@ table.bom{width:100%;border-collapse:collapse;font-size:12.5px}
 .builder .li{cursor:grab}
 .selbar .sb-name{width:150px;padding:4px 7px;font-size:12.5px}
 .btn.wire-cta{background:var(--ok);border-color:var(--ok);color:#fff;font-weight:600}
+
+/* ---------- proyectos, empresa y PDF ---------- */
+.plist{display:flex;flex-direction:column;gap:6px;max-height:46vh;overflow:auto}
+.pitem{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--panel-2)}
+.pitem.cur{border-color:var(--accent)}
+.pinfo{min-width:0;display:flex;flex-direction:column;gap:2px}
+.pinfo small{color:var(--muted);font-size:12px}
+.logo-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.logo-prev{width:120px;height:64px;border:1px dashed var(--line);border-radius:8px;display:grid;place-items:center;font-size:12px;color:var(--muted);background:#fff;overflow:hidden}
+.logo-prev img{max-width:100%;max-height:100%;border:0;border-radius:0}
+.checks{display:flex;flex-direction:column;gap:8px}
+.co-sum{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2)}
+label.btn{display:inline-flex;align-items:center}

@@ -20,6 +20,8 @@ js/sim.js           Simulador: redes, cortocircuitos, voltajes, sobrecargas y re
 js/wall.js          Vista Pared: varias paredes, dispositivos, cableado, tubería y panel de prueba
 js/layout.js        Paneles laterales plegables, pantalla completa y alertas de la prueba
 js/selbar.js        Barra flotante junto a lo seleccionado (amperaje, polos, encender, eliminar)
+js/projects.js      Varios proyectos, archivo .json, datos de la empresa con logo y descargas
+js/pdf.js           PDF carta: tablero, diagrama unifilar, cuadro de cargas con demanda, presupuesto y paredes
 js/actions.js       Acciones del usuario, arrastrar y soltar, modales y barra de herramientas
 js/main.js          Arranque
 ```
@@ -42,3 +44,7 @@ fase (desde un breaker cerrado), neutro o tierra. Con eso detecta:
   polaridad invertida en tomas; equipos sin tierra; calibre menor que el breaker.
 
 Es una herramienta de enseñanza y presupuesto, no un cálculo según el Código Eléctrico Nacional.
+
+## Dependencias
+
+- jsPDF 2.5.1 desde cdnjs, solo para generar el PDF. Si no carga (sin internet), el resto de la app funciona igual.

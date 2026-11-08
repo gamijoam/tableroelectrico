@@ -11,7 +11,7 @@
   <header>
     <div class="brand">
       <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="7" y="2" width="20" height="30" rx="3" fill="var(--accent)"/><rect x="12" y="9" width="10" height="13" rx="2" fill="var(--panel)"/><rect x="13.5" y="10.5" width="7" height="6" rx="1" fill="var(--fg)"/><rect x="7" y="25" width="20" height="2" fill="var(--panel)" opacity=".5"/></svg>
-      <div><h1>Taller de Tableros</h1><small>Cajas de breakers y tableros sobre riel DIN</small></div>
+      <div><h1>Taller de Tableros</h1><small id="projName">Cajas de breakers y tableros sobre riel DIN</small></div>
     </div>
     <div class="actions">
       <select class="sel" id="tpl" aria-label="Cargar plantilla">
@@ -28,9 +28,10 @@
       </select>
       <button class="btn" id="undo" title="Deshacer (Ctrl+Z)">Deshacer</button>
       <button class="btn" id="redo" title="Rehacer (Ctrl+Shift+Z)">Rehacer</button>
-      <button class="btn" id="file">Guardar / abrir</button>
+      <button class="btn" id="file">Proyectos</button>
       <button class="btn" id="new">Nuevo</button>
-      <button class="btn primary" id="png">Exportar imagen</button>
+      <button class="btn" id="png">Exportar imagen</button>
+      <button class="btn primary" id="pdf">PDF</button>
     </div>
   </header>
 
@@ -75,7 +76,7 @@
       <span class="chip money" id="total" title="Total del presupuesto"></span>
       <span class="sp"></span>
       <div class="zoom"><button class="btn" id="zout" aria-label="Alejar">−</button><output id="zval">100%</output><button class="btn" id="zin" aria-label="Acercar">+</button><button class="btn" id="zfit">Ajustar</button></div>
-      <span class="tgroup focus-only"><button class="btn" id="fUndo">Deshacer</button><button class="btn" id="fRedo">Rehacer</button><button class="btn" id="fPng">Exportar imagen</button></span>
+      <span class="tgroup focus-only"><button class="btn" id="fUndo">Deshacer</button><button class="btn" id="fRedo">Rehacer</button><button class="btn" id="fPng">Exportar imagen</button><button class="btn" id="fPdf">PDF</button></span>
       <button class="btn" id="fs" aria-pressed="false">Pantalla completa</button>
     </div>
     <div id="stagebox"><div id="alert" hidden></div><div id="selbar" class="selbar" hidden></div><div id="stage"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg><svg id="wall" xmlns="http://www.w3.org/2000/svg" hidden></svg></div></div>
@@ -98,6 +99,7 @@
 <div id="toast" hidden></div>
 <div class="modal" id="modal" hidden><div class="dlg" id="dlg"></div></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- El orden importa: cada archivo usa lo definido en los anteriores. -->
 <script src="js/util.js"></script>
 <script src="js/din.js"></script>
@@ -111,5 +113,7 @@
 <script src="js/wall.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/selbar.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/pdf.js"></script>
 <script src="js/actions.js"></script>
 <script src="js/main.js"></script>

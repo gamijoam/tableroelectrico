@@ -117,16 +117,12 @@ function closeModal(){$("modal").hidden=true}
 $("modal").addEventListener("click",e=>{if(e.target.id==="modal"||e.target.closest("[data-close]"))closeModal()});
 function showPng(svg,Wd,H,title,msg){const sc=2,src=`<svg xmlns="http://www.w3.org/2000/svg" width="${Wd*sc}" height="${H*sc}" viewBox="0 0 ${Wd} ${H}"><defs>${DEFS}</defs><rect width="${Wd}" height="${H}" fill="#ffffff"/>${svg}</svg>`;
   const img=new Image();img.onload=()=>{const cv=document.createElement("canvas");cv.width=Wd*sc;cv.height=H*sc;cv.getContext("2d").drawImage(img,0,0);let url;try{url=cv.toDataURL("image/png")}catch(_){url=img.src}
-   openModal(`<h2>${esc(title)}</h2><p class="note">${esc(msg)}</p><img src="${url}" alt="${esc(title)}: ${esc(S.project.name)}"><div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`)};
+   openModal(`<h2>${esc(title)}</h2><p class="note">${esc(msg)}</p><img src="${url}" alt="${esc(title)}: ${esc(S.project.name)}"><div class="row-btns"><button class="btn primary" id="img-dl">Descargar PNG</button><button class="btn" data-close>Cerrar</button></div>`);
+   $("img-dl").onclick=()=>cv.toBlob(b=>{if(b)saveFile(slug(S.project.name+" "+title)+".png",b);else toast("No se pudo preparar la imagen.")},"image/png")};
   img.onerror=()=>toast("No se pudo generar la imagen.");img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(src)}
 $("png").onclick=()=>{if(S.view==="wall"){const D=wallDims();showPng(wallSvg(true),D.Wd,D.H,"Imagen de la pared","Haz clic derecho sobre la imagen y elige \"Guardar imagen como…\" (en el teléfono, mantenla presionada).");return}const {Wd,H}=dims();showPng(sceneSvg(true),Wd,H,"Imagen del tablero",`Haz clic derecho sobre la imagen y elige "Guardar imagen como…" (en el teléfono, mantenla presionada). Sale a ${Wd*2}×${H*2} px.`)};
-$("file").onclick=()=>{openModal(`<h2>Guardar o abrir un tablero</h2><p class="note">El tablero se guarda solo en este navegador. Para pasarlo a otra computadora, copia este texto y pégalo allá con "Abrir desde texto".</p>
-  <textarea class="txt" id="json" spellcheck="false" aria-label="Tablero en formato JSON">${esc(JSON.stringify(S,null,1))}</textarea>
-  <div class="row-btns"><button class="btn primary" id="j-copy">Copiar</button><button class="btn" id="j-load">Abrir desde texto</button>${prevBoard()?`<button class="btn" id="j-prev">Recuperar tablero anterior</button>`:""}<button class="btn" data-close>Cerrar</button></div>`);
-  const jp=$("j-prev");if(jp)jp.onclick=()=>{const v=prevBoard();if(!v){toast("No se encontró el tablero anterior.");return}mutate(()=>{S=v});syncUid();sel=null;closeModal();renderLib();autoFit=true;fit();toast("Tablero anterior recuperado. Deshacer vuelve a la caja vacía.")};
-  $("j-copy").onclick=()=>{const t=$("json");t.select();copyText(t.value,"Tablero copiado")};
-  $("j-load").onclick=()=>{try{const v=normalize(JSON.parse($("json").value));if(!v)throw 0;mutate(()=>{S=v});syncUid();sel=null;closeModal();renderLib();fit();toast("Tablero abierto")}catch(_){toast("El texto no es un tablero válido. Pega el contenido completo que copiaste.")}}};
-$("new").onclick=()=>{if(S.view==="board"&&S.kind==="lc"){const L=S.lc;
+/* Vaciar la caja del proyecto actual (desde el panel de propiedades) */
+function emptyDialog(){if(S.view==="board"&&S.kind==="lc"){const L=S.lc;
     openModal(`<h2>Caja de breakers vacía</h2><p class="note">Se quitan todos los breakers, el riel auxiliar, los equipos y las paredes. Puedes recuperarlo con Deshacer.</p>
      <div class="fields"><label class="field"><span>Espacios</span><select class="sel" id="n-sp">${SPACES.map(v=>`<option value="${v}"${v===L.spaces?" selected":""}>${v}</option>`).join("")}</select></label>
      <label class="field"><span>Principal</span><select class="sel" id="n-main">${MAINS.map(v=>`<option value="${v}"${v===L.main?" selected":""}>${v?v+" A":"Sin principal"}</option>`).join("")}</select></label>
@@ -134,7 +130,8 @@ $("new").onclick=()=>{if(S.view==="board"&&S.kind==="lc"){const L=S.lc;
      <div class="row-btns"><button class="btn primary" id="n-lc">Crear caja vacía</button><button class="btn" data-close>Cancelar</button></div>`);
     $("n-lc").onclick=()=>{const sp=+$("n-sp").value,mn=+$("n-main").value,sy=$("n-sys").value;mutate(()=>{S.lc={spaces:sp,sys:sy,main:mn,mainOn:true,items:[],aux:[]};S.ext=[];S.walls=[blankWall()];S.wallI=0;S.project=proj("Tablero nuevo","")});sel=null;closeModal();renderLib();autoFit=true;fit();toast("Caja vacía lista: toca un espacio con + o arrastra breakers desde la biblioteca.")};return}
   const what=S.view==="wall"?"la pared (se quedan el tablero y sus breakers)":S.kind==="lc"?"la caja de breakers":"el tablero DIN";openModal(`<h2>¿Empezar de cero?</h2><p class="note">Se vacía ${what} actual. Puedes recuperarlo con Deshacer.</p><div class="row-btns"><button class="btn primary" id="n-ok">Vaciar</button><button class="btn" data-close>Cancelar</button></div>`);
-  $("n-ok").onclick=()=>{mutate(()=>{if(S.view==="wall"){S.wall.items=S.wall.items.filter(i=>i.type==="panel");S.wall.wires=[];return}if(S.kind==="lc")S.lc.items=[];else S.items=[];S.ext=[];S.project=proj("Tablero nuevo","")});sel=null;activeRow=0;closeModal();fit()}};
+  $("n-ok").onclick=()=>{mutate(()=>{if(S.view==="wall"){S.wall.items=S.wall.items.filter(i=>i.type==="panel");S.wall.wires=[];return}if(S.kind==="lc")S.lc.items=[];else S.items=[];S.ext=[];S.project=proj("Tablero nuevo","")});sel=null;activeRow=0;closeModal();fit()}}
+$("file").onclick=projectsDialog;
 $("tpl").onchange=e=>{const k=e.target.value;e.target.value="";if(!TPL[k])return;mutate(()=>{S=linkWall(Object.assign(JSON.parse(JSON.stringify(S)),TPL[k]()))});syncUid();sel=null;activeRow=0;autoFit=true;renderLib();fit();toast("Plantilla cargada. Deshacer vuelve al tablero anterior.")};
 
 /* ---------- toolbar ---------- */
@@ -176,3 +173,4 @@ $("play").onclick=()=>setRunning(!simState.running);$("rearm").onclick=rearm;
 $("wSel").onchange=e=>selectWall(+e.target.value);$("wAdd").onclick=addWall;
 $("wTube").onchange=e=>mutate(()=>{S.wall.tube=e.target.checked});
 $("blackout").onclick=toggleBlackout;
+$("new").onclick=newProjectDialog;$("pdf").onclick=pdfDialog;$("fPdf").onclick=pdfDialog;
