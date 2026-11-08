@@ -51,7 +51,7 @@ function panelImg(g){
   if(!g.din)return`<svg x="${-g.w/2}" y="${-g.h/2}" width="${g.w}" height="${g.h}" viewBox="0 0 ${PW} ${lcPH()}">${lcPanelSvg({wall:true,trip:simState.trip})}</svg>`;
   const D=g.D,b=sel,keep=S.items,r=simState.running&&simState.res;sel=null;let inner;
   /* durante la prueba se dibuja lo que pasa: contactores cerrados, pilotos encendidos, térmico disparado */
-  if(r)S.items=keep.map(it=>{const c=r.coil&&r.coil[it.id];if(c)return{...it,p:{...it.p,on:c.on}};if(it.type==="ovl")return{...it,p:{...it.p,on:!simState.trip.has("o"+it.id)}};return it});
+  if(r)S.items=keep.map(it=>{const c=r.coil&&r.coil[it.id];if(c)return{...it,p:{...it.p,on:c.on,wait:!!c.wait}};if(it.type==="ovl")return{...it,p:{...it.p,on:!simState.trip.has("o"+it.id)}};return it});
   try{inner=dinSvg(true).replace(/ id="(items|pv)"/g,"")}finally{sel=b;S.items=keep}
   let s=`<svg x="${-g.w/2}" y="${-g.h/2}" width="${g.w}" height="${g.hb}" viewBox="${D.encX} 0 ${D.W} ${D.encH}">${inner}</svg>`;
   const yb=-g.h/2+g.hb+12,bw=g.w/2-16,L=p=>[p.x-g.cx,p.y-g.cy];

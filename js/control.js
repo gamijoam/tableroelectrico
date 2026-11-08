@@ -73,10 +73,10 @@ function ctlCommit(r){simState.ctl=[...r.ctlOn];const now=Date.now();let next=In
     if(on&&!(rec&&rec.on))simState.tm[it.id]={on:true,at:now};else if(!on&&rec&&rec.on)simState.tm[it.id]={on:false,at:now};
     const q=simState.tm[it.id];if(!q)continue;const t=timerT(it.p)*1000,el=now-q.at;
     if(isTon(it.p)?q.on&&el<t:!q.on&&el<t)next=Math.min(next,t-el)}
-  for(const c of Object.values(r.coil||{}))if(c&&c.wait)next=Math.min(next,c.wait);
+  for(const c of Object.values(r.coil||{}))if(c&&c.wait)next=Math.min(next,c.wait);if(r.stabWait)next=Math.min(next,r.stabWait);
   clearTimeout(simState.ctlT);simState.ctlT=null;
   if(next<Infinity)simState.ctlT=setTimeout(()=>{simState.ctlT=null;if(simState.running&&S.view==="wall")renderAll()},next+40)}
-function ctlReset(){simState.svT={};simState.ctl=[];simState.pressed.clear();simState.forced.clear();simState.tm={};clearTimeout(simState.ctlT);simState.ctlT=null}
+function ctlReset(){simState.svT={};simState.ovT={};simState.ctl=[];simState.pressed.clear();simState.forced.clear();simState.tm={};clearTimeout(simState.ctlT);simState.ctlT=null}
 
 /* Estado de cada bobina, piloto y supervisor con las redes ya calculadas */
 function ctlEval(P,pot,volt,burnt,res,ctl){const out={};if(!P||!isDin())return out;
