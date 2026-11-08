@@ -64,7 +64,8 @@ function showPreview(t){const pv=$("pv");if(!pv)return;if(!t){pv.innerHTML="";re
    pv.innerHTML=`<g transform="translate(${x} ${LY0+t.slot*SL})" opacity=".8">${brkSvg(p,t.side==="R",V)}${R(-3,0,BW+6,h,col,{rx:6,op:.15})}${R(-3,0,BW+6,h,"none",{rx:6,s:col,sw:2,da:"6 4"})}</g>`;return}
   const p=drag.kind==="new"?drag.p:S.items.find(i=>i.id===drag.id).p;const {w,svg}=drawComp(drag.type,p);
   pv.innerHTML=`<g transform="translate(${SIDE+t.x*U} ${TOP+t.row*ROW_H+COMP_Y})" opacity=".75">${svg}<rect x="-3" y="-3" width="${w+6}" height="${CH+6}" rx="5" fill="${col}" fill-opacity=".12" stroke="${col}" stroke-width="2" stroke-dasharray="6 4"/></g>`}
-$("libList").addEventListener("pointerdown",e=>{const li=e.target.closest(".li");if(!li||e.button>0)return;if(e.pointerType==="mouse")e.preventDefault();const k=li.dataset.lib,info=libInfo(k);
+$("libList").addEventListener("click",e=>{const ib=e.target.closest(".li-info");if(ib){e.stopPropagation();infoDialog(ib.dataset.info)}});
+$("libList").addEventListener("pointerdown",e=>{if(e.target.closest(".li-info"))return;const li=e.target.closest(".li");if(!li||e.button>0)return;if(e.pointerType==="mouse")e.preventDefault();const k=li.dataset.lib,info=libInfo(k);
   const base={kind:"new",k,p:info.p,label:info.label,sx:e.clientX,sy:e.clientY,moving:false,touch:e.pointerType==="touch"};
   drag=info.aux?Object.assign(base,{aux:true,type:info.type,u:CAT[info.type].u(info.p),grab:CAT[info.type].u(info.p)*U/2}):info.wall?Object.assign(base,{wall:true}):info.ext?Object.assign(base,{ext:true}):info.lc?Object.assign(base,{lc:true,n:info.p.poles,grab:0}):Object.assign(base,{type:info.type,u:CAT[info.type].u(info.p),grab:CAT[info.type].u(info.p)*U/2})});
 board.addEventListener("pointerdown",e=>{const ex=e.target.closest(".ex");if(ex){sel=+ex.dataset.id;renderAll();return}

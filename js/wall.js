@@ -50,7 +50,7 @@ const WALL_DEFS=`<pattern id="pBlk" width="88" height="44" patternUnits="userSpa
 <pattern id="pTile" width="66" height="66" patternUnits="userSpaceOnUse"><rect width="66" height="66" fill="#f3f4f1"/><path d="M0 0.5H66M0.5 0V66" stroke="#cfd3d0" stroke-width="1.5"/></pattern>
 <radialGradient id="gGlow"><stop offset="0" stop-color="#fff3b0" stop-opacity=".95"/><stop offset=".5" stop-color="#ffd84d" stop-opacity=".35"/><stop offset="1" stop-color="#ffd84d" stop-opacity="0"/></radialGradient>`;
 
-let wallMode="move",wColor="Auto",wAwg="12",pending=null,wdrag=null,reconn=null,wireDrag=null;
+let wallMode="move",wColor="Auto",wAwg="12",pending=null,wdrag=null,reconn=null,wireDrag=null,leverPress=null;
 const simState={running:false,blackout:false,trip:new Set(),burnt:new Set(),res:null,log:[],sparks:[],timer:null};
 const wallEl=$("wall");
 
@@ -216,7 +216,7 @@ function renderWallLib(){const q=$("q").value.trim().toLowerCase();let h="";$("l
   LIB_WALL.forEach(([cat,list])=>{const items=list.filter(t=>!q||(DEV[t].n+" "+cat).toLowerCase().includes(q));if(!items.length)return;
     h+=`<div class="cat">${esc(cat)}</div><div class="lib-grid">`+items.map(t=>{const d=DEV[t],here=S.walls.findIndex(w=>w.items.some(i=>i.type==="panel"));
       const meta=t==="panel"?(here>=0?`Está en ${S.walls[here].name}`:(isDin()?"Tu tablero de riel":"Tu caja de breakers")):t==="feed"?"Viene del tablero":t==="supply"?"L1, L2, L3, N y T":d.price?"$ "+fmtNum(devPrice(d,{}),0)+" · "+fmtNum(d.std,2)+" m":"Aparato · "+d.V+" V";
-      return`<div class="li${t==="ac"?" wide":""}" tabindex="0" role="button" data-lib="w${t}">${devThumb(t)}<b>${esc(d.n)}</b><span>${meta}</span>${["supply","inter3","feed","estabw","protw","upsw","invw"].includes(t)?`<span class="tag-new">Nuevo</span>`:""}</div>`}).join("")+`</div>`});
+      return`<div class="li${t==="ac"?" wide":""}" tabindex="0" role="button" data-lib="w${t}">${devThumb(t)}<b>${esc(d.n)}</b><span>${meta}</span>${["supply","inter3","feed","estabw","protw","upsw","invw"].includes(t)?`<span class="tag-new">Nuevo</span>`:""}${INFO[t]?`<button class="li-info" data-info="${t}" aria-label="Ver ficha de ${esc(d.n)}" title="¿Qué es?">i</button>`:""}</div>`}).join("")+`</div>`});
   $("libList").innerHTML=h||`<p class="note" style="padding:8px 4px">Nada coincide con "${esc(q)}".</p>`;libChips()}
 function addWallItem(type,at){if(type==="panel"){const i=S.walls.findIndex(w=>w.items.some(x=>x.type==="panel"));if(i>=0){toast(i===S.wallI?"El tablero ya está en esta pared. Arrástralo para moverlo.":`El tablero está en ${S.walls[i].name}. En esta pared usa una "Llegada de circuito".`);return}}
   if(type==="supply"&&S.wall.items.some(i=>i.type==="supply")){toast("Esta pared ya tiene una acometida.");return}
@@ -233,7 +233,7 @@ function clampItem(it){const {w,h}=itemSize(it),hw=w/2/WK,hh=h/2/WK;it.x=Math.ro
 function evList(list){return list.length?`<ul class="ev">${list.map(e=>`<li class="${e.lvl}"${e.wire?` data-wire="${e.wire}"`:""}>${esc(e.msg)}</li>`).join("")}</ul>`:""}
 function renderPropsWall(){const bs=srcById(sel);
   if(bs){const P=$("paneP");P.innerHTML=`<div><h2>${bs.din?esc(CAT[bs.ref.type].n)+" "+esc(bs.short):"Breaker "+esc(bs.lab)}</h2><div class="meta">${bs.poles}P ${bs.In} A · ${esc(bs.name||"Sin nombre")} · ${simState.trip.has(bs.id)?"disparado":bs.p.on!==false?"encendido":"apagado"}</div></div>
-    <p class="note">Desde aquí puedes encenderlo, apagarlo o eliminarlo. Lo demás se cambia en la vista Tablero.</p>
+    <p class="note">Desde aquí puedes encenderlo, apagarlo o eliminarlo. Lo demás se cambia en la vista Tablero.</p>${infoCard(bs.din?bs.ref.type:infoKey("brk",bs.ref))}
     <div class="row-btns"><button class="btn" id="pb-on">${bs.p.on!==false?"Apagar":"Encender"}</button><button class="btn" id="pb-board">Ver en la vista Tablero</button><button class="btn danger" id="pb-del">Eliminar</button></div>`;
     $("pb-on").onclick=()=>mutate(()=>{bs.p.on=bs.p.on===false});$("pb-board").onclick=()=>setView("board");$("pb-del").onclick=()=>{sel=null;deleteBreaker(bs.id)};return}
   const P=$("paneP"),it=S.wall.items.find(i=>i.id===sel),w=S.wall.wires.find(i=>i.id===sel),terms=allTerms(),res=simState.running?simState.res:null;
@@ -261,7 +261,7 @@ function renderPropsWall(){const bs=srcById(sel);
       ${it.type==="feed"?`<label class="field wide"><span>Circuito del tablero</span><select class="sel" id="pp-brk">${srcList().map(b=>`<option value="${b.id}"${b.id===it.p.brk?" selected":""}>${esc(srcOption(b))}</option>`).join("")}</select></label>`:""}
       ${(d.f||[]).map(([k,l,o])=>`<label class="field${o.length>4?" wide":""}"><span>${esc(l)}</span><select class="sel" id="pp-${k}">${o.map(v=>opt(v,it.p[k])).join("")}</select></label>`).join("")}</div>
       ${it.type==="inter"?`<label class="switch"><input type="checkbox" id="pp-on"${it.p.on?" checked":""}> Encendido</label>`:""}
-      ${d.tip?`<p class="note">${esc(d.tip)}</p>`:""}
+      ${d.tip?`<p class="note">${esc(d.tip)}</p>`:""}${infoCard(it.type)}
       ${posFields(it)}<div class="row-btns"><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>${sim}`;
     const pe=$("pp-edit");if(pe)pe.onclick=()=>setView("board");const pg=$("pp-peine");if(pg)pg.onchange=e=>mutate(()=>{it.p.peine=e.target.checked});
     const nm=$("pp-name");if(nm)nm.onchange=e=>mutate(()=>{it.p.name=e.target.value});
@@ -329,9 +329,10 @@ wallEl.addEventListener("pointerdown",e=>{if(wallMode==="tube"&&!simState.runnin
   const tbh=e.target.closest(".tb");if(tbh&&!e.target.closest(".wt,.wb,.wbh,.wi,.ww,.wh")){sel=+tbh.dataset.id;pending=null;reconn=null;renderAll();return}
   const hd=e.target.closest(".wh");if(hd){reconn={id:sel,end:hd.dataset.end,moved:false,sx:e.clientX,sy:e.clientY};pending=null;renderWall();return}
   const t=e.target.closest(".wt");if(t){const had=pending;terminalClick(t.dataset.t);if(!had&&pending)wireDrag={sx:e.clientX,sy:e.clientY,moved:false};return}
-  const hb=e.target.closest(".wbh");if(hb){const b=srcById(+hb.dataset.brk);if(!b)return;pending=null;reconn=null;
-    if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste ${srcWho(b)}.`});runSim();renderAll();toast(`${b.short}: rearmado.`);return}
-    mutate(()=>{b.p.on=b.p.on===false});toast(`${b.short}: ${b.p.on!==false?"encendido":"apagado"}.`);return}
+  /* palanca: un toque enciende/apaga o rearma; si se arrastra, sale un cable desde esa protección */
+  const hb=e.target.closest(".wbh");if(hb){const b=srcById(+hb.dataset.brk);if(!b)return;
+    if(pending){const id=brkTerm(b,e);if(id)terminalClick(id);return}
+    reconn=null;leverPress={id:b.id,sx:e.clientX,sy:e.clientY};return}
   const wb=e.target.closest(".wb");if(wb){const b=srcById(+wb.dataset.brk),id=b&&brkTerm(b,e);if(!id)return;
     if(pending&&pending!==id){terminalClick(id);return}
     pending=null;terminalClick(id);wireDrag={sx:e.clientX,sy:e.clientY,moved:false,brk:b.id};return}
@@ -346,6 +347,8 @@ wallEl.addEventListener("pointerdown",e=>{if(wallMode==="tube"&&!simState.runnin
     renderAll();return}
   if(pending||sel||reconn){pending=null;sel=null;reconn=null;renderAll()}});
 window.addEventListener("pointermove",e=>{
+  if(leverPress&&Math.hypot(e.clientX-leverPress.sx,e.clientY-leverPress.sy)>6){const b=srcById(leverPress.id),lp=leverPress;leverPress=null;const id=b&&brkTerm(b,{clientX:lp.sx,clientY:lp.sy});
+    if(id){pending=null;terminalClick(id);wireDrag={sx:lp.sx,sy:lp.sy,moved:true}}}
   if(wdrag){if(!wdrag.moved&&Math.hypot(e.clientX-wdrag.sx,e.clientY-wdrag.sy)<4)return;wdrag.moved=true;const it=S.wall.items.find(i=>i.id===wdrag.id),q=toWall(e),[x,y]=fromPx(q.x-wdrag.dx,q.y-wdrag.dy);
     it.x=x;it.y=y;clampItem(it);renderWall();ghost.hidden=false;ghost.textContent=`${fmtM2(it.x)} desde la izq. · altura ${fmtM2(it.y)}`;ghost.style.left=e.clientX+"px";ghost.style.top=e.clientY+"px";return}
   if(S.view!=="wall")return;
@@ -354,6 +357,9 @@ window.addEventListener("pointermove",e=>{
   if(reconn&&!reconn.moved&&reconn.sx!=null&&Math.hypot(e.clientX-reconn.sx,e.clientY-reconn.sy)>4)reconn.moved=true;
   const pv=$("wpv");if(!pv||!from)return;const q=toWall(e);if(wireDrag&&!wireDrag.moved&&Math.hypot(e.clientX-wireDrag.sx,e.clientY-wireDrag.sy)>6)wireDrag.moved=true;pv.setAttribute("pointer-events","none");pv.innerHTML=`<path d="M${from.x} ${from.y}L${q.x} ${q.y}" stroke="#1c74e0" stroke-width="3" stroke-dasharray="6 4" fill="none" opacity=".85"/>${C(q.x,q.y,6,"#1c74e0",{op:.6})}`});
 window.addEventListener("pointerup",e=>{
+  if(leverPress){const b=srcById(leverPress.id);leverPress=null;if(!b)return;pending=null;
+    if(simState.trip.has(b.id)){simState.trip.delete(b.id);simState.log.unshift({lvl:"ok",msg:`Rearmaste ${srcWho(b)}.`});runSim();renderAll();toast(`${b.short}: rearmado.`);return}
+    mutate(()=>{b.p.on=b.p.on===false});toast(`${b.short}: ${b.p.on!==false?"encendido":"apagado"}.`);return}
   if(wireDrag&&!wireDrag.moved&&wireDrag.brk){const id=wireDrag.brk;wireDrag=null;pending=null;sel=id;renderAll();return}
   if(wireDrag){const d=wireDrag;wireDrag=null;if(d.moved&&pending){if(!finishWireAt(e.clientX,e.clientY))toast("Suelta el cable sobre un aparato o un tornillo. También puedes tocar el destino ahora.")}return}
   if(reconn&&reconn.moved){const el=document.elementFromPoint(e.clientX,e.clientY),t=el&&el.closest&&el.closest(".wt");if(t)applyReconn(t.dataset.t);else{reconn=null;toast("Suelta la punta encima de un terminal.");renderAll()}return}

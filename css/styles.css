@@ -242,3 +242,12 @@ label.btn{display:inline-flex;align-items:center}
 #wall .wbh{fill:#1c74e0;fill-opacity:0;cursor:pointer}
 #wall .wbh:hover{fill-opacity:.25;stroke:#1c74e0;stroke-width:1.2}
 #toast{bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+
+/* ---------- fichas de cada elemento ---------- */
+.li{position:relative}
+.li-info{position:absolute;top:5px;right:5px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--accent);font:600 12px/1 var(--f-body);font-style:italic;cursor:pointer;display:grid;place-items:center;padding:0}
+.li-info:hover{background:var(--accent);color:var(--accent-fg)}
+details.info{border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--panel-2);font-size:12.8px;line-height:1.5}
+details.info summary{cursor:pointer;font-weight:600;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+details.info p{margin:7px 0 0}details.info ul{margin:4px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.pill.off{color:var(--muted)}

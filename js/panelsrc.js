@@ -36,7 +36,8 @@ function panelGeom(it,wl=S.wall){const [cx,cy]=toPx(it.x,it.y,wl);
     const N=[],G=[];for(let r=0;r<lcRows();r++){const y=y0+(LY0+r*SL+SL/2)*s;N.push({x:x0+(LPAD+17)*s,y});G.push({x:x0+(PW-LPAD-17)*s,y})}
     const nph=PH().length,M=[...Array(nph)].map((_,k)=>S.lc.main?{x:x0+(CX-92+k*184/(nph-1))*s,y:y0+93*s}:{x:x0+(CX-60+k*(nph===3?60:120))*s,y:y0+86*s});
     return{din:false,cx,cy,w,h,s,x0,y0,srcs,N,G,X:[],M,main:S.lc.main?{x:x0+(CX-104)*s,y:y0+52*s,w:208*s,h:94*s}:null}}
-  const D=dims(),s=PANEL_W/D.W,w=PANEL_W,hb=D.encH*s,h=hb+46,x0=cx-w/2,y0=cy-h/2,srcs=[],X=[];
+  /* el riel se dibuja más grande que la caja para que cada módulo se pueda tocar y cablear */
+  const D=dims(),s=Math.max(PANEL_W/D.W,Math.min(.56,640/D.W)),w=D.W*s,hb=D.encH*s,h=hb+46,x0=cx-w/2,y0=cy-h/2,srcs=[],X=[];
   for(const d of S.items){const u=units(d),dx=x0+(SIDE+d.x*U)*s,dy=y0+(TOP+d.row*ROW_H+COMP_Y)*s,dw=u*U*s;
     if(DIN_SRC[d.type]){const poles=DIN_SRC[d.type](d.p);
       srcs.push({id:d.id,body:{x:dx,y:dy,w:dw,h:CH*s},handle:{x:dx,y:dy+40*s,w:dw,h:62*s},terms:[...Array(poles)].map((_,k)=>({k,x:dx+(k+.5)*dw/poles,y:dy+153*s})),top:[...Array(poles)].map((_,k)=>({k,x:dx+(k+.5)*dw/poles,y:dy+19*s}))})}

@@ -109,6 +109,9 @@ function simulate(prevTrip,burnt){
       st.I=st.s==="on"?W/(d.V===120?120:v):st.s==="weak"?W/4/120:0;res.loads[it.id]=st;
       if(st.s==="on")for(const k of [k0,k1]){const i=netOf(k);if(i)for(const ph of i.ph)if(ph[0]==="U")res.batW[ph.slice(1)]=(res.batW[ph.slice(1)]||0)+W}
       if(st.I)for(const k of [k0,k1]){const i=netOf(k);if(i&&i.ph.size===1&&i.feed.length){const f=i.feed[0],key=f.b.id+"."+f.k;res.pcur[key]=(res.pcur[key]||0)+st.I}}
+      /* curva B: el arranque de un motor (5 a 7 veces su corriente) la hace disparar */
+      if(st.s==="on"&&(it.type==="pump"||it.type==="ac"))for(const k of [k0,k1]){const i=netOf(k);if(!i)continue;const f=i.feed.find(f=>f.b.din&&f.b.ref.type==="mcb"&&f.b.ref.p.curve==="B");
+        if(f&&!res.trips.has(f.b.id)){res.trips.add(f.b.id);gfci=true;res.log.push({lvl:"crit",msg:`Al arrancar, ${devLabel(it)} pidió varias veces su corriente y disparó ${f.b.lab} (curva B). Para motores usa curva C o D.`})}}
       /* GFCI: si el neutro del aparato regresa por la tierra, el GFCI dispara */
       if(st.I&&d.V===120){const nN=netOf(k1),nF=netOf(k0);if(nN&&nN.G&&!nN.N&&nF&&nF.feed.length){const g=nF.feed.find(f=>f.b.gfci);
         if(g&&!res.trips.has(g.b.id)){res.trips.add(g.b.id);gfci=true;res.log.push({lvl:"crit",msg:`${g.b.din?"El diferencial "+g.b.lab:"El GFCI del "+g.b.lab} detectó corriente regresando por la tierra (${devLabel(it)}) y disparó.`})}}}}
@@ -129,6 +132,13 @@ function simulate(prevTrip,burnt){
     if(I>b.In&&!seen.has(id)){seen.add(id);res.pending.push({b,I});res.status.push({lvl:"crit",msg:`Sobrecarga en ${b.lab}: ${fmtA(I)} con protección de ${b.In} A. Va a disparar en segundos.`})}
     else if(I>b.In*.8&&!seen.has(id)){seen.add(id);res.status.push({lvl:"warn",msg:`${b.lab[0].toUpperCase()+b.lab.slice(1)} al ${Math.round(I/b.In*100)}% de su protección (${fmtA(I)} de ${b.In} A).`})}}
 
+  /* 3b) conexiones de protecciones */
+  if(P){const PT=itemTerms(P),ins=PT.filter(t=>t.lineOf!=null||t.mainIn!=null),inRoots=new Map(ins.map(t=>[nets.find(t.id),t]));
+    for(const it of S.wall.items){const d=DEV[it.type];if(!d||!d.V)continue;for(const tr of d.terms.filter(t=>t[1]==="F")){const t=inRoots.get(nets.find(`${it.id}/${tr[0]}`));
+      if(t){res.status.push({lvl:"warn",msg:`${devLabel(it)} está conectado a la ${t.mainIn!=null?"entrada del principal":"entrada (arriba) de "+(srcById(t.lineOf)||{}).short}: queda sin protección. Conéctalo a la salida (abajo) de una protección.`});break}}}
+    if(WIRED&&isDin())for(const b of SRC)for(let k=0;k<b.poles;k++){const bo=info.get(nets.find(`${P.id}/b${b.id}.${k}`)),to=info.get(nets.find(`${P.id}/t${b.id}.${k}`));
+      if(bo&&bo.ph.size&&!bo.feed.some(f=>f.b===b)&&!(to&&to.ph.size)){res.status.push({lvl:"warn",msg:`${b.short} está alimentado por abajo (invertido). Funciona, pero al abrirlo sus bornes de abajo quedan con tensión. La línea entra por arriba.`});break}}}
+  if(isDin()){const ns=S.items.filter(i=>INFO[i.type]&&INFO[i.type].sim==="no").map(i=>i.p.des||CAT[i.type].n);if(ns.length)res.status.push({lvl:"off",msg:`Todavía no se simulan: ${[...new Set(ns)].slice(0,8).join(", ")}. Mira su ficha para saber cómo se conectan.`})}
   /* 4) cables: colores según norma y calibre vs. breaker */
   wires.forEach(w=>{const ra=terms.get(w.a).role,rb=terms.get(w.b).role,roles=[ra,rb],c=w.color,msgs=[];
     if(roles.includes("N")&&c!=="Blanco")msgs.push("el neutro va en blanco");

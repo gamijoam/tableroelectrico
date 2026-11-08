@@ -27,7 +27,8 @@ function renderSelBar(){const bar=$("selbar"),t=selTarget(),dragging=(typeof dra
   else if(t.kind==="wi"){const d=DEV[t.it.type];h=`<span class="sb-t">${esc(t.it.p.name||d.short)}</span>${t.it.type==="inter"?B("sb-on",t.it.p.on?"Apagar":"Encender"):""}${t.it.type==="panel"?B("sb-edit","Poner o quitar breakers","primary"):B("sb-dup","Duplicar")}${B("sb-del",t.it.type==="panel"?"Quitar":"Eliminar","danger")}`}
   else if(t.kind==="tb"){let m=0;for(let k=1;k<t.it.pts.length;k++)m+=Math.hypot(t.it.pts[k][0]-t.it.pts[k-1][0],t.it.pts[k][1]-t.it.pts[k-1][1]);h=`<span class="sb-t">Tubo PVC · ${fmtNum(m,2)} m</span><select class="sel" id="sb-ts" aria-label="Diámetro">${O(TUBE_SIZES,t.it.size)}</select>${B("sb-del","Eliminar","danger")}`}
   else if(t.kind==="ww"){h=`<span class="sb-t">Cable #${t.w.awg}</span><select class="sel" id="sb-col" aria-label="Color del cable">${O(Object.keys(WCOL),t.w.color)}</select>${B("sb-del","Eliminar","danger")}`}
-  h+=B("sb-more","Más opciones");bar.innerHTML=h;bar.hidden=false;
+  const ik=t.kind==="brk"?infoKey("brk",t.it):t.kind==="din"||t.kind==="ax"||t.kind==="ex"||t.kind==="wi"?t.it.type:null;if(ik&&INFO[ik])h+=B("sb-info","¿Qué es?");
+  h+=B("sb-more","Más opciones");bar.innerHTML=h;bar.hidden=false;const bi=$("sb-info");if(bi)bi.onclick=()=>infoDialog(ik);
   const on=(id,ev,fn)=>{const el=$(id);if(el)el[ev]=fn};
   on("sb-in","onchange",e=>setPropLC(t.it.id,"In",+e.target.value));on("sb-po","onchange",e=>setPropLC(t.it.id,"poles",+e.target.value));on("sb-ty","onchange",e=>setPropLC(t.it.id,"type",e.target.value));
   on("sb-nm","onchange",e=>mutate(()=>{t.it.p.name=e.target.value}));

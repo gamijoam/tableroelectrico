@@ -25,7 +25,7 @@ function renderLib(){if(S.view==="wall")return renderWallLib();const q=$("q").va
     else if(info.lc)meta=info.p.poles+(info.p.poles>1?" esp.":" esp.")+" · $ "+fmtNum(brkPrice(info.p),0);
     else{const u=CAT[info.type].u(info.p);meta=fmtM(u/2)+" mód · $ "+fmtNum(PRICE_DIN[info.type](info.p),0)}
     const isNew=info.aux||info.ext||(!info.lc&&NEW.has(info.type));
-    return`<div class="li${info.lc?" wide":""}" tabindex="0" role="button" data-lib="${k}">${thumb(info)}<b>${esc(info.label)}</b><span>${meta}</span>${isNew?`<span class="tag-new">Nuevo</span>`:""}</div>`}).join("")+`</div>`});
+    return`<div class="li${info.lc?" wide":""}" tabindex="0" role="button" data-lib="${k}">${thumb(info)}<b>${esc(info.label)}</b><span>${meta}</span>${isNew?`<span class="tag-new">Nuevo</span>`:""}<button class="li-info" data-info="${info.lc?infoKey("brk",{p:info.p}):info.type}" aria-label="Ver ficha de ${esc(info.label)}" title="¿Qué es?">i</button></div>`}).join("")+`</div>`});
   $("libList").innerHTML=h||`<p class="note" style="padding:8px 4px">Nada coincide con "${esc(q)}".</p>`;libChips();
   [["bd-po","poles",Number],["bd-in","In",Number],["bd-ty","type",String]].forEach(([id,k,f])=>{const el=$(id);if(el)el.onchange=()=>{lcBuild[k]=f(el.value);renderLib()}})}
 /* Accesos rápidos a cada categoría de la biblioteca */
@@ -49,7 +49,7 @@ function renderPropsExt(x){const c=EXT[x.type],P=$("paneP");
    <div class="fields"><label class="field wide"><span>Nombre / qué alimenta</span><input class="txt" id="pp-name" value="${esc(x.p.name)}"></label>
    ${c.f.map(([k,l,o])=>`<label class="field"><span>${esc(l)}</span><select class="sel" id="pp-${k}">${o.map(v=>opt(v,x.p[k])).join("")}</select></label>`).join("")}</div>
    ${c.st?`<label class="switch"><input type="checkbox" id="pp-on"${x.p.on?" checked":""}> ${esc(c.st)}</label>`:""}
-   <p class="note">${esc(c.desc(x.p))}. ${esc(c.tip)}</p>
+   <p class="note">${esc(c.desc(x.p))}. ${esc(c.tip)}</p>${infoCard(x.type)}
    <div class="row-btns"><button class="btn" id="pp-left">← Mover</button><button class="btn" id="pp-right">Mover →</button><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>`;
   $("pp-name").addEventListener("change",e=>mutate(()=>{x.p.name=e.target.value}));
   c.f.forEach(([k,,o])=>$("pp-"+k).addEventListener("change",e=>{const v=typeof o[0]==="number"?Number(e.target.value):e.target.value;mutate(()=>{x.p[k]=v})}));
@@ -60,7 +60,7 @@ function renderPropsAux(it){const P=$("paneP"),c=CAT[it.type],u=units(it);
   c.f.forEach(([k,l,o])=>{f+=o==="text"?`<label class="field"><span>${esc(l)}</span><input class="txt" id="pp-${k}" value="${esc(it.p[k])}"></label>`:`<label class="field"><span>${esc(l)}</span><select class="sel" id="pp-${k}">${o.map(v=>opt(v,it.p[k])).join("")}</select></label>`});
   P.innerHTML=`<div><h2>${esc(c.n)}</h2><div class="meta">Riel auxiliar de la caja · ${fmtM(u/2)} mód · $ ${fmtNum(PRICE_DIN[it.type](it.p))}</div></div>
    <div class="fields">${f}</div>${c.st?`<label class="switch"><input type="checkbox" id="pp-on"${it.p.on?" checked":""}> ${esc(c.st)}</label>`:""}
-   <p class="note">${esc(c.desc(it.p))}. Va montado en el riel auxiliar dentro de la caja de breakers.</p>
+   <p class="note">${esc(c.desc(it.p))}. Va montado en el riel auxiliar dentro de la caja de breakers.</p>${infoCard(it.type)}
    <div class="row-btns"><button class="btn" id="pp-left">← Mover</button><button class="btn" id="pp-right">Mover →</button><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>`;
   ["des","name"].forEach(k=>$("pp-"+k).addEventListener("change",e=>mutate(()=>{it.p[k]=e.target.value})));
   c.f.forEach(([k,,o])=>$("pp-"+k).addEventListener("change",e=>{const v=Array.isArray(o)&&typeof o[0]==="number"?Number(e.target.value):e.target.value,old=it.p[k];it.p[k]=v;const nu=units(it);
@@ -81,7 +81,7 @@ function renderPropsDIN(){const P=$("paneP"),it=selItem();
   P.innerHTML=`<div><h2>${esc(c.n)}</h2><div class="meta">Fila ${it.row+1} · ${u===1?"½ módulo":"módulos "+fmtM(m0)+(u>2?"–"+fmtM(Math.floor(m1*2)/2):"")} · ${(u*8.75).toFixed(1).replace(".0","")} mm</div></div>
    <div class="fields">${f}</div>
    ${c.st?`<label class="switch"><input type="checkbox" id="pp-on"${it.p.on?" checked":""}> ${esc(c.st)}</label>`:""}
-   <p class="note">${esc(c.desc(it.p))}</p>
+   <p class="note">${esc(c.desc(it.p))}</p>${infoCard(it.type)}
    <div class="row-btns"><button class="btn" id="pp-left">← Mover</button><button class="btn" id="pp-right">Mover →</button><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>`;
   ["des","name"].forEach(k=>$("pp-"+k).addEventListener("change",e=>mutate(()=>{it.p[k]=e.target.value})));
   c.f.forEach(([k,,o])=>$("pp-"+k).addEventListener("change",e=>{const v=Array.isArray(o)&&typeof o[0]==="number"?Number(e.target.value):e.target.value;setProp(it.id,k,v)}));
@@ -114,7 +114,7 @@ function renderPropsLC(){const P=$("paneP"),b=selItem(),calc=lcCalc(),L=S.lc;
     <div class="kv"><span>Cable sugerido</span><b>#${AWG[p.In]} AWG</b></div>
     ${c.st!=="ok"&&c.sug?`<div class="kv"><span>Breaker recomendado</span><b>${c.sug} A · #${AWG[c.sug]} AWG</b></div>`:""}
     ${c.st!=="ok"&&!c.sug?`<div class="kv"><span>Recomendación</span><b>Dividir la carga</b></div>`:""}</div>
-   ${p.type!=="Estándar"?`<p class="note">${p.type==="GFCI"?"GFCI: protege a las personas de descargas. Úsalo en baños, cocina, lavadero, exteriores y piscinas.":"AFCI: detecta arcos eléctricos en el cableado. Recomendado en dormitorios."}</p>`:""}
+   ${p.type!=="Estándar"?`<p class="note">${p.type==="GFCI"?"GFCI: protege a las personas de descargas. Úsalo en baños, cocina, lavadero, exteriores y piscinas.":"AFCI: detecta arcos eléctricos en el cableado. Recomendado en dormitorios."}</p>`:""}${infoCard(infoKey("brk",b))}
    <div class="row-btns"><button class="btn" id="pp-up">↑ Subir</button><button class="btn" id="pp-down">↓ Bajar</button><button class="btn" id="pp-side">Cambiar de lado</button><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>`;
   $("pp-name").addEventListener("change",e=>mutate(()=>{p.name=e.target.value}));
   $("pp-W").addEventListener("change",e=>mutate(()=>{p.W=Math.max(0,Math.round(+e.target.value||0))}));
