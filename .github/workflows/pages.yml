@@ -1,9 +1,10 @@
 # Publica la carpeta app/ en la rama gh-pages (GitHub Pages) cada vez que cambia en main.
+# Antes actualiza la lista de archivos que sw.js guarda para usar la app sin internet.
 name: Publicar app en GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["app/**"]
+    paths: ["app/**", "scripts/**"]
   workflow_dispatch:
 permissions:
   contents: write
@@ -12,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: python3 scripts/sw-files.py
       - run: touch app/.nojekyll
       - uses: peaceiris/actions-gh-pages@v4
         with:

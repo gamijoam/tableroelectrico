@@ -34,6 +34,10 @@ js/projects.js      Varios proyectos, archivo .json, datos de la empresa con log
 js/pdf.js           PDF carta: tablero, diagrama unifilar, cuadro de cargas con demanda, presupuesto y paredes
 js/unifilar.js      Diagrama unifilar del riel DIN (por orden de montaje) y visor del unifilar
 js/share.js         Mis precios (guardados para todos los proyectos) y envío por WhatsApp
+js/pwa.js           Botón Instalar app y avisos de conexión
+sw.js               Guarda la app en el dispositivo para usarla sin internet
+manifest.webmanifest, icons/  Datos e íconos de la app instalada
+fonts/, vendor/     Fuentes y jsPDF servidos desde la app (sin depender de internet)
 js/actions.js       Acciones del usuario, arrastrar y soltar, modales y barra de herramientas
 js/main.js          Arranque
 ```
@@ -74,4 +78,8 @@ Es una herramienta de enseñanza y presupuesto, no un cálculo según el Código
 
 ## Dependencias
 
-- jsPDF 2.5.1 desde cdnjs, solo para generar el PDF. Si no carga (sin internet), el resto de la app funciona igual.
+- jsPDF 2.5.1 (licencia MIT) en `vendor/`, para generar el PDF.
+- Fuentes Barlow Condensed, IBM Plex Sans e IBM Plex Mono (licencia SIL OFL) en `fonts/`.
+
+No carga nada de internet: después de la primera visita la app funciona sin conexión.
+Si agregas archivos, corre `python3 scripts/sw-files.py` (la acción de GitHub Pages ya lo hace al publicar).

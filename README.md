@@ -2,7 +2,7 @@
 
 Aplicación web para **diseñar, cablear, probar y cotizar tableros eléctricos**: cajas de breakers
 (120/240 V monofásico y 208Y/120 V trifásico) y tableros sobre riel DIN, con simulador, calculadora
-y presupuesto en PDF. Funciona en computadora, tablet y teléfono.
+y presupuesto en PDF. Funciona en computadora, tablet y teléfono, y se instala como app que trabaja sin internet.
 
 ![Pared cableada con el flujo de energía](video/promo/public/wall-flow.png)
 

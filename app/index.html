@@ -6,8 +6,14 @@
 <meta name="description" content="Diseña, cablea, prueba y cotiza tableros eléctricos: cajas de breakers y riel DIN con simulador, calculadora y PDF.">
 <title>Taller de Tableros</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<meta name="theme-color" content="#1c5fa8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tableros">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/fonts.css">
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -45,6 +51,7 @@
       <button class="btn" id="uni" title="Diagrama unifilar generado desde el tablero">Unifilar</button>
       <button class="btn" id="png">Exportar imagen</button>
       <button class="btn primary" id="pdf">PDF</button>
+      <button class="btn" id="install" hidden>Instalar app</button>
     </div>
   </header>
 
@@ -121,7 +128,7 @@
 <div id="toast" hidden></div>
 <div class="modal" id="modal" hidden><div class="dlg" id="dlg"></div></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
 <!-- El orden importa: cada archivo usa lo definido en los anteriores. -->
 <script src="js/util.js"></script>
 <script src="js/din.js"></script>
@@ -148,6 +155,7 @@
 <script src="js/actions.js"></script>
 <script src="js/touch.js"></script>
 <script src="js/mobile.js"></script>
+<script src="js/pwa.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
