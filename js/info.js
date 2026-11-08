@@ -38,7 +38,7 @@ const INFO={
   como:"Es un interruptor de corte, sin disparo automático: no protege contra sobrecarga ni cortocircuito.",
   con:"La acometida entra por arriba; de su salida (abajo) se alimentan las protecciones, normalmente con un peine.",
   err:[["Usarlo como única protección","Ante un cortocircuito no abre: se queman los fusibles de la compañía o el cable."]]},
- spd:{t:"Supresor de picos (DPS)",sim:"no",
+ spd:{t:"Supresor de picos (DPS)",sim:"parcial",
   uso:"Protege los equipos de picos de voltaje por rayos o maniobras de la red.",
   como:"Cuando el voltaje sube muchísimo durante microsegundos, deriva ese pico a tierra. Si la ventanita pasa de verde a rojo, el cartucho está gastado y hay que cambiarlo.",
   con:"En paralelo: fases y neutro al DPS, y su borne de tierra a la barra T con cable corto y recto. Va protegido por un termomagnético.",

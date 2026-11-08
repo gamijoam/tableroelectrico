@@ -5,7 +5,7 @@
      no responde en 4 segundos o no hay conexión, usa la copia guardada.
    · La lista y VERSION las actualiza scripts/sw-files.py al publicar.
    ===================================================================== */
-const VERSION="tt-da7a50639f",FILES=[
+const VERSION="tt-78a5f006d7",FILES=[
     "./",
     "index.html",
     "manifest.webmanifest",
