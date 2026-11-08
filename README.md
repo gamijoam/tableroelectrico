@@ -25,6 +25,7 @@ js/flow.js          Flujo de energía animado, lectura de cada borne, multímetr
 js/touch.js         Pantallas táctiles: desplazar con el dedo, pellizcar para zoom, avance automático al arrastrar
 js/calc.js          Calculadora: breaker, cable, tubo y caída de tensión; arranque de motores; estabilizador,
                     UPS e inversor con baterías; demanda de la casa, principal, acometida y circuitos
+js/mobile.js        Teléfono y tablet vertical: menú ☰, barra inferior y paneles como hojas desde abajo
 js/info.js          Ficha de cada elemento: para qué sirve, cómo funciona, cómo se conecta, errores y si se simula
 js/wall.js          Vista Pared: varias paredes, dispositivos, cableado, tubería y panel de prueba
 js/layout.js        Paneles laterales plegables, pantalla completa y alertas de la prueba

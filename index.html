@@ -13,6 +13,8 @@
       <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="7" y="2" width="20" height="30" rx="3" fill="var(--accent)"/><rect x="12" y="9" width="10" height="13" rx="2" fill="var(--panel)"/><rect x="13.5" y="10.5" width="7" height="6" rx="1" fill="var(--fg)"/><rect x="7" y="25" width="20" height="2" fill="var(--panel)" opacity=".5"/></svg>
       <div><h1>Taller de Tableros</h1><small id="projName">Cajas de breakers y tableros sobre riel DIN</small></div>
     </div>
+    <button class="icon-btn m-only" id="mUndo" aria-label="Deshacer" title="Deshacer">↶</button><button class="icon-btn m-only" id="mRedo" aria-label="Rehacer" title="Rehacer">↷</button>
+    <button class="icon-btn m-only" id="mMenu" aria-label="Menú" aria-expanded="false">☰</button>
     <div class="actions">
       <select class="sel" id="tpl" aria-label="Cargar plantilla">
         <option value="">Plantillas…</option>
@@ -49,7 +51,7 @@
 
   <section id="stagewrap">
     <div class="tools">
-      <span class="seg" role="group" aria-label="Vista"><button class="segb" id="vBoard" aria-pressed="true">Tablero</button><button class="segb" id="vWall" aria-pressed="false">Pared y cableado</button></span>
+      <span class="seg" role="group" aria-label="Vista"><button class="segb" id="vBoard" aria-pressed="true">Tablero</button><button class="segb" id="vWall" aria-pressed="false">Pared<span class="d-only"> y cableado</span></button></span>
       <button class="btn wire-cta" id="goWire" title="Ir a la pared para tender cables y probar">Cablear y probar →</button>
       <span class="tgroup" id="boardTools">
       <label>Tipo <select class="sel" id="kind"><option value="lc">Caja de breakers</option><option value="din">Riel DIN</option></select></label>
@@ -66,13 +68,13 @@
       </span>
       </span>
       <span class="tgroup" id="wallTools" hidden>
-        <select class="sel" id="wSel" aria-label="Pared activa"></select><button class="btn" id="wAdd" title="Agregar otra pared">+ Pared</button>
+        <select class="sel opt" id="wSel" aria-label="Pared activa"></select><button class="btn opt" id="wAdd" title="Agregar otra pared">+ Pared</button>
         <span class="seg" role="group" aria-label="Modo"><button class="segb" id="mMove" aria-pressed="true">Mover</button><button class="segb" id="mWire" aria-pressed="false">Cablear</button><button class="segb" id="mTube" aria-pressed="false">Tubería</button><button class="segb" id="mMeter" aria-pressed="false" title="Mide el voltaje entre dos terminales durante la prueba">Multímetro</button></span>
-        <label>Cable <select class="sel" id="wColor"></select></label>
-        <select class="sel" id="wAwg" aria-label="Calibre del cable"></select>
-        <label>Pared <select class="sel" id="wSize"></select></label>
-        <select class="sel" id="wFinish" aria-label="Acabado de la pared"></select>
-        <label class="chk"><input type="checkbox" id="wTube"> Ver tubería</label><label class="chk" title="Durante la prueba, muestra por dónde circula la corriente"><input type="checkbox" id="wFlow" checked> Ver flujo de energía</label>
+        <label class="opt">Cable <select class="sel" id="wColor"></select></label>
+        <select class="sel opt" id="wAwg" aria-label="Calibre del cable"></select>
+        <label class="opt">Pared <select class="sel" id="wSize"></select></label>
+        <select class="sel opt" id="wFinish" aria-label="Acabado de la pared"></select>
+        <label class="chk opt"><input type="checkbox" id="wTube"> Ver tubería</label><label class="chk opt" title="Durante la prueba, muestra por dónde circula la corriente"><input type="checkbox" id="wFlow" checked> Ver flujo de energía</label>
         <button class="btn play" id="play">▶ Probar</button><button class="btn" id="rearm" hidden>Rearmar</button><button class="btn" id="blackout" hidden>Simular apagón</button>
       </span>
       <span class="chip" id="usage"></span>
@@ -96,6 +98,14 @@
     <div class="pane" id="paneP"></div>
     <div class="pane" id="paneB" hidden></div>
   </aside>
+  <div id="sheetBg" class="m-only" aria-hidden="true"></div>
+  <nav class="mnav m-only" aria-label="Navegación">
+    <button id="mnLib" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M17.25 13.5v7.5M13.5 17.25H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Componentes</button>
+    <button id="mnOpts" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="7" r="2.3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="17" r="2.3" fill="none" stroke="currentColor" stroke-width="2"/></svg>Ajustes</button>
+    <button id="mnFit" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Ajustar</button>
+    <button id="mnProps" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M5 12h14M5 19h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Propiedades</button>
+    <button id="mnQuote" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3.1 4.5 1.4 4.5 3.3-2 3.1-4.5 3.1-4.5-1.3-4.5-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><b id="mnTotal">Presupuesto</b></button>
+  </nav>
 </div>
 
 <div id="ghost" hidden></div>
@@ -126,4 +136,5 @@
 <script src="js/calc.js"></script>
 <script src="js/actions.js"></script>
 <script src="js/touch.js"></script>
+<script src="js/mobile.js"></script>
 <script src="js/main.js"></script>
