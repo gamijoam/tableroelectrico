@@ -28,18 +28,54 @@ function netBlockers(k,ctx,out=new Set(),seen=new Set()){const {terms,nets,SRC,t
   const up=[];
   for(const t of terms.values()){if(nets.find(t.id)!==root)continue;const it=t.item;
     if((it.type==="inter"&&!it.p.on)||it.type==="inter3")up.push(`${it.id}/COM`);
-    if(t.srcId!=null&&it.type==="panel"){const b=SRC.find(x=>x.id===t.srcId);if(b&&trips.has(b.id))out.add(`${b.short} está disparado (rearma)`);else if(b&&b.p.on===false)out.add(`${b.short} está apagado`)}
+    if(t.srcId!=null&&it.type==="panel"){const b=SRC.find(x=>x.id===t.srcId);if(b&&trips.has(b.id))out.add(`${b.short} está disparado (rearma)`);else if(b&&b.p.on===false)out.add(`${b.short} está apagado`);
+      /* breaker cerrado en el riel: se sigue buscando en su entrada (puede venir de un contactor abierto) */
+      else up.push(`${it.id}/t${t.srcId}.${t.pole}`)}
     else if(it.type==="inter"&&!it.p.on)out.add(`${devLabel(it)} está apagado`);
     else if(it.type==="inter3"&&/^T[12]$/.test(t.key)&&t.key!=="T"+(it.p.pos===2?2:1))out.add(`${devLabel(it)} está del otro lado (viajero ${t.key.slice(1)} sin corriente)`);
     else if(it.type==="feed"&&!SRC.find(x=>x.id===it.p.brk))out.add(`${devLabel(it)} no tiene circuito del tablero elegido`);
     else if(t.ctlOf!=null){const d=S.items.find(i=>i.id===t.ctlOf);if(!d||/^(A[12]|X[12])$/.test(t.pin))continue;const lab=d.p.des||CAT[d.type].n;
-      if((d.type==="icont"||d.type==="cont"||d.type==="relay")&&!ctl.on.has(d.id))out.add(`${lab} está abierto (su bobina no tiene tensión)`);
+      if((d.type==="icont"||d.type==="cont"||d.type==="relay")&&!ctl.on.has(d.id)){const cw=coilWhy(d,ctx);out.add(`${lab} está abierto${cw?": "+cw:" (su bobina no tiene tensión)"}`)}
       else if(d.type==="push"&&d.p.ct!=="NC"&&!ctl.pressed.has(d.id))out.add(`${lab} no está presionado`);
       else if(d.type==="emerg"&&d.p.on===false)out.add(`${lab} está enclavado`);
       else if(d.type==="ovl"&&trips.has("o"+d.id)&&/^9[56]$/.test(t.pin))out.add(`${lab} está disparado`);
-      else if(d.type==="supv"&&!ctl.on.has(d.id))out.add(`${lab} tiene su contacto abierto`)}}
+      else if(d.type==="supv"&&!ctl.on.has(d.id)&&![...out].some(x=>x.includes(lab+" ")))out.add(`${lab} tiene su contacto abierto`)}}
   for(const u of up)if(terms.has(u)&&!isPh(ctx.pot(u)))netBlockers(u,ctx,out,seen);
   return[...out]}
+/* ---------- por qué la bobina de un contactor o relé no recibe tensión ---------- */
+const ctlT=(ctx,d,pin)=>{for(const t of ctx.terms.values())if(t.ctlOf===d.id&&t.pin===pin)return t.id;return null};
+const wiredT=k=>!!k&&S.wall.wires.some(w=>w.a===k||w.b===k);
+/* terminales unidos a k solo por cables (sin pasar por contactos ni barras) */
+function wireReach(k){const seen=new Set([k]),q=[k];while(q.length){const a=q.shift();for(const w of S.wall.wires){const o=w.a===a?w.b:w.b===a?w.a:null;if(o&&!seen.has(o)){seen.add(o);q.push(o)}}}return seen}
+function coilWhy(d,ctx){ctx.cw=ctx.cw||new Set();if(ctx.cw.has(d.id))return"";ctx.cw.add(d.id);
+  const lab=d.p.des||CAT[d.type].n,A1=ctlT(ctx,d,"A1"),A2=ctlT(ctx,d,"A2");if(!A1||!A2)return"";
+  const r=d.type==="relay"&&/DC/.test(d.p.coil)?24:coilVolt(d.p.coil),other=r>=200?"la otra fase":"el neutro";
+  if(!wiredT(A1)&&!wiredT(A2))return"su bobina A1-A2 no tiene cables";
+  if(!wiredT(A1))return"falta el cable de A1 (la fase que manda la bobina)";
+  if(!wiredT(A2))return`falta el cable de A2 (va a ${other})`;
+  const pa=ctx.pot(A1),pb=ctx.pot(A2),v=voltOf(pa,pb);
+  if(v&&v<r*.85)return`su bobina es de ${r} V y recibe ${v} V${r>=200?": A2 debe ir a la otra fase, no al neutro":""}`;
+  if(v)return"";
+  if(isPh(pa)&&pa===pb)return`A1 y A2 tienen la misma fase (${pa}); A2 va a ${other}`;
+  const R=new Set([...wireReach(A1),...wireReach(A2)]);
+  for(const s of S.items.filter(i=>i.type==="supv")){const sl=s.p.des||"el supervisor",t11=ctlT(ctx,s,"11"),t12=ctlT(ctx,s,"12"),t14=ctlT(ctx,s,"14");
+    if(R.has(t12)&&!R.has(t14))return`la bobina está en el borne 12 de ${sl}, que cierra cuando HAY falla. Pásala al 14, que cierra cuando el voltaje está bien`;
+    if(!R.has(t14)&&!R.has(t11))continue;
+    const L=supvL(s.p),Lids=L.map(k=>ctlT(ctx,s,k));
+    if(!ctx.ctl.on.has(s.id)){
+      if(Lids.every(k=>!wiredT(k)))return`${sl} no tiene cables en ${L.join(" y ")}: sin medir voltaje no cierra su contacto 11-14`;
+      const chk=supvCheck(s,k=>ctx.pot(ctlT(ctx,s,k)),voltOf);
+      if(chk.why==="sin tensión"||chk.why==="falta una fase"){const bl=new Set();for(const k of Lids)if(k&&!isPh(ctx.pot(k))&&!(k===ctlT(ctx,s,"N")))netBlockers(k,ctx,bl,new Set());
+        if([...bl].some(x=>x.startsWith(lab+" ")))return`${sl} se alimenta de la salida de ${lab}: con ${lab} abierto el supervisor no tiene tensión y nunca lo cierra. Conecta ${L.join(" y ")} del supervisor antes del contactor (en su entrada L1/L2 o desde un breaker de mando)`;
+        const nw=L.filter((_,i)=>!wiredT(Lids[i]));
+        if(nw.length)return`${sl} no tiene cable en ${nw.join(" y ")}: ${chk.why}, no cierra 11-14`;
+        return`${sl} no tiene tensión en ${L.join(" y ")}${bl.size?` (${[...bl].join("; ")})`:""}, así que no cierra 11-14`}
+      return`${sl}: ${chk.why}. Por eso abre 11-14`}
+    if(t11&&!isPh(ctx.pot(t11)))return wiredT(t11)?`el borne 11 (común) de ${sl} no tiene fase${(()=>{const b=netBlockers(t11,ctx);return b.length?" ("+b.join("; ")+")":""})()}`:`el borne 11 (común) de ${sl} no tiene cable: llévale la fase que manda la bobina`;
+    if(R.has(t11)&&!R.has(t14))return`la bobina está en el borne 11 de ${sl}; el 11 es la entrada del contacto. Lleva la fase al 11 y la bobina (A1) al 14`}
+  const k=!isPh(pa)?A1:A2,bl=netBlockers(k,ctx).filter(x=>!x.startsWith(lab+" "));
+  return bl.length?bl.join("; "):k===A1?"A1 no llega a ninguna fase":`A2 no llega a ${other}`}
+
 /* Explica por qué un aparato de dos bornes no tiene voltaje */
 function whyOff(it,k0,k1,ctx){const d=DEV[it.type],[l0,l1]=d.terms.filter(t=>t[1]!=="T").map(t=>t[2]),a=ctx.pot(k0),b=ctx.pot(k1),two=d.V!==120;
   const tail=k=>{const bl=netBlockers(k,ctx);return bl.length?` Revisa: ${bl.join("; ")}.`:""};

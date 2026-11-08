@@ -85,15 +85,19 @@ function ctlEval(P,pot,volt,burnt,res){const out={};if(!P||!isDin())return out;
       else if(v>r*1.2){res.newBurnt.push(it.id);why="quemada";res.log.push({lvl:"crit",msg:`${lab}: ${pl?"la luz piloto es de":"la bobina es de"} ${r} V y recibió ${v} V. Se quemó${pl?"":" la bobina"}.`})}
       else if(v<r*.85)why=`poco voltaje (${v} V de ${r} V)`;
       else on=true;out[it.id]={on,v,r,why}}
-    else if(it.type==="supv"){const s=String(it.p.sys||""),q=k=>pot(T(k));let ok=false,why="";
-      if(s.startsWith("Trif")){const ps=["L1","L2","L3"].map(q),ix=ps.map(x=>"ABC".indexOf(x||"-"));
-        if(ix.some(i=>i<0)||new Set(ix).size<3)why=ix.every(i=>i<0)?"sin tensión":"falta una fase";
-        else if(s.includes("480"))why="voltaje fuera de rango (está ajustado para 480 V)";
-        else if((ix[1]-ix[0]+3)%3!==1||(ix[2]-ix[1]+3)%3!==1)why="secuencia de fases invertida";else ok=true}
-      else if(s.startsWith("Bif")){const v=volt(q("L1"),q("L2"));if(!v)why="sin tensión";else if(v<216)why=`bajo voltaje (${v} V)`;else ok=true}
-      else{const v=volt(q("L"),q("N"));if(!v)why="sin tensión";else if(q("N")!=="0")why="no tiene neutro en N";else ok=true}
-      out[it.id]={on:ok,why}}}
+    else if(it.type==="supv")out[it.id]=supvCheck(it,k=>pot(T(k)),volt)}
   return out}
+/* Bornes de medición del supervisor según su sistema */
+const supvL=p=>{const s=String(p.sys||"");return s.startsWith("Trif")?["L1","L2","L3"]:s.startsWith("Bif")?["L1","L2"]:["L","N"]};
+/* El supervisor cierra 11-14 solo si lo que mide está bien; q(k) da lo que llega a cada borne */
+function supvCheck(it,q,volt){const s=String(it.p.sys||"");let ok=false,why="";
+  if(s.startsWith("Trif")){const ps=["L1","L2","L3"].map(q),ix=ps.map(x=>"ABC".indexOf(x||"-"));
+    if(ix.some(i=>i<0)||new Set(ix).size<3)why=ix.every(i=>i<0)?"sin tensión":"falta una fase";
+    else if(s.includes("480"))why="voltaje fuera de rango (está ajustado para 480 V)";
+    else if((ix[1]-ix[0]+3)%3!==1||(ix[2]-ix[1]+3)%3!==1)why="secuencia de fases invertida";else ok=true}
+  else if(s.startsWith("Bif")){const v=volt(q("L1"),q("L2"));if(!v)why="sin tensión";else if(v<216)why=`bajo voltaje (${v} V): está ajustado para 240 V y L2 recibe neutro; L2 va a la otra fase`;else ok=true}
+  else{const v=volt(q("L"),q("N"));if(!v)why="sin tensión";else if(q("N")!=="0")why="no tiene neutro en N";else ok=true}
+  return{on:ok,why}}
 
 /* ---------- motor trifásico en la pared ---------- */
 DEV.motor3={n:"Motor trifásico 208 V",short:"Motor 3F",w:132,h:84,V:208,tri:true,terms:[["U","F","U"],["V","F","V"],["W","F","W"],["T","T","T"]],d:{hp:"3 HP"},
