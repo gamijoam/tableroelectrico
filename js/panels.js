@@ -141,7 +141,7 @@ function quoteData(){const Q=S.quote,m=new Map(),add=(desc,cost,ref,q=1,u="")=>{
   [...wm].sort().forEach(([k,mts])=>{const [awg,col]=k.split("|");add(`Cable THHN/THW cobre #${awg} AWG ${col.toLowerCase()} (pared)`,AWG_P[awg]||1,null,Math.round(mts*1.1*2)/2,"m")});
   for(const sz of TUBE_SIZES)if(tubeSz[sz]>0)add(`Tubo PVC ${sz} para pared`,TUBE_PRICE[sz],null,Math.round(tubeSz[sz]*1.1*2)/2,"m");
   const k=1+(+Q.margin||0)/100;
-  const mat=[...m.values()].map(e=>{const ov=Q.over[e.desc]!=null,cost=ov?+Q.over[e.desc]:e.def;return Object.assign(e,{cost,ov,unit:r2(cost*k),total:r2(cost*k*e.q)})});
+  const MP=myPrices(),mat=[...m.values()].map(e=>{const pv=Q.over[e.desc]!=null?+Q.over[e.desc]:MP[e.desc]!=null?+MP[e.desc]:null,ov=pv!=null,cost=ov?pv:e.def;return Object.assign(e,{cost,ov,unit:r2(cost*k),total:r2(cost*k*e.q)})});
   const n=S.kind==="lc"?S.lc.items.length:S.items.filter(i=>i.type!=="term"&&i.type!=="blank").length,lab=[];
   if(n)lab.push({desc:S.kind==="lc"?"Instalación y conexionado de circuitos":"Montaje y cableado de componentes",q:n,unit:+Q.per||0});
   if(n||S.ext.length)lab.push({desc:"Montaje del tablero, pruebas y rotulado",q:1,unit:+Q.board||0});
@@ -159,21 +159,24 @@ function renderQuote(){const Q=S.quote,d=quoteData(),lc=S.kind==="lc";
   ${d.mat.map((e,i)=>`<tr><td class="n">${fmtQ(e.q)}${e.u?" "+e.u:""}</td><td>${esc(e.desc)}${e.refs.length?`<small>${esc(cutText(e.refs.join(", "),60))}</small>`:""}</td><td class="n"><input data-key="${i}" type="number" min="0" step="0.01" value="${e.cost}" aria-label="Costo unitario: ${esc(e.desc)}"${e.ov?` class="ov" title="Precio editado. Bórralo para volver al sugerido (${fmtUSD(e.def)})."`:""}></td><td class="n">${fmtUSD(e.total)}</td></tr>`).join("")}</tbody></table>
   ${d.lab.length?`<table class="qt"><thead><tr><th class="n">Cant.</th><th>Mano de obra</th><th class="n">Unit.</th><th class="n">Total</th></tr></thead><tbody>${d.lab.map(l=>`<tr><td class="n">${l.q}</td><td>${esc(l.desc)}</td><td class="n">${fmtUSD(l.unit)}</td><td class="n">${fmtUSD(l.total)}</td></tr>`).join("")}</tbody></table>`:""}
   <div class="calc tot"><div class="kv"><span>Materiales y equipos</span><b>${fmtUSD(d.matSale)}</b></div><div class="kv"><span>Mano de obra</span><b>${fmtUSD(d.labor)}</b></div>${Q.ivaOn?`<div class="kv"><span>IVA ${fmtNum(Q.iva,0)}%</span><b>${fmtUSD(d.iva)}</b></div>`:""}<div class="kv big"><span>Total</span><b>${fmtUSD(d.total)}</b></div>${+Q.rate>0?`<div class="kv"><span>En bolívares (${fmtNum(Q.rate)} Bs/$)</span><b>${fmtBs(d.total*Q.rate)}</b></div>`:""}</div>
-  <p class="note">Tu ganancia: ${fmtUSD(d.gain)} en materiales más ${fmtUSD(d.labor)} de mano de obra. El cliente no ve la columna de costo. Los precios sugeridos son referenciales: ajústalos a lo que pagas en tu proveedor y quedan guardados para los próximos presupuestos.</p>
-  <div class="row-btns"><button class="btn primary" id="qz-pdf">PDF completo</button><button class="btn" id="qz-img">Imagen del presupuesto</button><button class="btn" id="qz-co">Datos de tu empresa</button><button class="btn" id="qz-copy">Copiar como texto</button>${Object.keys(Q.over).length?`<button class="btn" id="qz-reset">Volver a precios sugeridos</button>`:""}</div>`
+  <p class="note">Tu ganancia: ${fmtUSD(d.gain)} en materiales más ${fmtUSD(d.labor)} de mano de obra. El cliente no ve la columna de costo. Los precios sugeridos son referenciales: ajústalos a lo que pagas en tu proveedor. Los que edites se guardan en este navegador y se usan en todos tus proyectos.</p>
+  <label class="field wide"><span>WhatsApp del cliente</span><input class="txt" id="qz-phone" type="tel" inputmode="tel" value="${esc(S.project.phone||"")}" placeholder="0412 123 4567"></label>
+  <div class="row-btns"><button class="btn wa" id="qz-wa">Enviar por WhatsApp</button><button class="btn primary" id="qz-pdf">PDF completo</button><button class="btn" id="qz-img">Imagen del presupuesto</button><button class="btn" id="qz-co">Datos de tu empresa</button><button class="btn" id="qz-copy">Copiar como texto</button>${Object.keys(Q.over).length||Object.keys(myPrices()).length?`<button class="btn" id="qz-reset">Volver a precios sugeridos</button>`:""}</div>`
   :`<p class="note">Agrega componentes al tablero para armar el presupuesto.</p>`}`;
   ["margin","per","board","ext","point","cableM","valid","rate","iva"].forEach(k=>{const el=$("qz-"+k);if(el)el.addEventListener("change",()=>mutate(()=>{S.quote[k]=Math.max(0,+el.value||0)}))});
   $("qz-ivaOn").addEventListener("change",e=>mutate(()=>{S.quote.ivaOn=e.target.checked}));
-  $("paneB").querySelectorAll("input[data-key]").forEach(el=>el.addEventListener("change",()=>{const e=d.mat[+el.dataset.key];mutate(()=>{if(el.value===""||+el.value===e.def)delete S.quote.over[e.desc];else S.quote.over[e.desc]=Math.max(0,+el.value)})}));
+  $("paneB").querySelectorAll("input[data-key]").forEach(el=>el.addEventListener("change",()=>{const e=d.mat[+el.dataset.key];setMyPrice(e.desc,e.def,el.value)}));
+  const bw=$("qz-wa");if(bw)bw.onclick=waDialog;const pe=$("qz-phone");if(pe)pe.addEventListener("change",()=>mutate(()=>{S.project.phone=pe.value.trim()}));
   const bi=$("qz-img");if(bi)bi.onclick=quoteImage;const bp=$("qz-pdf");if(bp)bp.onclick=pdfDialog;const bq=$("qz-co");if(bq)bq.onclick=()=>companyDialog();
   const bc=$("qz-copy");if(bc)bc.onclick=()=>copyText(quoteText(d),"Presupuesto copiado al portapapeles");
-  const br=$("qz-reset");if(br)br.onclick=()=>mutate(()=>{S.quote.over={}})}
+  const br=$("qz-reset");if(br)br.onclick=resetPricesDialog}
 function quoteText(d){const P=S.project,Q=S.quote,L=[`PRESUPUESTO — ${P.name}`,`Cliente: ${P.client||"—"}`,`Fecha: ${P.date} · Válido por ${Q.valid} días · Precios en USD`,"","MATERIALES Y EQUIPOS"];
   d.mat.forEach(e=>L.push(`${fmtQ(e.q)}${e.u?" "+e.u:""} × ${e.desc} — ${fmtUSD(e.unit)} c/u = ${fmtUSD(e.total)}`));
   if(d.lab.length){L.push("","MANO DE OBRA");d.lab.forEach(l=>L.push(`${l.q} × ${l.desc} — ${fmtUSD(l.unit)} = ${fmtUSD(l.total)}`))}
   L.push("",`Materiales y equipos: ${fmtUSD(d.matSale)}`,`Mano de obra: ${fmtUSD(d.labor)}`);if(Q.ivaOn)L.push(`IVA ${Q.iva}%: ${fmtUSD(d.iva)}`);L.push(`TOTAL: ${fmtUSD(d.total)}`);
   if(+Q.rate>0)L.push(`Equivalente: ${fmtBs(d.total*Q.rate)} (tasa ${fmtNum(Q.rate)} Bs/$)`);if(P.author)L.push("",`Elaborado por: ${P.author}`);return L.join("\n")}
-function quoteImage(){const d=quoteData(),Q=S.quote,P=S.project,W=820,D=dims(),F={ff:SANS};let y,s="";
+function quoteImage(){const q=quoteImageSvg();showPng(q.svg,q.W,q.H,"Imagen del presupuesto",`Lista para enviar por WhatsApp. Haz clic derecho sobre la imagen y elige "Guardar imagen como…" (en el teléfono, mantenla presionada).`)}
+function quoteImageSvg(){const d=quoteData(),Q=S.quote,P=S.project,W=820,D=dims(),F={ff:SANS};let y,s="";
   const t=(x,yy,v,o)=>T(x,yy,v,Object.assign({ff:SANS,fw:400,c:"#1d2326",a:"start"},o));
   const co=getCompany(),lgw=co.logo?Math.min(130,64*((co.logoW||1)/(co.logoH||1))):0,tx0=32+(co.logo?lgw+24:0);
   s+=R(0,0,W,100,"#1d2326")+(co.logo?R(26,14,lgw+12,72,"#ffffff",{rx:6})+`<image href="${co.logo}" x="32" y="18" width="${lgw}" height="64" preserveAspectRatio="xMidYMid meet"/>`:"")+t(tx0,48,"PRESUPUESTO",{fs:28,fw:700,c:"#fff"})+t(tx0,76,cutText(P.name,52),{fs:13,c:"#d6dde0"});
@@ -192,7 +195,7 @@ function quoteImage(){const d=quoteData(),Q=S.quote,P=S.project,W=820,D=dims(),F
   y+=18;s+=R(32,y,W-64,.8,"#d3d8d4");y+=22;
   s+=t(32,y,"Condiciones: precios en dólares estadounidenses, sujetos a disponibilidad. Incluye los materiales y la mano de obra indicados.",{fs:8.5,c:"#5b6266"});y+=15;
   s+=t(32,y,"Los cálculos de carga son referenciales y no sustituyen el cálculo según el Código Eléctrico Nacional (CEN).",{fs:8.5,c:"#5b6266"});y+=28;
-  showPng(s,W,y,"Imagen del presupuesto",`Lista para enviar por WhatsApp. Haz clic derecho sobre la imagen y elige "Guardar imagen como…" (en el teléfono, mantenla presionada).`)}
+  return{svg:s,W,H:y}}
 function renderTools(){const lc=S.kind==="lc";$("projName").textContent=S.project.name+(S.project.client?" · "+S.project.client:"");$("kind").value=S.kind;$("lcTools").hidden=!lc;$("dinTools").hidden=lc;
   if(lc){$("usage").textContent=`${S.lc.items.reduce((a,x)=>a+x.p.poles,0)} / ${S.lc.spaces} esp.`;$("spaces").value=S.lc.spaces;$("sys").value=S.lc.sys;$("main").value=S.lc.main}
   else{const used=S.items.reduce((a,i)=>a+units(i),0);$("usage").textContent=`${fmtM(used/2)} / ${S.board.rows*S.board.mods} mód`;$("rows").value=S.board.rows;$("sysD").value=S.lc.sys;$("mods").value=S.board.mods;$("style").value=S.board.style}
