@@ -1,0 +1,21 @@
+# Publica la carpeta app/ en la rama gh-pages (GitHub Pages) cada vez que cambia en main.
+name: Publicar app en GitHub Pages
+on:
+  push:
+    branches: [main]
+    paths: ["app/**"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: touch app/.nojekyll
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./app
+          publish_branch: gh-pages
+          commit_message: "Publicar la app"
