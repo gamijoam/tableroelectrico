@@ -1,0 +1,18 @@
+{
+  "name": "Taller de Tableros",
+  "short_name": "Tableros",
+  "description": "Diseña, cablea, prueba y cotiza tableros eléctricos: cajas de breakers y riel DIN con simulador, calculadora y PDF.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#e9ece9",
+  "theme_color": "#1c5fa8",
+  "categories": ["productivity", "utilities", "education"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
