@@ -20,6 +20,8 @@ const devPrice=(d,p)=>typeof d.price==="function"?d.price(Object.assign({},d.d,p
 const devQn=(d,p)=>typeof d.qn==="function"?d.qn(Object.assign({},d.d,p)):d.qn;
 const DEV={
  panel:{n:"Tablero",short:"Tablero",std:1.6},
+ supply:{n:"Acometida (entrada de líneas)",short:"Acometida",w:132,h:96,terms:[["L1","F","L1"],["L2","F","L2"],["L3","F","L3"],["N","N","N"],["T","T","T"]],d:{},std:2.15,
+  tip:"Es la llegada de la compañía eléctrica. Lleva L1, L2 (y L3) a la entrada del principal, el neutro a la barra N y la tierra a la barra T. Con la acometida en la pared, el tablero solo tiene corriente si su entrada está cableada."},
  feed:{n:"Llegada de circuito",short:"Llegada",qn:"Caja de paso 4×4 con tapa",w:64,h:64,terms:[["F1","F","F1"],["F2","F","F2"],["N","N","N"],["T","T","T"]],d:{brk:null},price:3,std:2.1,
   tip:"Representa los cables que vienen del tablero por la tubería. Úsala en las paredes donde no está el tablero."},
  toma:{n:"Tomacorriente doble 120 V",short:"Toma 120 V",qn:"Tomacorriente doble 15 A 120 V con caja",w:46,h:76,V:120,terms:[["F","F","F"],["N","N","N"],["T","T","T"]],d:{carga:"Televisor"},f:[["carga","Aparato enchufado",Object.keys(APPL120)]],W:p=>APPL120[p.carga]||0,price:4.5,std:.3},
@@ -43,7 +45,7 @@ const DEV={
  heater:{n:"Calentador de agua",short:"Calentador",w:76,h:130,V:240,terms:T3,d:{W:4500},f:[["W","Potencia (W)",[3000,4500,5500]]],W:p=>p.W,std:1.6},
  pump:{n:"Bomba de agua 240 V",short:"Bomba",w:100,h:66,V:240,terms:T3,d:{hp:"1 HP"},f:[["hp","Potencia",["1/2 HP","1 HP","2 HP"]]],W:p=>({"1/2 HP":600,"1 HP":1100,"2 HP":2100})[p.hp],std:.25},
 };
-const LIB_WALL=[["Alimentación",["panel","feed"]],["Protección y respaldo",["estabw","protw","upsw","invw"]],["Puntos eléctricos",["toma","toma240","inter","inter3","luz"]],["Aparatos para probar",["ac","heater","pump"]]];
+const LIB_WALL=[["Alimentación",["panel","supply","feed"]],["Protección y respaldo",["estabw","protw","upsw","invw"]],["Puntos eléctricos",["toma","toma240","inter","inter3","luz"]],["Aparatos para probar",["ac","heater","pump"]]];
 const WALL_DEFS=`<pattern id="pBlk" width="88" height="44" patternUnits="userSpaceOnUse"><rect width="88" height="44" fill="#b9b6ae"/><path d="M0 0.5H88M0 22.5H88M0.5 0V22M44.5 22V44" stroke="#9a978f" stroke-width="2"/></pattern>
 <pattern id="pTile" width="66" height="66" patternUnits="userSpaceOnUse"><rect width="66" height="66" fill="#f3f4f1"/><path d="M0 0.5H66M0.5 0V66" stroke="#cfd3d0" stroke-width="1.5"/></pattern>
 <radialGradient id="gGlow"><stop offset="0" stop-color="#fff3b0" stop-opacity=".95"/><stop offset=".5" stop-color="#ffd84d" stop-opacity=".35"/><stop offset="1" stop-color="#ffd84d" stop-opacity="0"/></radialGradient>`;
@@ -70,16 +72,18 @@ function itemTerms(it,wl=S.wall){const [cx,cy]=toPx(it.x,it.y,wl),out=[];
     g.N.forEach((q,k)=>out.push({id:`${it.id}/N${k}`,key:"N"+k,role:"N",bar:true,x:q.x,y:q.y,label:""}));
     g.G.forEach((q,k)=>out.push({id:`${it.id}/G${k}`,key:"G"+k,role:"T",bar:true,x:q.x,y:q.y,label:""}));
     g.X.forEach(x=>out.push({id:`${it.id}/X${x.id}`,key:"X"+x.id,role:bornRole(x.color),born:x,x:x.x,y:x.y,label:""}));
+    g.M.forEach((q,k)=>out.push({id:`${it.id}/M${k}`,key:"M"+k,role:"F",mainIn:k,x:q.x,y:q.y,label:""}));
+    for(const sr of g.srcs)for(const t of sr.top||[])out.push({id:`${it.id}/t${sr.id}.${t.k}`,key:`t${sr.id}.${t.k}`,role:"F",lineOf:sr.id,pole:t.k,x:t.x,y:t.y,label:""});
     return out}
-  const d=DEV[it.type],n=d.terms.length,sp=18;
-  d.terms.forEach(([key,role,label],i)=>out.push({id:`${it.id}/${key}`,key,role,label,src:it.type==="feed"&&role==="F",x:cx+(i-(n-1)/2)*sp,y:cy+d.h/2+11}));return out}
+  const d=DEV[it.type],tl=it.type==="supply"&&S.lc.sys!=="3F"?d.terms.filter(t=>t[0]!=="L3"):d.terms,n=tl.length,sp=18;
+  tl.forEach(([key,role,label],i)=>out.push({id:`${it.id}/${key}`,key,role,label,src:(it.type==="feed"||it.type==="supply")&&role==="F",x:cx+(i-(n-1)/2)*sp,y:cy+d.h/2+11}));return out}
 function allTerms(wl=S.wall){const m=new Map();for(const it of wl.items)for(const t of itemTerms(it,wl))m.set(t.id,Object.assign(t,{item:it}));return m}
-function termName(t){if(!t)return"?";const it=t.item;if(it.type==="panel"){if(t.srcId!=null){const sr=srcById(t.srcId);return sr?`Tablero ${sr.short}${sr.poles>1?" polo "+(t.pole+1):""}`:"Tablero"}if(t.born)return`Bornera ${t.born.des}`;return t.role==="N"?"Barra de neutro":"Barra de tierra"}return`${devLabel(it)} (${t.label})`}
+function termName(t){if(!t)return"?";const it=t.item;if(it.type==="panel"){if(t.srcId!=null){const sr=srcById(t.srcId);return sr?`Tablero ${sr.short}${sr.poles>1?" polo "+(t.pole+1):""}`:"Tablero"}if(t.born)return`Bornera ${t.born.des}`;if(t.mainIn!=null)return`Entrada del principal L${t.mainIn+1}`;if(t.lineOf!=null){const sr=srcById(t.lineOf);return`Entrada de ${sr?sr.short:"la protección"}${sr&&sr.poles>1?" polo "+(t.pole+1):""}`}return t.role==="N"?"Barra de neutro":"Barra de tierra"}return`${devLabel(it)} (${t.label})`}
 function wireEnds(w,terms){return`${termName(terms.get(w.a))} → ${termName(terms.get(w.b))}`}
 function wirePath(w,i,terms,wl=S.wall){const r=routesFor(wl,terms).get(w.id);if(r)return r;const a=terms.get(w.a),b=terms.get(w.b),ym=(a.y+b.y)/2;return pathFrom([[a.x,a.y],[a.x,ym],[b.x,ym],[b.x,b.y]])}
 function wallWireMeters(wl=S.wall){const terms=allTerms(wl),m=new Map();wl.wires.forEach((w,i)=>{if(!terms.has(w.a)||!terms.has(w.b))return;const k=w.awg+"|"+w.color;m.set(k,(m.get(k)||0)+wirePath(w,i,terms,wl).len/WK)});return m}
 const tubeMeters=(wl=S.wall)=>Object.values(tubeBySize(wl)).reduce((a,b)=>a+b,0);
-function autoColor(ta,tb){const r=[ta.role,tb.role];if(r.includes("T"))return"Verde";if(r.includes("N"))return"Blanco";
+function autoColor(ta,tb){const sp=[ta,tb].find(t=>t.item&&t.item.type==="supply"&&t.role==="F");if(sp)return{L1:"Negro",L2:"Rojo",L3:"Azul"}[sp.key]||"Negro";const r=[ta.role,tb.role];if(r.includes("T"))return"Verde";if(r.includes("N"))return"Blanco";
   if(ta.role==="S"&&tb.role==="S")return"Amarillo";if(r.includes("S"))return(ta.src||tb.src)?"Negro":"Rojo";return"Negro"}
 
 /* ---------- device drawings (origin = center) ---------- */
@@ -92,6 +96,8 @@ function drawDev(type,p,st){const on=st&&(st.s==="on"||st.s==="weak"),burnt=st&&
     if(p.carga&&p.carga!=="Nada")s+=R(-15,-21,30,30,"#2b2e31",{rx:6})+`<path d="M15 -6 q24 0 26 40" fill="none" stroke="#2b2e31" stroke-width="4"/>`;break}
   case"inter":case"inter3":{const up=type==="inter"?p.on:p.pos!==2;s=R(-22,-36,44,72,"#f7f7f3",{rx:6,s:"#b9bab4"})+R(-12,-23,24,46,"#e9e9e4",{rx:4,s:"#c4c5bf"})+R(-9,-20,18,40,"#fbfbf8",{rx:3,s:"#c9cac4"})+R(-9,up?-20:0,18,20,"#dcdcd6",{rx:3});
     s+=type==="inter"?T(0,up?-26:31,up?"ON":"OFF",{fs:6.5,c:"#6a6f72"}):T(0,up?-26:31,"3V · "+(up?"1":"2"),{fs:6.5,c:"#6a6f72"});break}
+  case"supply":{const tri=S.lc.sys==="3F";s=R(-66,-48,132,96,"#a7aeb2",{rx:5,s:"#5f676c",sw:1.5})+R(-58,-40,116,80,"#c3c9cc",{rx:3,s:"#7d858a"})+T(0,-26,"ACOMETIDA",{fs:9,ff:SANS,fw:700,c:"#1d2326"})+R(-30,-18,60,22,"#a9bb94",{rx:2,s:"#6f7d61"})+T(0,-3,"kWh",{fs:9,c:"#1c2615"});
+    s+=T(0,18,tri?"208Y/120 V · 3F 4 hilos":"120/240 V · 1F 3 hilos",{fs:7,fw:400,c:"#1d2326"})+T(0,30,"60 Hz",{fs:7,fw:400,c:"#3a4044"});if(st&&st.s==="off")s+=R(-66,-48,132,96,"#2b1d10",{rx:5,op:.35});break}
   case"feed":{s=R(-32,-32,64,64,"#9aa1a6",{rx:4,s:"#6d757a"})+R(-26,-26,52,52,"#b9bfc2",{rx:3,s:"#868e92"});for(const [x,y] of [[-20,-20],[20,-20],[-20,20],[20,20]])s+=screw(x,y,3.5);
     const b=srcById(p.brk);s+=T(0,0,b?cutText(b.short,6):"—",{fs:11,c:"#1d2326"})+T(0,12,b?b.In+" A":"elige",{fs:6.5,fw:400,c:"#2a2e31"});break}
   case"estabw":case"upsw":case"invw":{const d=DEV[type],e=EXT[d.ext],ep=Object.assign({},e.d,p,{sys:"Monofásico 120V",kind:"Interactiva",on:st?["on","bat","idle"].includes(st.s):p.on!==false});
@@ -146,6 +152,7 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
   const PI=W.items.find(i=>i.type==="panel"),PG=PI?panelGeom(PI):null;
   if(PG){for(const sr of PG.srcs){const b=sr.body;if(simState.trip.has(sr.id))s+=R(b.x-1,b.y-1,b.w+2,b.h+2,"none",{rx:3,s:"#e0302a",sw:2.5});
       if(!forExport){const src=srcById(sr.id);s+=`<rect class="wb" data-brk="${sr.id}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="#000" fill-opacity="0"${sel===sr.id?` stroke="#1c74e0" stroke-width="2.5" rx="3"`:""}><title>${esc(src?src.short:"")}: toca para seleccionar, arrastra para sacar un cable</title></rect>`}}
+    if(PG.main&&simState.trip.has("main")){const m=PG.main;s+=R(m.x-1,m.y-1,m.w+2,m.h+2,"none",{rx:4,s:"#e0302a",sw:2.5})}
     if(!forExport&&PG.main){const m=PG.main;s+=`<rect class="wm" x="${m.x}" y="${m.y}" width="${m.w}" height="${m.h}" fill="#000" fill-opacity="0"><title>Principal: clic para encender o apagar</title></rect>`}}
   /* wires */
   for(const [w,i] of valid){const p=wirePath(w,i,terms),sw=AWG_W[w.awg]||3.6,col=WCOL[w.color]||"#1f2224",bad=res&&res.wireMsg[w.id],moving=reconn&&reconn.id===w.id;
@@ -208,13 +215,17 @@ function devThumb(type){if(type==="panel"){if(!isDin())return`<svg viewBox="0 0 
 function renderWallLib(){const q=$("q").value.trim().toLowerCase();let h="";$("libTitle").textContent="Para la pared";$("q").placeholder="Buscar: toma, tres vías, bomba…";
   LIB_WALL.forEach(([cat,list])=>{const items=list.filter(t=>!q||(DEV[t].n+" "+cat).toLowerCase().includes(q));if(!items.length)return;
     h+=`<div class="cat">${esc(cat)}</div><div class="lib-grid">`+items.map(t=>{const d=DEV[t],here=S.walls.findIndex(w=>w.items.some(i=>i.type==="panel"));
-      const meta=t==="panel"?(here>=0?`Está en ${S.walls[here].name}`:(isDin()?"Tu tablero de riel":"Tu caja de breakers")):t==="feed"?"Viene del tablero":d.price?"$ "+fmtNum(devPrice(d,{}),0)+" · "+fmtNum(d.std,2)+" m":"Aparato · "+d.V+" V";
-      return`<div class="li${t==="ac"?" wide":""}" tabindex="0" role="button" data-lib="w${t}">${devThumb(t)}<b>${esc(d.n)}</b><span>${meta}</span>${["inter3","feed","estabw","protw","upsw","invw"].includes(t)?`<span class="tag-new">Nuevo</span>`:""}</div>`}).join("")+`</div>`});
+      const meta=t==="panel"?(here>=0?`Está en ${S.walls[here].name}`:(isDin()?"Tu tablero de riel":"Tu caja de breakers")):t==="feed"?"Viene del tablero":t==="supply"?"L1, L2, L3, N y T":d.price?"$ "+fmtNum(devPrice(d,{}),0)+" · "+fmtNum(d.std,2)+" m":"Aparato · "+d.V+" V";
+      return`<div class="li${t==="ac"?" wide":""}" tabindex="0" role="button" data-lib="w${t}">${devThumb(t)}<b>${esc(d.n)}</b><span>${meta}</span>${["supply","inter3","feed","estabw","protw","upsw","invw"].includes(t)?`<span class="tag-new">Nuevo</span>`:""}</div>`}).join("")+`</div>`});
   $("libList").innerHTML=h||`<p class="note" style="padding:8px 4px">Nada coincide con "${esc(q)}".</p>`;libChips()}
 function addWallItem(type,at){if(type==="panel"){const i=S.walls.findIndex(w=>w.items.some(x=>x.type==="panel"));if(i>=0){toast(i===S.wallI?"El tablero ya está en esta pared. Arrástralo para moverlo.":`El tablero está en ${S.walls[i].name}. En esta pared usa una "Llegada de circuito".`);return}}
+  if(type==="supply"&&S.wall.items.some(i=>i.type==="supply")){toast("Esta pared ya tiene una acometida.");return}
   const d=DEV[type],y=at?at[1]:d.std;let x=at?at[0]:null;
-  if(x==null){x=.6;for(let c=.6;c<S.wall.w-.4;c+=.3){if(!S.wall.items.some(i=>Math.abs(i.x-c)<.45&&Math.abs(i.y-y)<.5)){x=c;break}}}
-  const it={id:uid++,type,x:+x.toFixed(2),y:+y.toFixed(2),p:Object.assign({},d.d||{},{name:""})};if(type==="feed"){const f0=srcList()[0];it.p.brk=f0?f0.id:null}clampItem(it);
+  /* busca un lugar libre según el tamaño real de cada elemento (primero a la altura estándar, luego un poco más arriba o abajo) */
+  let yy=y;if(x==null){const me=itemSize({type,x:0,y:0,p:d.d||{}}),hw=me.w/2/WK+.08,hh=me.h/2/WK+.08,free=(cx,cy)=>S.wall.items.every(i=>{const o=itemSize(i),ow=o.w/2/WK,oh=o.h/2/WK;return Math.abs(i.x-cx)>=hw+ow||Math.abs(i.y-cy)>=hh+oh});
+    outer:for(const dy of [0,.35,-.35,.7,-.7]){const cy=y+dy;if(cy-hh<0||cy+hh>S.wall.h)continue;for(let c=hw;c<=S.wall.w-hw;c+=.05)if(free(c,cy)){x=c;yy=cy;break outer}}
+    if(x==null)x=.6}
+  const it={id:uid++,type,x:+x.toFixed(2),y:+yy.toFixed(2),p:Object.assign({},d.d||{},{name:""})};if(type==="feed"){const f0=srcList()[0];it.p.brk=f0?f0.id:null}clampItem(it);
   mutate(()=>{S.wall.items.push(it)});sel=it.id;renderAll()}
 function clampItem(it){const {w,h}=itemSize(it),hw=w/2/WK,hh=h/2/WK;it.x=Math.round(Math.max(hw,Math.min(S.wall.w-hw,it.x))*20)/20;it.y=Math.round(Math.max(hh,Math.min(S.wall.h-hh,it.y))*20)/20}
 
@@ -242,6 +253,8 @@ function renderPropsWall(){const bs=srcById(sel);
     if(it.type==="panel")P.innerHTML=`<div><h2>Tablero</h2><div class="meta">Centro a ${fmtM2(it.y)} del piso · ${S.lc.spaces} espacios</div></div>
       <div class="row-btns"><button class="btn primary" id="pp-edit">Poner o quitar breakers</button></div>
       <p class="note">${isDin()?"Es tu tablero de riel DIN. Las protecciones se ponen y cambian en la vista Tablero. Los cables salen del tornillo inferior de cada termomagnético, diferencial, seccionador o guardamotor; abajo están la barra de neutro y la de tierra (las borneras blancas o azules cuentan como neutro, las verdes como tierra). Además":"Es tu caja de breakers. Los breakers se ponen, quitan y cambian en la vista Tablero. Los cables se conectan al tornillo de cada breaker, a la barra de neutro (izquierda) y a"} la barra de tierra (derecha).</p>
+      <h3>Entrada de las líneas</h3><p class="note">${wiredMode()?`Hay una acometida en esta pared: el tablero solo tiene corriente si su entrada está cableada. ${isDin()?"Lleva L1, L2 (y L3) a la entrada (tornillos de arriba) del seccionador o de la primera protección":"Lleva L1, L2 (y L3) a la entrada del principal"}, el neutro a la barra N y la tierra a la barra T.`:"Alimentación automática: cada protección ya tiene fase. Para cablear la entrada de las líneas, agrega una Acometida desde la biblioteca (Alimentación)."}</p>
+      ${isDin()?`<label class="switch"><input type="checkbox" id="pp-peine"${it.p.peine!==false?" checked":""}> Peine: une las entradas de todas las protecciones a la salida del seccionador (o de la primera protección)</label>`:""}
       ${posFields(it)}<div class="row-btns"><button class="btn danger" id="pp-del">Quitar de la pared</button></div>${sim}`;
     else P.innerHTML=`<div><h2>${esc(d.n)}</h2><div class="meta">${d.V?d.V+" V · ":""}${d.price?"$ "+fmtNum(devPrice(d,it.p))+" en el presupuesto":"Aparato del cliente"}</div></div>
       <div class="fields"><label class="field wide"><span>Nombre</span><input class="txt" id="pp-name" value="${esc(it.p.name)}" placeholder="${esc(d.short)}"></label>
@@ -250,7 +263,7 @@ function renderPropsWall(){const bs=srcById(sel);
       ${it.type==="inter"?`<label class="switch"><input type="checkbox" id="pp-on"${it.p.on?" checked":""}> Encendido</label>`:""}
       ${d.tip?`<p class="note">${esc(d.tip)}</p>`:""}
       ${posFields(it)}<div class="row-btns"><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>${sim}`;
-    const pe=$("pp-edit");if(pe)pe.onclick=()=>setView("board");
+    const pe=$("pp-edit");if(pe)pe.onclick=()=>setView("board");const pg=$("pp-peine");if(pg)pg.onchange=e=>mutate(()=>{it.p.peine=e.target.checked});
     const nm=$("pp-name");if(nm)nm.onchange=e=>mutate(()=>{it.p.name=e.target.value});
     const pb=$("pp-brk");if(pb)pb.onchange=e=>mutate(()=>{it.p.brk=+e.target.value});
     (d.f||[]).forEach(([k,,o])=>{$("pp-"+k).onchange=e=>{const v=typeof o[0]==="number"?Number(e.target.value):e.target.value;mutate(()=>{it.p[k]=v})}});
@@ -288,10 +301,14 @@ function applyReconn(tid){const w=S.wall.wires.find(x=>x.id===reconn.id),end=rec
   const other=w[end==="a"?"b":"a"];if(!linkOk(tid,other,allTerms(),w.id)){renderAll();return}
   mutate(()=>{w[end]=tid});sel=w.id;toast("Extremo del cable movido.")}
 /* Tornillo del breaker más cercano al punto tocado */
+/* Tornillo de entrada (arriba) de una protección del riel, el más cercano en horizontal */
+function brkTopTerm(b,e){const P=S.wall.items.find(i=>i.type==="panel");if(!P)return null;const q=toWall(e);let best=null,d=1e9;
+  for(const t of itemTerms(P))if(t.lineOf===b.id){const dx=Math.abs(t.x-q.x);if(dx<d){d=dx;best=t.id}}return best}
 function brkTerm(b,e){const P=S.wall.items.find(i=>i.type==="panel");if(!P)return null;const q=toWall(e);let best=null,d=1e9;
   for(const t of itemTerms(P))if(t.srcId===b.id){const dy=Math.abs(t.y-q.y);if(dy<d){d=dy;best=t.id}}return best}
 /* Al soltar un cable sobre un aparato: elige el terminal que corresponde según lo que viene */
 function pickTerm(it,fromId,py){const terms=allTerms(),from=terms.get(fromId);if(!from)return null;
+  if(it.type==="panel"&&from.item.type==="supply"&&from.role==="F"){const j=["L1","L2","L3"].indexOf(from.key),M=itemTerms(it).filter(t=>t.mainIn!=null);if(M.length)return(M[j]||M[0]).id;return null}
   if(it.type==="panel"){const role=from.role==="N"?"N":from.role==="T"?"T":null;if(!role)return null;let best=null,d=1e9;
     for(const t of itemTerms(it))if(t.role===role&&t.srcId==null){const dy=Math.abs(t.y-(py??t.y));if(dy<d){d=dy;best=t.id}}return best}
   const mine=itemTerms(it).filter(t=>t.id!==fromId),used=id=>S.wall.wires.some(w=>w.a===id||w.b===id);
@@ -300,7 +317,8 @@ function pickTerm(it,fromId,py){const terms=allTerms(),from=terms.get(fromId);if
   return(ok.find(t=>!used(t.id))||ok[0]||{}).id||null}
 function finishWireAt(x,y){const el=document.elementFromPoint(x,y);if(!el||!el.closest)return false;
   const t=el.closest(".wt");if(t){terminalClick(t.dataset.t);return true}
-  const wb=el.closest(".wb");if(wb){const b=srcById(+wb.dataset.brk),id=b&&brkTerm(b,{clientX:x,clientY:y});if(id){terminalClick(id);return true}}
+  const wb=el.closest(".wb");if(wb){const b=srcById(+wb.dataset.brk),from=allTerms().get(pending),toTop=from&&(from.item.type==="supply"||from.srcId!=null||from.lineOf!=null),id=b&&(toTop&&brkTopTerm(b,{clientX:x,clientY:y})||brkTerm(b,{clientX:x,clientY:y}));if(id){terminalClick(id);return true}}
+  const wm=el.closest(".wm");if(wm){const P=S.wall.items.find(i=>i.type==="panel"),id=P&&pickTerm(P,pending,toWall({clientX:x,clientY:y}).y);if(id){terminalClick(id);return true}}
   const wi=el.closest(".wi");if(wi){const it=S.wall.items.find(i=>i.id===+wi.dataset.id),id=it&&pickTerm(it,pending,toWall({clientX:x,clientY:y}).y);if(id){terminalClick(id);return true}}
   return false}
 function terminalClick(id){if(reconn){applyReconn(id);return}const terms=allTerms();if(!pending){pending=id;sel=null;renderAll();return}
@@ -317,7 +335,7 @@ wallEl.addEventListener("pointerdown",e=>{if(wallMode==="tube"&&!simState.runnin
   const wb=e.target.closest(".wb");if(wb){const b=srcById(+wb.dataset.brk),id=b&&brkTerm(b,e);if(!id)return;
     if(pending&&pending!==id){terminalClick(id);return}
     pending=null;terminalClick(id);wireDrag={sx:e.clientX,sy:e.clientY,moved:false,brk:b.id};return}
-  if(e.target.closest(".wm")){mutate(()=>{S.lc.mainOn=S.lc.mainOn===false});return}
+  if(e.target.closest(".wm")){if(pending){finishWireAt(e.clientX,e.clientY);return}if(simState.trip.has("main")){simState.trip.delete("main");simState.log.unshift({lvl:"ok",msg:"Rearmaste el principal."});runSim();renderAll();return}mutate(()=>{S.lc.mainOn=S.lc.mainOn===false});return}
   const ww=e.target.closest(".ww");if(ww){sel=+ww.dataset.id;pending=null;reconn=null;renderAll();return}
   const wi=e.target.closest(".wi");if(wi){const it=S.wall.items.find(i=>i.id===+wi.dataset.id);if(!it)return;
     if(pending&&!simState.running){const id=pickTerm(it,pending,toWall(e).y);if(id){terminalClick(id);return}}

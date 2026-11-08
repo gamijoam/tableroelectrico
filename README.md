@@ -37,6 +37,8 @@ Cada cable une dos terminales; los terminales unidos forman una red. Una red pue
 fase (desde un breaker cerrado), neutro o tierra. Con eso detecta:
 
 - Interruptores sencillos y de tres vías (escalera); llegadas de circuito en paredes sin tablero.
+- Acometida opcional: con ella la corriente entra cableada (L1, L2, L3, N, T) a la entrada del principal o del riel
+  (con peine opcional) y recorre cada protección; un corto antes de las protecciones quema los fusibles de la compañía.
 - Estabilizador, protector enchufable, UPS e inversor en línea; con "Simular apagón" los que tienen batería siguen alimentando su salida.
 - Cortocircuito fase-neutro, fase-tierra y fase-fase: dispara el breaker.
 - Sobrecarga por polo: avisa y dispara a los segundos.

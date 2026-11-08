@@ -11,6 +11,9 @@
 const DIN_SRC={mcb:p=>p.poles,rcd:p=>p.poles,sw:p=>p.poles,mpcb:()=>3};
 const dinIn=it=>it.type==="mpcb"?Math.ceil(parseFloat(String(it.p.range).split("–")[1])||10):it.p.In;
 const isDin=()=>S.kind==="din";
+/* Con una acometida en la pared, la fase entra cableada: L1, L2, L3, N y T */
+const supplyOf=(wl=S.wall)=>wl.items.find(i=>i.type==="supply");
+const wiredMode=(wl=S.wall)=>!!supplyOf(wl);
 const bornRole=c=>c==="Blanco"||c==="Azul"?"N":c==="Verde"||c==="Verde/amarillo"?"T":"F";
 
 /* Protecciones que alimentan circuitos. En el riel, las fases se reparten en orden de polos (como un peine) */
@@ -31,14 +34,15 @@ function panelGeom(it,wl=S.wall){const [cx,cy]=toPx(it.x,it.y,wl);
       handle:{x:x0+(b.side==="L"?XL+BW-76:XR+22)*s,y:y0+(LY0+b.slot*SL+7)*s,w:54*s,h:(b.p.poles*SL-14)*s},
       terms:[...Array(b.p.poles)].map((_,k)=>({k,x:x0+(b.side==="L"?XL+17:XR+BW-17)*s,y:y0+(LY0+(b.slot+k)*SL+SL/2)*s}))}});
     const N=[],G=[];for(let r=0;r<lcRows();r++){const y=y0+(LY0+r*SL+SL/2)*s;N.push({x:x0+(LPAD+17)*s,y});G.push({x:x0+(PW-LPAD-17)*s,y})}
-    return{din:false,cx,cy,w,h,s,x0,y0,srcs,N,G,X:[],main:S.lc.main?{x:x0+(CX-104)*s,y:y0+52*s,w:208*s,h:94*s}:null}}
+    const nph=PH().length,M=[...Array(nph)].map((_,k)=>S.lc.main?{x:x0+(CX-92+k*184/(nph-1))*s,y:y0+93*s}:{x:x0+(CX-60+k*(nph===3?60:120))*s,y:y0+86*s});
+    return{din:false,cx,cy,w,h,s,x0,y0,srcs,N,G,X:[],M,main:S.lc.main?{x:x0+(CX-104)*s,y:y0+52*s,w:208*s,h:94*s}:null}}
   const D=dims(),s=PANEL_W/D.W,w=PANEL_W,hb=D.encH*s,h=hb+46,x0=cx-w/2,y0=cy-h/2,srcs=[],X=[];
   for(const d of S.items){const u=units(d),dx=x0+(SIDE+d.x*U)*s,dy=y0+(TOP+d.row*ROW_H+COMP_Y)*s,dw=u*U*s;
     if(DIN_SRC[d.type]){const poles=DIN_SRC[d.type](d.p);
-      srcs.push({id:d.id,body:{x:dx,y:dy,w:dw,h:CH*s},handle:{x:dx,y:dy+40*s,w:dw,h:62*s},terms:[...Array(poles)].map((_,k)=>({k,x:dx+(k+.5)*dw/poles,y:dy+153*s}))})}
+      srcs.push({id:d.id,body:{x:dx,y:dy,w:dw,h:CH*s},handle:{x:dx,y:dy+40*s,w:dw,h:62*s},terms:[...Array(poles)].map((_,k)=>({k,x:dx+(k+.5)*dw/poles,y:dy+153*s})),top:[...Array(poles)].map((_,k)=>({k,x:dx+(k+.5)*dw/poles,y:dy+19*s}))})}
     else if(d.type==="term")X.push({id:d.id,color:d.p.color,des:d.p.des||"",x:dx+dw/2,y:dy+139*s})}
   const N=[],G=[],nb=7,bw=w/2-16;for(let k=0;k<nb;k++){N.push({x:x0+10+bw*(k+.5)/nb,y:y0+hb+25});G.push({x:x0+w/2+6+bw*(k+.5)/nb,y:y0+hb+25})}
-  return{din:true,cx,cy,w,h,hb,s,x0,y0,srcs,N,G,X,main:null,D}}
+  return{din:true,cx,cy,w,h,hb,s,x0,y0,srcs,N,G,X,M:[],main:null,D}}
 
 /* Dibujo del tablero dentro del grupo del ítem (origen en el centro) */
 function panelImg(g){

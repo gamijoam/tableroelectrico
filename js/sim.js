@@ -34,6 +34,12 @@ function simulate(prevTrip,burnt){
   const SRC=srcList(),PG=P?panelGeom(P):null;
   if(PG){PG.N.forEach((_,k)=>k&&nets.union(`${P.id}/N0`,`${P.id}/N${k}`));PG.G.forEach((_,k)=>k&&nets.union(`${P.id}/G0`,`${P.id}/G${k}`));
     for(const x of PG.X){const r=bornRole(x.color);if(r==="N")nets.union(`${P.id}/N0`,`${P.id}/X${x.id}`);if(r==="T")nets.union(`${P.id}/G0`,`${P.id}/X${x.id}`)}}
+  /* Con acometida: neutro y tierra se unen en el tablero; en el riel, el peine une las entradas a la salida del seccionador */
+  const SUP=supplyOf(),WIRED=!!SUP&&!!P;
+  if(WIRED){nets.union(`${P.id}/N0`,`${P.id}/G0`);
+    if(isDin()&&P.p.peine!==false&&SRC.length){const head=SRC.find(b=>b.ref.type==="sw")||SRC[0],rp={};
+      for(const b of SRC){if(b===head)continue;for(let k=0;k<b.poles;k++){const L=b.ph(k),t=`${P.id}/t${b.id}.${k}`;if(!terms.has(t))continue;if(rp[L])nets.union(rp[L],t);else rp[L]=t}}
+      for(let k=0;k<head.poles;k++){const L=head.ph(k);if(rp[L])nets.union(rp[L],`${P.id}/b${head.id}.${k}`)}}}
   const mainOn=!simState.blackout&&(isDin()||!S.lc.main||S.lc.mainOn!==false);
   const passDev=S.wall.items.filter(i=>DEV[i.type]&&DEV[i.type].pass),linked=new Set(),batOn=new Set();
   const devOf=id=>S.wall.items.find(i=>i.id===id);
@@ -45,7 +51,18 @@ function simulate(prevTrip,burnt){
 
   let info;
   const build=()=>{info=new Map();const get=r=>{if(!info.has(r))info.set(r,{ph:new Set(),N:false,G:false,feed:[]});return info.get(r)};
-    if(P){for(const b of SRC)for(let k=0;k<b.poles;k++){const id=`${P.id}/b${b.id}.${k}`;if(!terms.has(id))continue;const ni=get(nets.find(id));
+    if(WIRED){/* la corriente viene de la acometida y pasa por cada protección cerrada */
+      if(!simState.blackout&&!res.trips.has("sup"))["L1","L2","L3"].forEach((k,j)=>{const id=`${SUP.id}/${k}`,L=PH()[j];if(terms.has(id)&&L)get(nets.find(id)).ph.add(L)});
+      get(nets.find(`${SUP.id}/N`)).N=true;get(nets.find(`${SUP.id}/T`)).G=true;
+      const mainOk=isDin()||((!S.lc.main||S.lc.mainOn!==false)&&!res.trips.has("main"));
+      for(let it=0;it<12;it++){let ch=false;
+        for(const b of SRC){if(b.p.on===false||res.trips.has(b.id))continue;
+          for(let k=0;k<b.poles;k++){const out=`${P.id}/b${b.id}.${k}`;if(!terms.has(out))continue;let L=null,ii=null;
+            if(isDin())ii=info.get(nets.find(`${P.id}/t${b.id}.${k}`));else if(mainOk)ii=info.get(nets.find(`${P.id}/M${PH().indexOf(b.ph(k))}`));
+            if(ii&&ii.ph.size===1)L=[...ii.ph][0];if(!L)continue;const no=get(nets.find(out));
+            if(!no.feed.some(f=>f.b===b&&f.k===k)){no.ph.add(L);no.feed.push({b,k});ch=true}}}
+        if(!ch)break}}
+    else if(P){for(const b of SRC)for(let k=0;k<b.poles;k++){const id=`${P.id}/b${b.id}.${k}`;if(!terms.has(id))continue;const ni=get(nets.find(id));
         if(mainOn&&b.p.on!==false&&!res.trips.has(b.id)){ni.ph.add(b.ph(k));ni.feed.push({b,k})}}
       get(nets.find(`${P.id}/N0`)).N=true;get(nets.find(`${P.id}/G0`)).G=true}
     for(const f of feeds){const b=SRC.find(x=>x.id===f.p.brk);get(nets.find(`${f.id}/N`)).N=true;get(nets.find(`${f.id}/T`)).G=true;if(!b)continue;
@@ -73,7 +90,8 @@ function simulate(prevTrip,burnt){
       const phs=[...fault.i.ph],bats=phs.filter(x=>x[0]==="U").map(x=>+x.slice(1));bats.forEach(id=>{res.trips.add("d"+id);batOn.delete(id)});
       const what=phs.length>=2?`: se unieron ${phs.map(phName).join(" y ")}`:`: ${phName(phs[0])} quedó unida con ${fault.i.N?"el neutro":"la tierra"}`;
       const who=[...fb.map(srcWho),...bats.map(id=>`la protección interna de ${devLabel(devOf(id))}`)];
-      res.log.push({lvl:"crit",msg:`Cortocircuito${what}. Disparó ${who.join(" y ")}.`});if(!who.length)break;
+      if(!who.length&&WIRED&&!res.trips.has("sup")){res.trips.add("sup");res.log.push({lvl:"crit",msg:`Cortocircuito${what} antes de cualquier protección: se quemaron los fusibles de la compañía en la acometida.`})}
+      else{res.log.push({lvl:"crit",msg:`Cortocircuito${what}. Disparó ${who.join(" y ")}.`});if(!who.length)break}
       const w=wireIn(fault.root);if(w){const p=wirePath(w,S.wall.wires.indexOf(w),terms);res.sparks.push(p.mid)}
       else{const t=[...terms.values()].find(t=>nets.find(t.id)===fault.root);if(t)res.sparks.push({x:t.x,y:t.y})}}
 
@@ -96,9 +114,18 @@ function simulate(prevTrip,burnt){
         if(g&&!res.trips.has(g.b.id)){res.trips.add(g.b.id);gfci=true;res.log.push({lvl:"crit",msg:`${g.b.din?"El diferencial "+g.b.lab:"El GFCI del "+g.b.lab} detectó corriente regresando por la tierra (${devLabel(it)}) y disparó.`})}}}}
     if(!gfci)break}
 
+  /* la corriente de cada circuito también pasa por las protecciones de arriba (y por el principal) */
+  if(WIRED){const own={...res.pcur},parent={};
+    if(isDin())for(const b of SRC)for(let k=0;k<b.poles;k++){const pi=info.get(nets.find(`${P.id}/t${b.id}.${k}`));if(pi&&pi.feed.length){const f=pi.feed[0];if(f.b!==b)parent[b.id+"."+k]=f.b.id+"."+f.k}}
+    const tot={...own};for(const key of Object.keys(own)){let q=parent[key],g=0;while(q&&g++<20){tot[q]=(tot[q]||0)+own[key];q=parent[q]}}res.pcur=tot;
+    if(!isDin()&&S.lc.main&&!res.trips.has("main")){const by={};for(const b of SRC)for(let k=0;k<b.poles;k++)by[b.ph(k)]=(by[b.ph(k)]||0)+(own[b.id+"."+k]||0);
+      const mx=Math.max(0,...Object.values(by));if(mx>S.lc.main){res.pending.push({b:{id:"main",lab:"principal",In:S.lc.main,din:false},I:mx});res.status.push({lvl:"crit",msg:`Sobrecarga en el principal: ${fmtA(mx)} con ${S.lc.main} A. Va a disparar en segundos.`})}}
+    if(!simState.blackout&&!res.trips.has("sup")&&![...info.values()].some(i=>i.feed.length))res.status.push({lvl:"warn",msg:isDin()?"El tablero no recibe línea: lleva L1, L2 (y L3) de la acometida a la entrada (arriba) del seccionador o de la primera protección.":"El tablero no recibe línea: lleva L1, L2 (y L3) de la acometida a la entrada del principal."});
+    if(res.trips.has("sup"))res.status.push({lvl:"crit",msg:"Los fusibles de la acometida están quemados. Corrige el corto y presiona Rearmar."});
+    res.loads[SUP.id]={s:simState.blackout||res.trips.has("sup")?"off":"idle",v:S.lc.sys==="1F"?240:208,I:0}}
   /* 3) sobrecarga por polo */
   const seen=new Set();
-  for(const [key,I] of Object.entries(res.pcur)){const id=+key.split(".")[0],b=SRC.find(x=>x.id===id);if(!b)continue;
+  for(const [key,I] of Object.entries(res.pcur)){const id=+key.split(".")[0],b=SRC.find(x=>x.id===id);if(!b)continue;if(res.trips.has(id))continue;
     if(I>b.In&&!seen.has(id)){seen.add(id);res.pending.push({b,I});res.status.push({lvl:"crit",msg:`Sobrecarga en ${b.lab}: ${fmtA(I)} con protección de ${b.In} A. Va a disparar en segundos.`})}
     else if(I>b.In*.8&&!seen.has(id)){seen.add(id);res.status.push({lvl:"warn",msg:`${b.lab[0].toUpperCase()+b.lab.slice(1)} al ${Math.round(I/b.In*100)}% de su protección (${fmtA(I)} de ${b.In} A).`})}}
 
@@ -114,7 +141,7 @@ function simulate(prevTrip,burnt){
     if(msgs.length){res.wireMsg[w.id]=msgs;res.status.push({lvl:"warn",msg:`Cable ${c.toLowerCase()} #${w.awg} (${wireEnds(w,terms)}): ${msgs.join("; ")}.`,wire:w.id})}});
 
   /* 5) reglas por dispositivo */
-  for(const it of S.wall.items){const d=DEV[it.type];if(!d||it.type==="panel"||it.type==="feed")continue;const L=devLabel(it);
+  for(const it of S.wall.items){const d=DEV[it.type];if(!d||it.type==="panel"||it.type==="feed"||it.type==="supply")continue;const L=devLabel(it);
     if(it.type==="inter"||it.type==="inter3"){if(d.terms.some(t=>pot(`${it.id}/${t[0]}`)==="0"))res.status.push({lvl:"warn",msg:`${L}: está cortando el neutro. El interruptor siempre debe cortar la fase.`})}
     if(it.type==="toma"&&pot(`${it.id}/F`)==="0"&&/[ABC]/.test(pot(`${it.id}/N`)||""))res.status.push({lvl:"warn",msg:`${L}: polaridad invertida. La fase va al tornillo dorado (F) y el neutro al plateado (N).`});
     if(d.terms.some(t=>t[1]==="T")){const g=netOf(`${it.id}/T`);if(!(g&&g.G))res.status.push({lvl:"warn",msg:`${L}: sin conexión a tierra.`})}
