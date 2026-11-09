@@ -44,7 +44,7 @@ if(sb){const fromOAuth=/access_token=|[?&]code=/.test(location.hash+location.sea
 /* ---------- botón de la cabecera ---------- */
 function renderAcct(){const b=$("acct");if(!b)return;
   b.innerHTML=!acct.user?"Entrar · prueba gratis":isPro()?`Mi cuenta <span class="acct-badge pro">PRO</span>`:trialLeft()>0?`Mi cuenta <span class="acct-badge">Prueba: ${fmtLeft(trialLeft())}</span>`:`Mi cuenta <span class="acct-badge off">Activar $${fmtNum(appCfg.price_usd,0)}</span>`;
-  b.classList.toggle("primary",!acct.user);
+  b.classList.toggle("primary",!acct.user);if(typeof setSync==="function"&&(syncState==="local"||syncState==="locked"||!acct.user||!fullAccess()))setSync(!acct.user?"local":!fullAccess()?"locked":syncState==="local"||syncState==="locked"?"saved":syncState);
   const p=fmtNum(appCfg.price_usd,0),gp=$("goPro"),tb=$("trialBar");
   if(gp){gp.hidden=isPro();gp.textContent=`⭐ Hazte PRO · $${p}`}
   if(tb){const left=trialLeft(),hid=isPro()||!acct.user||sessionStorage.getItem("tt-bar-off")==="1";tb.hidden=hid;tb.classList.toggle("off",!!acct.user&&left<=0);
@@ -217,6 +217,44 @@ async function adminDialog(tab="pagos"){if(!isAdmin())return;const T=[["pagos","
     $("cf-save").onclick=async()=>{const pay=[...B.querySelectorAll(".pay-row")].map(r=>({metodo:r.querySelector("[data-m]").value.trim(),datos:r.querySelector("[data-d]").value.trim()})).filter(x=>x.metodo&&x.datos);
       const v={price_usd:parseFloat(String($("cf-p").value).replace(",","."))||5,trial_hours:parseInt($("cf-h").value)||24,whatsapp:$("cf-w").value.trim(),pay_instructions:pay,updated_at:new Date().toISOString()};
       const {error:e}=await sb.from("app_settings").update(v).eq("id",1);if(e){toast(sbErr(e));return}appCfg=Object.assign(appCfg,v);renderAcct();toast("Ajustes guardados.")}}}
+
+/* ---------- guardado automático en la nube ---------- */
+let syncState="local",syncT=null,syncErr="";const synced={};
+const cloudOn=()=>!!(sb&&acct.user&&fullAccess());
+const hashStr=s=>{let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))>>>0;return h+":"+s.length};
+const blankProj=v=>(v.kind==="lc"?v.lc.items.length:v.items.length)===0&&(v.project.name||"Tablero nuevo")==="Tablero nuevo"&&!(v.walls||[]).some(w=>w.wires.length);
+function setSync(st,err){syncState=st;syncErr=err||"";const c=$("syncChip");if(!c)return;
+  const T={local:["💾 Solo en este equipo","Crea tu cuenta para guardarlo en la nube"],pending:["☁ Guardando…",""],saving:["☁ Guardando…",""],saved:["☁ Guardado en la nube","Se guarda solo con cada cambio"],
+    offline:["☁ Sin conexión · se sube al volver",""],locked:["🔒 Nube pausada · activa PRO","Tu prueba terminó: se guarda solo en este equipo"],error:["⚠ No se guardó en la nube · reintentar",syncErr]}[st];
+  c.textContent=T[0];c.title=T[1];c.dataset.st=st}
+function scheduleSync(){if(!acct.user){setSync("local");return}if(!fullAccess()){setSync("locked");return}if(blankProj(S)&&!S.project.cloudId){setSync("saved");return}
+  setSync("pending");clearTimeout(syncT);syncT=setTimeout(syncNow,2500)}
+async function syncNow(){clearTimeout(syncT);if(!cloudOn()){scheduleSync();return false}
+  if(!navigator.onLine){setSync("offline");return false}
+  const snap=JSON.parse(JSON.stringify(S)),pid=projIdx.cur,body=JSON.stringify(snap),h=hashStr(body);
+  if(synced[pid]===h&&snap.project.cloudId){setSync("saved");return true}
+  setSync("saving");
+  try{const row={name:snap.project.name||"Tablero",client:snap.project.client||"",kind:"project",data:snap};let id=snap.project.cloudId,r;
+    if(id){r=await sb.from("projects").update(row).eq("id",id).select("id").maybeSingle();if(r.error)throw r.error;if(!r.data)id=null}
+    if(!id){r=await sb.from("projects").insert(row).select("id").single();if(r.error)throw r.error;id=r.data.id;
+      if(projIdx.cur===pid){S.project.cloudId=id;projSaveRaw()}else{try{const v=JSON.parse(lsGet(PKEY(pid))||"null");if(v){v.project.cloudId=id;lsSet(PKEY(pid),JSON.stringify(v));const e=projIdx.list.find(p=>p.id===pid);if(e){e.cloudId=id;idxSave()}}}catch(_){}}}
+    synced[pid]=h;if(projIdx.cur===pid)setSync("saved");return true}
+  catch(e){const m=sbErr(e);setSync(/conexión/.test(m)?"offline":/permiso/.test(m)?"locked":"error",m);return false}}
+/* cada guardado local programa la subida a la nube */
+const projSaveRaw=projSave;projSave=function(){projSaveRaw.apply(this,arguments);scheduleSync()};
+window.addEventListener("online",()=>{if(syncState==="offline"||syncState==="error")syncNow()});
+async function saveNow(){projSaveRaw();if(!acct.user){setSync("local");toast("Guardado en este equipo. Crea tu cuenta gratis para guardarlo también en la nube.");return}
+  if(!fullAccess()){setSync("locked");toast("Guardado en este equipo. Activa PRO para guardar en la nube.");return}
+  const ok=await syncNow();toast(ok?"Guardado en este equipo y en la nube ☁":syncState==="offline"?"Guardado en este equipo. Sin conexión: se sube a la nube al volver.":"Guardado en este equipo. No se pudo subir a la nube: "+syncErr)}
+$("saveBtn").onclick=saveNow;
+$("syncChip").onclick=()=>({local:()=>authDialog("registro"),locked:buyDialog,offline:syncNow,error:syncNow}[syncState]||cloudDialog)();
+/* proyectos que están en la nube pero no en este equipo (se muestran en "Proyectos") */
+async function cloudOnlyList(M){if(!sb||!acct.user)return;const {data,error}=await sb.from("projects").select("id,name,client,kind,updated_at").eq("kind","project").order("updated_at",{ascending:false});if(error||!data)return;
+  const have=new Set(projIdx.list.map(p=>p.cloudId).filter(Boolean)),rest=data.filter(p=>!have.has(p.id));if(!rest.length||!M.isConnected)return;
+  const box=document.createElement("div");box.innerHTML=`<h3>☁ En la nube (de otros equipos)</h3><div class="plist">${rest.map(p=>`<div class="pitem"><div class="pinfo"><b>${esc(p.name)} <span class="chip cloud">☁ nube</span></b><small>${esc(p.client||"Sin cliente")} · ${new Date(p.updated_at).toLocaleString("es-VE")}</small></div><div class="row-btns"><button class="btn sm primary" data-cop="${p.id}">Abrir</button></div></div>`).join("")}</div>`;
+  const pl=M.querySelector(".plist");pl.after(box);
+  box.querySelectorAll("[data-cop]").forEach(b=>b.onclick=async()=>{const {data:r,error:e}=await sb.from("projects").select("data").eq("id",b.dataset.cop).single();if(e){toast(sbErr(e));return}
+    const v=normalize(r.data);if(!v){toast("Ese proyecto está dañado.");return}v.project.cloudId=b.dataset.cop;closeModal();projSaveRaw();switchTo(v,newPid());synced[projIdx.cur]=hashStr(JSON.stringify(S));setSync("saved");toast(`"${v.project.name}" abierto desde la nube.`)})}
 
 $("acct").onclick=accountDialog;$("goPro").onclick=planDialog;$("helpFab").onclick=helpDialog;
 $("trialBar").addEventListener("click",e=>{if(e.target.closest("[data-pro]"))acct.user&&trialLeft()<=0?buyDialog():planDialog();if(e.target.closest("[data-x]")){sessionStorage.setItem("tt-bar-off","1");renderAcct()}});

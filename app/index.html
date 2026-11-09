@@ -25,7 +25,7 @@
   <header>
     <div class="brand">
       <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="7" y="2" width="20" height="30" rx="3" fill="var(--accent)"/><rect x="12" y="9" width="10" height="13" rx="2" fill="var(--panel)"/><rect x="13.5" y="10.5" width="7" height="6" rx="1" fill="var(--fg)"/><rect x="7" y="25" width="20" height="2" fill="var(--panel)" opacity=".5"/></svg>
-      <div><h1>Taller de Tableros</h1><small id="projName">Cajas de breakers y tableros sobre riel DIN</small></div>
+      <div><h1>Taller de Tableros</h1><small id="projName">Cajas de breakers y tableros sobre riel DIN</small><button class="sync-chip" id="syncChip" type="button"></button></div>
     </div>
     <button class="icon-btn m-only" id="mUndo" aria-label="Deshacer" title="Deshacer">↶</button><button class="icon-btn m-only" id="mRedo" aria-label="Rehacer" title="Rehacer">↷</button>
     <button class="icon-btn m-only" id="mMenu" aria-label="Menú" aria-expanded="false">☰</button>
@@ -48,6 +48,7 @@
       <button class="btn" id="undo" title="Deshacer (Ctrl+Z)">Deshacer</button>
       <button class="btn" id="redo" title="Rehacer (Ctrl+Shift+Z)">Rehacer</button>
       <button class="btn" id="calc">Calculadora</button>
+      <button class="btn" id="saveBtn" title="Guardar ahora (Ctrl+S)">💾 Guardar</button>
       <button class="btn" id="file">Proyectos</button>
       <button class="btn" id="new">Nuevo</button>
       <button class="btn" id="uni" title="Diagrama unifilar generado desde el tablero">Unifilar</button>
