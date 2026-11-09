@@ -111,8 +111,8 @@ function renderPropsLC(){const P=$("paneP"),b=selItem(),calc=lcCalc(),L=S.lc;
    <label class="switch"><input type="checkbox" id="pp-on"${p.on?" checked":""}> Encendido (ON)</label>
    <div class="calc"><div class="kv"><span>Corriente estimada</span><b>${fmtA(c.I)}</b></div>
     <div class="kv"><span>Uso del breaker</span><b>${Math.round(c.pct*100)}% <span class="pill ${c.st}">${ST_TXT[c.st]}</span></b></div>
-    <div class="kv"><span>Cable sugerido</span><b>#${AWG[p.In]} AWG</b></div>
-    ${c.st!=="ok"&&c.sug?`<div class="kv"><span>Breaker recomendado</span><b>${c.sug} A · #${AWG[c.sug]} AWG</b></div>`:""}
+    <div class="kv"><span>Cable sugerido</span><b>${cabTxt(p.In)}</b></div>
+    ${c.st!=="ok"&&c.sug?`<div class="kv"><span>Breaker recomendado</span><b>${c.sug} A · ${cabTxt(c.sug)}</b></div>`:""}
     ${c.st!=="ok"&&!c.sug?`<div class="kv"><span>Recomendación</span><b>Dividir la carga</b></div>`:""}</div>
    ${p.type!=="Estándar"?`<p class="note">${p.type==="GFCI"?"GFCI: protege a las personas de descargas. Úsalo en baños, cocina, lavadero, exteriores y piscinas.":"AFCI: detecta arcos eléctricos en el cableado. Recomendado en dormitorios."}</p>`:""}${infoCard(infoKey("brk",b))}
    <div class="row-btns"><button class="btn" id="pp-up">↑ Subir</button><button class="btn" id="pp-down">↓ Bajar</button><button class="btn" id="pp-side">Cambiar de lado</button><button class="btn" id="pp-dup">Duplicar</button><button class="btn danger" id="pp-del">Eliminar</button></div>`;
@@ -131,14 +131,14 @@ function quoteData(){const Q=S.quote,m=new Map(),add=(desc,cost,ref,q=1,u="")=>{
    add(lcBoxDesc(),lcBoxPrice());
    for(const it of [...S.lc.aux].sort((a,b)=>a.x-b.x))add(CAT[it.type].desc(it.p),PRICE_DIN[it.type](it.p),it.p.des);
    if(S.lc.aux.length)add("Riel DIN 35 mm con tapa troquelada para la caja",8);
-   const cab=new Map();for(const b of its){const a=AWG[b.p.In];cab.set(a,(cab.get(a)||0)+(+Q.cableM||0)*(b.p.poles===3?4:3))}
-   [...cab].filter(([,mts])=>mts>0).sort((a,b)=>parseInt(b[0])-parseInt(a[0])).forEach(([a,mts])=>add(`Cable THHN/THW cobre #${a} AWG`,AWG_P[a]||1,null,mts,"m"))}
+   const cab=new Map();for(const b of its){const a=cabKey(b.p.In);cab.set(a,(cab.get(a)||0)+(+Q.cableM||0)*(b.p.poles===3?4:3))}
+   [...cab].filter(([,mts])=>mts>0).sort((a,b)=>(AWG_P[b[0]]||0)-(AWG_P[a[0]]||0)).forEach(([a,mts])=>add(`Cable ${isMM()?"de cobre 750 V":"THHN/THW cobre"} ${calTxt(a)}`,AWG_P[a]||1,null,mts,"m"))}
   else{for(const it of [...S.items].sort((a,b)=>a.row-b.row||a.x-b.x))add(CAT[it.type].desc(it.p),PRICE_DIN[it.type](it.p),it.p.des);add(dinBoxDesc(),dinBoxPrice())}
   for(const x of S.ext)add(EXT[x.type].desc(x.p),Math.round(EXT[x.type].price(x.p)),x.p.name);
   const wm=new Map(),tubeSz={};
   for(const wl of S.walls){for(const it of wl.items){const dv=DEV[it.type];if(dv&&dv.price)add(devQn(dv,it.p),devPrice(dv,it.p),it.p.name?`${it.p.name} (${wl.name})`:wl.name)}
     for(const [k,m] of wallWireMeters(wl))wm.set(k,(wm.get(k)||0)+m);if(wl.tube!==false)for(const [sz,m] of Object.entries(tubeBySize(wl)))tubeSz[sz]=(tubeSz[sz]||0)+m}
-  [...wm].sort().forEach(([k,mts])=>{const [awg,col]=k.split("|");add(`Cable THHN/THW cobre #${awg} AWG ${col.toLowerCase()} (pared)`,AWG_P[awg]||1,null,Math.round(mts*1.1*2)/2,"m")});
+  [...wm].sort().forEach(([k,mts])=>{const [awg,col]=k.split("|");add(`Cable ${isMM()?"de cobre 750 V":"THHN/THW cobre"} ${calTxt(awg)} ${col.toLowerCase()} (pared)`,AWG_P[awg]||1,null,Math.round(mts*1.1*2)/2,"m")});
   for(const sz of TUBE_SIZES)if(tubeSz[sz]>0)add(`Tubo PVC ${sz} para pared`,TUBE_PRICE[sz],null,Math.round(tubeSz[sz]*1.1*2)/2,"m");
   const k=1+(+Q.margin||0)/100;
   const MP=myPrices(),mat=[...m.values()].map(e=>{const pv=Q.over[e.desc]!=null?+Q.over[e.desc]:MP[e.desc]!=null?+MP[e.desc]:null,ov=pv!=null,cost=ov?pv:e.def;return Object.assign(e,{cost,ov,unit:r2(cost*k),total:r2(cost*k*e.q)})});
@@ -153,12 +153,12 @@ function quoteData(){const Q=S.quote,m=new Map(),add=(desc,cost,ref,q=1,u="")=>{
 function renderQuote(){const Q=S.quote,d=quoteData(),lc=S.kind==="lc";
   const num=(k,label,step=1,ph="")=>`<label class="field"><span>${label}</span><input class="txt" id="qz-${k}" type="number" min="0" step="${step}" inputmode="decimal" value="${Q[k]?esc(Q[k]):k==="rate"?"":0}"${ph?` placeholder="${ph}"`:""}></label>`;
   $("paneB").innerHTML=`<div><h2>Presupuesto</h2><div class="meta">Precios en USD · edita el costo de cada renglón</div></div>
-  <div class="fields">${num("margin","Ganancia en materiales (%)")}${num("per",lc?"Mano de obra por circuito ($)":"Mano de obra por componente ($)")}${num("board","Montaje del tablero ($)")}${S.ext.length?num("ext","Instalación por equipo ($)"):""}${S.walls.some(wl=>wl.items.some(i=>i.type!=="panel"))?num("point","Punto eléctrico en pared ($)"):""}${lc?num("cableM","Metros de cable por circuito"):""}${num("valid","Validez (días)")}${num("rate","Tasa (Bs por $)",.01,"Opcional")}${num("iva","IVA (%)")}</div>
-  <label class="switch"><input type="checkbox" id="qz-ivaOn"${Q.ivaOn?" checked":""}> Cobrar IVA</label>
+  <div class="fields">${num("margin","Ganancia en materiales (%)")}${num("per",lc?"Mano de obra por circuito ($)":"Mano de obra por componente ($)")}${num("board","Montaje del tablero ($)")}${S.ext.length?num("ext","Instalación por equipo ($)"):""}${S.walls.some(wl=>wl.items.some(i=>i.type!=="panel"))?num("point","Punto eléctrico en pared ($)"):""}${lc?num("cableM","Metros de cable por circuito"):""}${num("valid","Validez (días)")}${curLocal()?num("rate",`Tasa (${curLocal().sym} por $)`,.01,"Opcional"):""}${num("iva",`${pais().tax} (%)`)}</div>
+  <label class="switch"><input type="checkbox" id="qz-ivaOn"${Q.ivaOn?" checked":""}> Cobrar ${pais().tax}</label>
   ${d.mat.length>1||d.lab.length?`<table class="qt"><thead><tr><th class="n">Cant.</th><th>Materiales y equipos</th><th class="n">Costo</th><th class="n">Venta</th></tr></thead><tbody>
   ${d.mat.map((e,i)=>`<tr><td class="n">${fmtQ(e.q)}${e.u?" "+e.u:""}</td><td>${esc(e.desc)}${e.refs.length?`<small>${esc(cutText(e.refs.join(", "),60))}</small>`:""}</td><td class="n"><input data-key="${i}" type="number" min="0" step="0.01" value="${e.cost}" aria-label="Costo unitario: ${esc(e.desc)}"${e.ov?` class="ov" title="Precio editado. Bórralo para volver al sugerido (${fmtUSD(e.def)})."`:""}></td><td class="n">${fmtUSD(e.total)}</td></tr>`).join("")}</tbody></table>
   ${d.lab.length?`<table class="qt"><thead><tr><th class="n">Cant.</th><th>Mano de obra</th><th class="n">Unit.</th><th class="n">Total</th></tr></thead><tbody>${d.lab.map(l=>`<tr><td class="n">${l.q}</td><td>${esc(l.desc)}</td><td class="n">${fmtUSD(l.unit)}</td><td class="n">${fmtUSD(l.total)}</td></tr>`).join("")}</tbody></table>`:""}
-  <div class="calc tot"><div class="kv"><span>Materiales y equipos</span><b>${fmtUSD(d.matSale)}</b></div><div class="kv"><span>Mano de obra</span><b>${fmtUSD(d.labor)}</b></div>${Q.ivaOn?`<div class="kv"><span>IVA ${fmtNum(Q.iva,0)}%</span><b>${fmtUSD(d.iva)}</b></div>`:""}<div class="kv big"><span>Total</span><b>${fmtUSD(d.total)}</b></div>${+Q.rate>0?`<div class="kv"><span>En bolívares (${fmtNum(Q.rate)} Bs/$)</span><b>${fmtBs(d.total*Q.rate)}</b></div>`:""}</div>
+  <div class="calc tot"><div class="kv"><span>Materiales y equipos</span><b>${fmtUSD(d.matSale)}</b></div><div class="kv"><span>Mano de obra</span><b>${fmtUSD(d.labor)}</b></div>${Q.ivaOn?`<div class="kv"><span>${pais().tax} ${fmtNum(Q.iva,0)}%</span><b>${fmtUSD(d.iva)}</b></div>`:""}<div class="kv big"><span>Total</span><b>${fmtUSD(d.total)}</b></div>${+Q.rate>0&&curLocal()?`<div class="kv"><span>En ${curLocal().name} (${rateTxt(Q.rate)})</span><b>${fmtLocal(d.total*Q.rate)}</b></div>`:""}</div>
   <p class="note">Tu ganancia: ${fmtUSD(d.gain)} en materiales más ${fmtUSD(d.labor)} de mano de obra. El cliente no ve la columna de costo. Los precios sugeridos son referenciales: ajústalos a lo que pagas en tu proveedor. Los que edites se guardan en este navegador y se usan en todos tus proyectos.</p>
   <label class="field wide"><span>WhatsApp del cliente</span><input class="txt" id="qz-phone" type="tel" inputmode="tel" value="${esc(S.project.phone||"")}" placeholder="0412 123 4567"></label>
   <div class="row-btns"><button class="btn wa" id="qz-wa">Enviar por WhatsApp</button><button class="btn primary" id="qz-pdf">PDF completo</button><button class="btn" id="qz-img">Imagen del presupuesto</button><button class="btn" id="qz-co">Datos de tu empresa</button><button class="btn" id="qz-copy">Copiar como texto</button>${Object.keys(Q.over).length||Object.keys(myPrices()).length?`<button class="btn" id="qz-reset">Volver a precios sugeridos</button>`:""}</div>`
@@ -173,8 +173,8 @@ function renderQuote(){const Q=S.quote,d=quoteData(),lc=S.kind==="lc";
 function quoteText(d){const P=S.project,Q=S.quote,L=[`PRESUPUESTO — ${P.name}`,`Cliente: ${P.client||"—"}`,`Fecha: ${P.date} · Válido por ${Q.valid} días · Precios en USD`,"","MATERIALES Y EQUIPOS"];
   d.mat.forEach(e=>L.push(`${fmtQ(e.q)}${e.u?" "+e.u:""} × ${e.desc} — ${fmtUSD(e.unit)} c/u = ${fmtUSD(e.total)}`));
   if(d.lab.length){L.push("","MANO DE OBRA");d.lab.forEach(l=>L.push(`${l.q} × ${l.desc} — ${fmtUSD(l.unit)} = ${fmtUSD(l.total)}`))}
-  L.push("",`Materiales y equipos: ${fmtUSD(d.matSale)}`,`Mano de obra: ${fmtUSD(d.labor)}`);if(Q.ivaOn)L.push(`IVA ${Q.iva}%: ${fmtUSD(d.iva)}`);L.push(`TOTAL: ${fmtUSD(d.total)}`);
-  if(+Q.rate>0)L.push(`Equivalente: ${fmtBs(d.total*Q.rate)} (tasa ${fmtNum(Q.rate)} Bs/$)`);if(P.author)L.push("",`Elaborado por: ${P.author}`);return L.join("\n")}
+  L.push("",`Materiales y equipos: ${fmtUSD(d.matSale)}`,`Mano de obra: ${fmtUSD(d.labor)}`);if(Q.ivaOn)L.push(`${pais().tax} ${Q.iva}%: ${fmtUSD(d.iva)}`);L.push(`TOTAL: ${fmtUSD(d.total)}`);
+  if(+Q.rate>0&&curLocal())L.push(`Equivalente: ${fmtLocal(d.total*Q.rate)} (tasa ${rateTxt(Q.rate)})`);if(P.author)L.push("",`Elaborado por: ${P.author}`);return L.join("\n")}
 function quoteImage(){const q=quoteImageSvg();showPng(q.svg,q.W,q.H,"Imagen del presupuesto",`Lista para enviar por WhatsApp. Haz clic derecho sobre la imagen y elige "Guardar imagen como…" (en el teléfono, mantenla presionada).`)}
 function quoteImageSvg(){const d=quoteData(),Q=S.quote,P=S.project,W=820,D=dims(),F={ff:SANS};let y,s="";
   const t=(x,yy,v,o)=>T(x,yy,v,Object.assign({ff:SANS,fw:400,c:"#1d2326",a:"start"},o));
@@ -189,9 +189,9 @@ function quoteImageSvg(){const d=quoteData(),Q=S.quote,P=S.project,W=820,D=dims(
   head();sec("Materiales y equipos");d.mat.forEach(e=>line(fmtQ(e.q)+(e.u?" "+e.u:""),e.desc,e.unit,e.total));
   if(d.lab.length){sec("Mano de obra");d.lab.forEach(l=>line(String(l.q),l.desc,l.unit,l.total))}
   y+=26;const kv=(k,v,o={})=>{s+=t(W-210,y,k,Object.assign({fs:11,a:"end"},o))+T(W-44,y,v,Object.assign({fs:11,a:"end",fw:600},o));y+=21};
-  kv("Materiales y equipos",fmtUSD(d.matSale));kv("Mano de obra",fmtUSD(d.labor));if(Q.ivaOn)kv(`IVA ${fmtNum(Q.iva,0)}%`,fmtUSD(d.iva));
+  kv("Materiales y equipos",fmtUSD(d.matSale));kv("Mano de obra",fmtUSD(d.labor));if(Q.ivaOn)kv(`${pais().tax} ${fmtNum(Q.iva,0)}%`,fmtUSD(d.iva));
   s+=R(W-340,y-8,308,1.4,"#1d2326");y+=16;kv("TOTAL",fmtUSD(d.total),{fs:17,fw:700});
-  if(+Q.rate>0){s+=t(W-44,y,`Equivalente: ${fmtBs(d.total*Q.rate)} · tasa ${fmtNum(Q.rate)} Bs/$`,{fs:9.5,a:"end",c:"#5b6266"});y+=18}
+  if(+Q.rate>0&&curLocal()){s+=t(W-44,y,`Equivalente: ${fmtLocal(d.total*Q.rate)} · tasa ${rateTxt(Q.rate)}`,{fs:9.5,a:"end",c:"#5b6266"});y+=18}
   y+=18;s+=R(32,y,W-64,.8,"#d3d8d4");y+=22;
   s+=t(32,y,"Condiciones: precios en dólares estadounidenses, sujetos a disponibilidad. Incluye los materiales y la mano de obra indicados.",{fs:8.5,c:"#5b6266"});y+=15;
   s+=t(32,y,"Los cálculos de carga son referenciales y no sustituyen el cálculo según el Código Eléctrico Nacional (CEN).",{fs:8.5,c:"#5b6266"});y+=28;

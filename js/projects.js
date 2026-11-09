@@ -92,7 +92,7 @@ function getCompany(){try{return JSON.parse(lsGet(COMPKEY)||"{}")||{}}catch(e){r
 function companyDialog(after){const c=getCompany();let logo=c.logo||"",lw=c.logoW,lh=c.logoH;
   openModal(`<h2>Datos de tu empresa</h2><p class="note">Salen en el PDF y en la imagen del presupuesto. Se guardan en este navegador para todos tus proyectos.</p>
    <div class="fields"><label class="field wide"><span>Nombre o empresa</span><input class="txt" id="co-name" value="${esc(c.name||"")}" placeholder="Ej.: Electricidad Rodríguez"></label>
-   <label class="field"><span>RIF</span><input class="txt" id="co-rif" value="${esc(c.rif||"")}" placeholder="J-12345678-9"></label>
+   <label class="field"><span>${pais().fis}</span><input class="txt" id="co-rif" value="${esc(c.rif||"")}" placeholder="${PAIS_ID==="VE"?"J-12345678-9":""}"></label>
    <label class="field"><span>Teléfono / WhatsApp</span><input class="txt" id="co-phone" value="${esc(c.phone||"")}" placeholder="+58 412 000 0000"></label>
    <label class="field wide"><span>Correo</span><input class="txt" id="co-email" type="email" value="${esc(c.email||"")}"></label>
    <label class="field wide"><span>Dirección</span><input class="txt" id="co-addr" value="${esc(c.address||"")}" placeholder="Ciudad, estado"></label></div>

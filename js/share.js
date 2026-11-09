@@ -26,8 +26,8 @@ function waText(d){const P=S.project,Q=S.quote,co=getCompany(),L=[`*PRESUPUESTO 
   const max=25;d.mat.slice(0,max).forEach(e=>L.push(`• ${fmtQ(e.q)}${e.u?" "+e.u:""} × ${e.desc}: ${fmtUSD(e.total)}`));
   if(d.mat.length>max)L.push(`• y ${d.mat.length-max} renglones más (detalle en el PDF)`);
   if(d.lab.length){L.push("","*Mano de obra*");d.lab.forEach(l=>L.push(`• ${l.q} × ${l.desc}: ${fmtUSD(l.total)}`))}
-  L.push("",`Materiales y equipos: ${fmtUSD(d.matSale)}`,`Mano de obra: ${fmtUSD(d.labor)}`);if(Q.ivaOn)L.push(`IVA ${fmtNum(Q.iva,0)}%: ${fmtUSD(d.iva)}`);
-  L.push(`*TOTAL: ${fmtUSD(d.total)}*`);if(+Q.rate>0)L.push(`Equivalente: ${fmtBs(d.total*Q.rate)} (tasa ${fmtNum(Q.rate)} Bs/$)`);
+  L.push("",`Materiales y equipos: ${fmtUSD(d.matSale)}`,`Mano de obra: ${fmtUSD(d.labor)}`);if(Q.ivaOn)L.push(`${pais().tax} ${fmtNum(Q.iva,0)}%: ${fmtUSD(d.iva)}`);
+  L.push(`*TOTAL: ${fmtUSD(d.total)}*`);if(+Q.rate>0&&curLocal())L.push(`Equivalente: ${fmtLocal(d.total*Q.rate)} (tasa ${rateTxt(Q.rate)})`);
   const who=[co.name||P.author,co.phone].filter(Boolean).join(" · ");if(who)L.push("",who);return L.join("\n")}
 /* imagen del presupuesto como archivo (la misma de "Imagen del presupuesto") */
 async function quoteFile(){const q=quoteImageSvg(),url=await svgPng(q.svg,q.W,q.H,2),b=await (await fetch(url)).blob();

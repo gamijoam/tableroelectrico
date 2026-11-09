@@ -134,7 +134,7 @@ function emptyDialog(){if(S.view==="board"&&S.kind==="lc"){const L=S.lc;
   const what=S.view==="wall"?"la pared (se quedan el tablero y sus breakers)":S.kind==="lc"?"la caja de breakers":"el tablero DIN";openModal(`<h2>¿Empezar de cero?</h2><p class="note">Se vacía ${what} actual. Puedes recuperarlo con Deshacer.</p><div class="row-btns"><button class="btn primary" id="n-ok">Vaciar</button><button class="btn" data-close>Cancelar</button></div>`);
   $("n-ok").onclick=()=>{mutate(()=>{if(S.view==="wall"){S.wall.items=S.wall.items.filter(i=>i.type==="panel");S.wall.wires=[];return}if(S.kind==="lc")S.lc.items=[];else S.items=[];S.ext=[];S.project=proj("Tablero nuevo","")});sel=null;activeRow=0;closeModal();fit()}}
 $("file").onclick=projectsDialog;
-$("tpl").onchange=e=>{const k=e.target.value;e.target.value="";if(!TPL[k])return;const cid=S.project.cloudId;mutate(()=>{S=linkWall(Object.assign(JSON.parse(JSON.stringify(S)),TPL[k]()));if(!Array.isArray(S.lc.aux))S.lc.aux=[];if(cid)S.project.cloudId=cid});syncUid();sel=null;activeRow=0;autoFit=true;renderLib();fit();toast(k==="supv"?"Supervisor y contactor ya conectados en la pared. Presiona ▶ Probar y mira el flujo; prueba Simular apagón o apagar Q0.":k==="motor"?"Arranque de bomba cargado y cableado en la pared. Presiona ▶ Probar y mantén presionado S1 (Marcha).":"Plantilla cargada. Deshacer vuelve al tablero anterior.")};
+$("tpl").onchange=e=>{const k=e.target.value;e.target.value="";if(!TPL[k])return;const cid=S.project.cloudId;mutate(()=>{S=linkWall(Object.assign(JSON.parse(JSON.stringify(S)),TPL[k]()));normaRecolor();if(!Array.isArray(S.lc.aux))S.lc.aux=[];if(cid)S.project.cloudId=cid});syncUid();sel=null;activeRow=0;autoFit=true;renderLib();fit();toast(k==="supv"?"Supervisor y contactor ya conectados en la pared. Presiona ▶ Probar y mira el flujo; prueba Simular apagón o apagar Q0.":k==="motor"?"Arranque de bomba cargado y cableado en la pared. Presiona ▶ Probar y mantén presionado S1 (Marcha).":"Plantilla cargada. Deshacer vuelve al tablero anterior.")};
 
 /* ---------- toolbar ---------- */
 $("rows").innerHTML=[1,2,3,4,5,6].map(v=>`<option>${v}</option>`).join("");
@@ -173,7 +173,7 @@ $("wFlow").onchange=e=>{showFlow=e.target.checked;renderAll()};
 $("mMove").onclick=()=>{wallMode="move";tubeDraft=null;renderAll()};$("mWire").onclick=()=>{wallMode="wire";tubeDraft=null;renderAll()};
 $("mTube").onclick=()=>{wallMode="tube";pending=null;sel=null;if(!S.wall.tube){S.wall.tube=true}renderAll();if(!(S.wall.tubes||[]).length)showAlert("ok","Dibuja la tubería","Toca la pared donde empieza el tubo, toca en cada codo y toca dos veces para terminar. Los cables pasan solos por dentro del tubo más cercano y cada uno va en su carril.")};
 $("wColor").innerHTML=`<option value="Auto">Automático (norma)</option>`+Object.keys(WCOL).map(c=>`<option>${c}</option>`).join("");
-$("wAwg").innerHTML=Object.keys(AWG_W).map(a=>`<option value="${a}">#${a} AWG</option>`).join("");
+if(!wallCals().includes(wAwg))wAwg=isMM()?"m2.5":"12";paintPais();$("pais").onchange=e=>setPais(e.target.value);
 $("wSize").innerHTML=[[4,2.6],[6,2.7],[8,2.7],[10,3]].map(([w,h])=>`<option value="${w}x${h}">${w} × ${fmtNum(h,1)} m</option>`).join("");
 $("wFinish").innerHTML=FINISH.map(f=>`<option>${f}</option>`).join("");
 $("wColor").onchange=e=>{wColor=e.target.value};$("wAwg").onchange=e=>{wAwg=e.target.value};

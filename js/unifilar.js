@@ -89,7 +89,7 @@ function dinUnifilarSvg(){const P=dinUniPlan(),ink=UNI_INK,line=`stroke="${ink}"
       else s+=`<path d="M${x} ${by+100}V${by+138}" ${line}/>`+tx(x+10,by+118,"Sin breaker",{fw:700,fs:9,c:"#b5521d"})+tx(x+10,by+131,"propio",{fs:9,c:"#b5521d"});
       let yy=by+138;const nC=np>=3?4:np===2?3:2;
       s+=`<path d="M${x} ${yy}V${yy+34}" ${line}/>`;for(let j=0;j<nC;j++)s+=`<path d="M${x-6} ${yy+14+j*6}l12 -5" stroke="${ink}" stroke-width="1.5"/>`;
-      s+=tx(x+10,yy+22,`#${dinAwg(In)} AWG`,{fs:9});yy+=34;
+      s+=tx(x+10,yy+22,cabTxt(In),{fs:9});yy+=34;
       for(const c of l.chain){s+=(sym[c.type]||brk)(x,yy)+tx(x+18,yy+18,c.p.des||"",{fw:700,fs:9})+tx(x+18,yy+30,c.type==="ovl"?c.p.range:`${c.p.In} A`,{fs:8.5,c:UNI_MUTED});yy+=38}
       const motor=l.chain.some(c=>c.type==="icont"||c.type==="ovl")||(it&&it.type==="mpcb");
       if(motor){s+=`<path d="M${x} ${yy}V${yy+10}" ${line}/>`+C(x,yy+28,18,"#fff",{s:ink,sw:2})+T(x,yy+27,"M",{fs:11,ff:SANS,fw:700,c:ink})+T(x,yy+38,np>=3?"3~":"1~",{fs:8,ff:SANS,c:ink});yy+=46}

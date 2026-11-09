@@ -112,8 +112,9 @@ function wireEnds(w,terms){return`${termName(terms.get(w.a))} → ${termName(ter
 function wirePath(w,i,terms,wl=S.wall){const r=routesFor(wl,terms).get(w.id);if(r)return r;const a=terms.get(w.a),b=terms.get(w.b),ym=(a.y+b.y)/2;return pathFrom([[a.x,a.y],[a.x,ym],[b.x,ym],[b.x,b.y]])}
 function wallWireMeters(wl=S.wall){const terms=allTerms(wl),m=new Map();wl.wires.forEach((w,i)=>{if(!terms.has(w.a)||!terms.has(w.b))return;const k=w.awg+"|"+w.color;m.set(k,(m.get(k)||0)+wirePath(w,i,terms,wl).len/WK)});return m}
 const tubeMeters=(wl=S.wall)=>Object.values(tubeBySize(wl)).reduce((a,b)=>a+b,0);
-function autoColor(ta,tb){const sp=[ta,tb].find(t=>t.item&&t.item.type==="supply"&&t.role==="F");if(sp)return{L1:"Negro",L2:"Rojo",L3:"Azul"}[sp.key]||"Negro";const r=[ta.role,tb.role];if(r.includes("T"))return"Verde";if(r.includes("N"))return"Blanco";
-  if(ta.role==="S"&&tb.role==="S")return"Amarillo";if(r.includes("S"))return(ta.src||tb.src)?"Negro":"Rojo";return"Negro"}
+/* color según la norma del país elegido (norma.js) */
+function autoColor(ta,tb){const tri=S.lc&&S.lc.sys==="3F",sp=[ta,tb].find(t=>t.item&&t.item.type==="supply"&&t.role==="F");if(sp)return normaColor("F",sp.key,tri);const r=[ta.role,tb.role];if(r.includes("T"))return normaColor("T");if(r.includes("N"))return normaColor("N");
+  if(ta.role==="S"&&tb.role==="S")return normaColor("trav");if(r.includes("S"))return(ta.src||tb.src)?normaColor("F","L1",tri):normaColor("ret");return normaColor("F","L1",tri)}
 
 /* ---------- device drawings (origin = center) ---------- */
 function drawDev(type,p,st){const on=st&&(st.s==="on"||st.s==="weak"),burnt=st&&st.s==="burnt";let s="";
@@ -216,7 +217,7 @@ function wallSvg(forExport){const W=S.wall,{Wd,H,ww,wh}=wallDims(),run=simState.
   /* wires */
   for(const [w,i] of valid){const p=wirePath(w,i,terms),sw=AWG_W[w.awg]||3.6,col=WCOL[w.color]||"#1f2224",bad=res&&res.wireMsg[w.id],moving=reconn&&reconn.id===w.id;
     s+=`<g class="ww" data-id="${w.id}"${moving?` opacity=".35"`:""}>`;if(res&&res.hot.has(w.id))s+=`<path d="${p.d}" fill="none" stroke="#ff7a1a" stroke-width="${sw+8}" opacity=".45" stroke-linejoin="round"/>`;
-    s+=`<path d="${p.d}" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="${sw+2}" stroke-linejoin="round"/><path d="${p.d}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+    s+=`<path d="${p.d}" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="${sw+2}" stroke-linejoin="round"/><path d="${p.d}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linejoin="round"/>`+(w.color==="Verde-amarillo"?`<path d="${p.d}" fill="none" stroke="#f2d22e" stroke-width="${sw}" stroke-dasharray="7 7" stroke-linejoin="round"/>`:"");
     if(!forExport)s+=`<path d="${p.d}" fill="none" stroke="#000" stroke-opacity="0" stroke-width="12"/>`;
     if(res&&showFlow)s+=flowSvg(w,p,res,sw);
     if(bad&&!forExport)s+=C(p.mid.x,p.mid.y,7,"#f08a2b",{s:"#fff",sw:1.5})+T(p.mid.x,p.mid.y+3.5,"!",{fs:9,c:"#fff",ff:SANS,fw:700});
@@ -329,8 +330,8 @@ function renderPropsWall(){const bs=srcById(sel);
     (c.f||[]).filter(f=>Array.isArray(f[2])).forEach(([k,,o])=>{$("pc-"+k).onchange=e=>setProp(dc.id,k,typeof o[0]==="number"?Number(e.target.value):e.target.value)});
     const rs=$("pc-reset");if(rs)rs.onclick=()=>compTap(dc);$("pc-board").onclick=()=>setView("board");$("pc-del").onclick=wallDelete;return}
   if(w){const ta=terms.get(w.a),tb=terms.get(w.b),i=S.wall.wires.indexOf(w),len=ta&&tb?wirePath(w,i,terms).len/WK:0;
-    P.innerHTML=`<div><h2>Cable ${esc(w.color.toLowerCase())} #${esc(w.awg)}</h2><div class="meta">${ta&&tb?esc(wireEnds(w,terms)):"Desconectado"} · ${fmtM2(len)}</div></div>
-     <div class="fields"><label class="field"><span>Color</span><select class="sel" id="pw-color">${Object.keys(WCOL).map(c=>opt(c,w.color)).join("")}</select></label><label class="field"><span>Calibre AWG</span><select class="sel" id="pw-awg">${Object.keys(AWG_W).map(a=>opt(a,w.awg)).join("")}</select></label></div>
+    P.innerHTML=`<div><h2>Cable ${esc(w.color.toLowerCase())} ${esc(calTxt(w.awg))}</h2><div class="meta">${ta&&tb?esc(wireEnds(w,terms)):"Desconectado"} · ${fmtM2(len)}</div></div>
+     <div class="fields"><label class="field"><span>Color</span><select class="sel" id="pw-color">${Object.keys(WCOL).map(c=>opt(c,w.color)).join("")}</select></label><label class="field"><span>Calibre</span><select class="sel" id="pw-awg">${[...new Set([...wallCals(),w.awg])].map(a=>`<option value="${esc(a)}"${a===w.awg?" selected":""}>${esc(calTxt(a))}</option>`).join("")}</select></label></div>
      <h3>Mover un extremo</h3><p class="note">Arrastra el círculo azul de cualquier punta hasta otro terminal, o toca un botón y luego el terminal nuevo.</p>
      <div class="row-btns"><button class="btn${reconn&&reconn.end==="a"?" primary":""}" id="pw-ra">Mover: ${esc(cutText(termName(ta),22))}</button><button class="btn${reconn&&reconn.end==="b"?" primary":""}" id="pw-rb">Mover: ${esc(cutText(termName(tb),22))}</button></div>
      ${res&&res.wireMsg[w.id]?`<ul class="ev"><li class="warn">${esc(res.wireMsg[w.id].join("; "))}</li></ul>`:""}
@@ -366,7 +367,7 @@ function renderPropsWall(){const bs=srcById(sel);
    <div class="fields"><label class="field wide"><span>Nombre de la pared</span><input class="txt" id="pw-name" value="${esc(S.wall.name)}"></label></div>
    <div class="row-btns"><button class="btn" id="pw-add">+ Otra pared</button>${S.walls.length>1?`<button class="btn danger" id="pw-delwall">Eliminar esta pared</button>`:""}</div>
    <ol class="steps"><li>Arrastra tomas, interruptores y aparatos desde la biblioteca. En una pared sin tablero, pon una <b>Llegada de circuito</b>.</li><li>Toca un terminal y luego otro para tender un cable. Con color <b>Automático</b> se usa el de la norma.</li><li>Para corregir un cable, selecciónalo y arrastra su punta a otro terminal.</li><li>Presiona <b>Probar</b>. Si unes una fase con el neutro, verás el cortocircuito.</li></ol>
-   ${sim}<h3>Colores según norma</h3><div class="legend">${[["Negro","Fase"],["Rojo","Fase / retorno"],["Azul","Fase C"],["Amarillo","Viajero 3 vías"],["Blanco","Neutro"],["Verde","Tierra"]].map(([c,l])=>`<span><i style="background:${WCOL[c]}"></i>${l}</span>`).join("")}</div>`;
+   ${sim}<h3>Colores según ${esc(pais().norma)} ${pais().f}</h3><div class="legend">${normaLegend().map(([c,l])=>`<span><i style="background:${colorSwatch(c)}"></i>${l} <small>(${c.toLowerCase()})</small></span>`).join("")}</div>${pais().colNota?`<p class="note">${esc(pais().colNota)}</p>`:""}<button class="btn sm" id="normaFix">🎨 Aplicar los colores de ${esc(pais().n)} a todos los cables</button><p class="note">Cambia el país en <b>Ajustes del tablero</b>.</p>`;
   $("pw-name").onchange=e=>mutate(()=>{S.wall.name=e.target.value.trim()||S.wall.name});$("pw-add").onclick=addWall;const dw=$("pw-delwall");if(dw)dw.onclick=delWall;
   P.querySelectorAll("[data-wire]").forEach(li=>li.onclick=()=>{sel=+li.dataset.wire;renderAll()})}
 /* Lo que recibe un aparato durante la prueba: cada borne, voltaje, corriente y potencia */
