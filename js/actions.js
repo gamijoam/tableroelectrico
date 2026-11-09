@@ -102,6 +102,7 @@ document.addEventListener("keydown",e=>{const tag=(e.target.tagName||"").toLower
   const mod=e.ctrlKey||e.metaKey;
   if(mod&&e.key.toLowerCase()==="z"){e.preventDefault();e.shiftKey?redo():undo();return}
   if(mod&&e.key.toLowerCase()==="y"){e.preventDefault();redo();return}
+  if(mod&&e.key.toLowerCase()==="s"){e.preventDefault();saveNow();return}
   if(!$("modal").hidden){if(e.key==="Escape")closeModal();return}
   if(S.view==="wall"){wallKey(e);return}
   if(!sel)return;const lc=S.kind==="lc";
@@ -133,7 +134,7 @@ function emptyDialog(){if(S.view==="board"&&S.kind==="lc"){const L=S.lc;
   const what=S.view==="wall"?"la pared (se quedan el tablero y sus breakers)":S.kind==="lc"?"la caja de breakers":"el tablero DIN";openModal(`<h2>¿Empezar de cero?</h2><p class="note">Se vacía ${what} actual. Puedes recuperarlo con Deshacer.</p><div class="row-btns"><button class="btn primary" id="n-ok">Vaciar</button><button class="btn" data-close>Cancelar</button></div>`);
   $("n-ok").onclick=()=>{mutate(()=>{if(S.view==="wall"){S.wall.items=S.wall.items.filter(i=>i.type==="panel");S.wall.wires=[];return}if(S.kind==="lc")S.lc.items=[];else S.items=[];S.ext=[];S.project=proj("Tablero nuevo","")});sel=null;activeRow=0;closeModal();fit()}}
 $("file").onclick=projectsDialog;
-$("tpl").onchange=e=>{const k=e.target.value;e.target.value="";if(!TPL[k])return;mutate(()=>{S=linkWall(Object.assign(JSON.parse(JSON.stringify(S)),TPL[k]()));if(!Array.isArray(S.lc.aux))S.lc.aux=[]});syncUid();sel=null;activeRow=0;autoFit=true;renderLib();fit();toast(k==="supv"?"Supervisor y contactor ya conectados en la pared. Presiona ▶ Probar y mira el flujo; prueba Simular apagón o apagar Q0.":k==="motor"?"Arranque de bomba cargado y cableado en la pared. Presiona ▶ Probar y mantén presionado S1 (Marcha).":"Plantilla cargada. Deshacer vuelve al tablero anterior.")};
+$("tpl").onchange=e=>{const k=e.target.value;e.target.value="";if(!TPL[k])return;const cid=S.project.cloudId;mutate(()=>{S=linkWall(Object.assign(JSON.parse(JSON.stringify(S)),TPL[k]()));if(!Array.isArray(S.lc.aux))S.lc.aux=[];if(cid)S.project.cloudId=cid});syncUid();sel=null;activeRow=0;autoFit=true;renderLib();fit();toast(k==="supv"?"Supervisor y contactor ya conectados en la pared. Presiona ▶ Probar y mira el flujo; prueba Simular apagón o apagar Q0.":k==="motor"?"Arranque de bomba cargado y cableado en la pared. Presiona ▶ Probar y mantén presionado S1 (Marcha).":"Plantilla cargada. Deshacer vuelve al tablero anterior.")};
 
 /* ---------- toolbar ---------- */
 $("rows").innerHTML=[1,2,3,4,5,6].map(v=>`<option>${v}</option>`).join("");

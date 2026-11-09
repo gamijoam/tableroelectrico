@@ -29,7 +29,7 @@ function adoptGuest(){if(!projOwner)return 0;const g=guestList();if(!g.length)re
   for(const p of g)if(!have.has(p.id))projIdx.list.push(p);projIdx.list.sort((a,b)=>(b.updated||0)-(a.updated||0));idxSave();lsSet(IDX,JSON.stringify({cur:null,list:[]}));return g.length}
 function projSave(){if(!S)return;if(!projIdx.cur)projIdx.cur=newPid();lsSet(PKEY(projIdx.cur),JSON.stringify(S));
   let e=projIdx.list.find(p=>p.id===projIdx.cur);if(!e){e={id:projIdx.cur};projIdx.list.unshift(e)}
-  Object.assign(e,{name:S.project.name,client:S.project.client,updated:Date.now(),kind:S.kind,n:S.kind==="lc"?S.lc.items.length:S.items.length});idxSave()}
+  Object.assign(e,{name:S.project.name,client:S.project.client,updated:Date.now(),kind:S.kind,n:S.kind==="lc"?S.lc.items.length:S.items.length,cloudId:S.project.cloudId||null});idxSave()}
 /* Carga el proyecto abierto; si no hay lista, adopta el tablero único guardado antes */
 function projLoad(){try{const v=JSON.parse(lsGet(idxKey())||"null");if(v&&Array.isArray(v.list))projIdx=v}catch(e){}
   if(projIdx.cur){try{const v=normalize(JSON.parse(lsGet(PKEY(projIdx.cur))||"null"));if(v){S=v;syncUid();return true}}catch(e){}}
@@ -58,13 +58,13 @@ async function saveFile(filename,blob){let dl=null;try{dl=window.claude&&window.
 /* ---------- ventana de proyectos ---------- */
 function projectsDialog(){projSave();const L=[...projIdx.list].sort((a,b)=>(b.updated||0)-(a.updated||0));
   const gN=projOwner?guestList().length:0;
-  openModal(`<h2>Proyectos</h2><p class="note">${projOwner?"Proyectos de tu cuenta guardados en este equipo. Para tenerlos en otro equipo, guárdalos en la nube (Mi cuenta).":"Se guardan solos en este navegador. Crea tu cuenta para guardarlos en la nube."}</p>
+  openModal(`<h2>Proyectos</h2><p class="note">${projOwner?"Con tu cuenta, cada proyecto se guarda solo en este equipo y en la nube (☁), y lo abres en tus otros equipos.":"Se guardan solos en este navegador. Crea tu cuenta para guardarlos en la nube."}</p>
    ${gN?`<div class="paycard"><b>Hay ${gN} proyecto${gN>1?"s":""} guardado${gN>1?"s":""} sin cuenta en este equipo</b><span>Puedes traerlos a esta cuenta. Solo pasan a la cuenta con la que los traigas.</span><div class="row-btns"><button class="btn sm primary" id="pj-adopt">Traer a mi cuenta</button></div></div>`:""}
-   <div class="plist">${L.map(p=>`<div class="pitem${p.id===projIdx.cur?" cur":""}"><div class="pinfo"><b>${esc(p.name||"Sin nombre")}</b><small>${esc(p.client||"Sin cliente")} · ${p.kind==="din"?"Riel DIN":"Caja de breakers"} · ${fmtDate(p.updated)}</small></div>
+   <div class="plist">${L.map(p=>`<div class="pitem${p.id===projIdx.cur?" cur":""}"><div class="pinfo"><b>${esc(p.name||"Sin nombre")}${p.cloudId?' <span class="chip cloud" title="Guardado en la nube">☁ nube</span>':""}</b><small>${esc(p.client||"Sin cliente")} · ${p.kind==="din"?"Riel DIN":"Caja de breakers"} · ${fmtDate(p.updated)}</small></div>
      <div class="row-btns">${p.id===projIdx.cur?`<span class="chip">Abierto</span>`:`<button class="btn sm primary" data-open="${p.id}">Abrir</button>`}<button class="btn sm" data-dup="${p.id}">Duplicar</button><button class="btn sm danger" data-del="${p.id}">Eliminar</button></div></div>`).join("")}</div>
    <div class="row-btns"><button class="btn primary" id="pj-new">+ Nuevo proyecto</button><button class="btn" id="pj-down">Descargar este proyecto</button><label class="btn" for="pj-file">Abrir archivo de proyecto</label><input type="file" id="pj-file" accept=".json,application/json" hidden>
    ${prevBoard()?`<button class="btn" id="pj-prev">Recuperar tablero anterior</button>`:""}<button class="btn" id="pj-company">Datos de tu empresa</button><button class="btn" data-close>Cerrar</button></div>`);
-  const M=$("dlg");
+  const M=$("dlg");if(typeof cloudOnlyList==="function")cloudOnlyList(M);
   M.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{closeModal();openProject(b.dataset.open)});
   M.querySelectorAll("[data-dup]").forEach(b=>b.onclick=()=>{closeModal();dupProject(b.dataset.dup)});
   M.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(b.dataset.sure){deleteProject(b.dataset.del);projectsDialog();return}b.dataset.sure="1";b.textContent="¿Seguro? Eliminar";b.classList.add("primary")});
@@ -85,7 +85,7 @@ function newProjectDialog(){const o=(id,opts,cur,f=v=>v)=>`<select class="sel" i
    <div class="row-btns"><button class="btn primary" id="np-ok">Crear proyecto</button><button class="btn" data-close>Cancelar</button></div>`);
   $("np-name").focus();
   $("np-ok").onclick=()=>{const name=$("np-name").value.trim()||"Tablero nuevo";closeModal();newProject({name,client:$("np-client").value.trim(),kind:$("np-kind").value,spaces:+$("np-sp").value,main:+$("np-main").value,sys:$("np-sys").value});
-    toast(`Proyecto "${name}" creado: toca un espacio con + para poner breakers.`)}}
+    toast(`Proyecto "${name}" creado${typeof cloudOn==="function"&&cloudOn()?" y guardándose en la nube":""}: toca un espacio con + para poner breakers.`)}}
 
 /* ---------- datos de la empresa ---------- */
 function getCompany(){try{return JSON.parse(lsGet(COMPKEY)||"{}")||{}}catch(e){return{}}}
