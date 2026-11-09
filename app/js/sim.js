@@ -236,14 +236,15 @@ function simCore(prevTrip,burnt,ctl){
   if(isDin()){const ns=S.items.filter(i=>INFO[i.type]&&INFO[i.type].sim==="no").map(i=>i.p.des||CAT[i.type].n);if(ns.length)res.status.push({lvl:"off",msg:`Todavía no se simulan: ${[...new Set(ns)].slice(0,8).join(", ")}. Mira su ficha para saber cómo se conectan.`})}
   /* 4) cables: colores según norma y calibre vs. breaker */
   wires.forEach(w=>{const ra=terms.get(w.a).role,rb=terms.get(w.b).role,roles=[ra,rb],c=w.color,msgs=[];
-    if(roles.includes("N")&&c!=="Blanco")msgs.push("el neutro va en blanco");
-    else if(roles.includes("T")&&c!=="Verde")msgs.push("la tierra va en verde");
-    else if((roles.includes("F")||roles.includes("S"))&&(isPh(pot(w.a))||pot(w.a)==null&&![w.a,w.b].some(k=>{const t=terms.get(k);return t&&(t.item.type==="subt"||t.item.type==="estab2")}))&&(c==="Blanco"||c==="Verde"))msgs.push("una fase no puede ir en blanco ni en verde");
+    const P=pais().col,okN=[P.N,"Blanco","Gris","Celeste"].filter((v,i)=>i===0||(P.N==="Celeste"?v==="Celeste":v!=="Celeste")),okT=[P.T,"Verde","Verde-amarillo"];
+    if(roles.includes("N")&&!okN.includes(c))msgs.push(`el neutro va en ${P.N.toLowerCase()}`);
+    else if(roles.includes("T")&&!okT.includes(c))msgs.push(`la tierra va en ${P.T.toLowerCase()}`);
+    else if((roles.includes("F")||roles.includes("S"))&&(isPh(pot(w.a))||pot(w.a)==null&&![w.a,w.b].some(k=>{const t=terms.get(k);return t&&(t.item.type==="subt"||t.item.type==="estab2")}))&&(okN.includes(c)||okT.includes(c)))msgs.push(`una fase no puede ir en ${P.N.toLowerCase()} (neutro) ni en ${P.T.toLowerCase()} (tierra)`);
     const i=netOf(w.a);
     if(i&&i.feed.length){const In=Math.max(...i.feed.map(f=>f.b.In)),amp=AMPACITY[w.awg];
-      if(amp<In)msgs.push(`calibre #${w.awg} aguanta ${amp} A y está protegido con ${In} A: usa #${AWG_FOR(In)}`);
+      if(amp<In)msgs.push(`calibre ${calTxt(w.awg)} aguanta ${amp} A y está protegido con ${In} A: usa ${calFor(In)}`);
       const I=Math.max(0,...i.feed.map(f=>res.pcur[f.b.id+"."+f.k]||0));if(I>amp)res.hot.add(w.id)}
-    if(msgs.length){res.wireMsg[w.id]=msgs;res.status.push({lvl:"warn",msg:`Cable ${c.toLowerCase()} #${w.awg} (${wireEnds(w,terms)}): ${msgs.join("; ")}.`,wire:w.id})}});
+    if(msgs.length){res.wireMsg[w.id]=msgs;res.status.push({lvl:"warn",msg:`Cable ${c.toLowerCase()} ${calTxt(w.awg)} (${wireEnds(w,terms)}): ${msgs.join("; ")}.`,wire:w.id})}});
 
   /* 5) reglas por dispositivo */
   for(const it of S.wall.items){const d=DEV[it.type];if(!d||it.type==="panel"||it.type==="feed"||it.type==="supply")continue;const L=devLabel(it);

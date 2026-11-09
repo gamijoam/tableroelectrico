@@ -20,6 +20,8 @@ const KIND_T={l:"iluminación",r:"resistencia",m:"motor",e:"electrónico"};
 /* Cobre THHN: capacidad (60 °C hasta 100 A, 75 °C por encima) y resistencia en Ω/km */
 const CABLE=[["14",15,8.28],["12",20,5.21],["10",30,3.28],["8",40,2.06],["6",55,1.30],["4",70,.815],["3",85,.646],["2",95,.513],["1",110,.407],["1/0",150,.323],["2/0",175,.256],["3/0",200,.203],["4/0",230,.161]];
 const DIN_IN=[6,10,16,20,25,32,40,50,63];
+/* en países con mm² se usa la tabla en mm² de norma.js */
+const CAB=()=>isMM()?CABLE_MM:CABLE;
 const MOTOR_FLA={"1F 120 V":{"1/2":9.8,"3/4":13.8,"1":16,"1 1/2":20,"2":24},"1F 240 V":{"1/2":4.9,"3/4":6.9,"1":8,"1 1/2":10,"2":12,"3":17,"5":28},
  "3F 208 V":{"1/2":2.4,"3/4":3.5,"1":4.6,"1 1/2":6.6,"2":7.5,"3":10.6,"5":16.7,"7 1/2":24.2,"10":30.8,"15":46.2,"20":59.4}};
 const MPCB_R=["0.63–1A","1–1.6A","1.6–2.5A","2.5–4A","4–6.3A","6–10A","9–14A","13–18A","17–23A","20–25A"];
@@ -35,10 +37,10 @@ const appOf=n=>CALC_APP.find(a=>a[0]===n)||[n,100,120,"e"];
 const firstGE=(list,v)=>list.find(x=>x>=v-1e-9);
 const rangeHas=(r,I)=>{const [a,b]=String(r).replace("A","").split("–").map(parseFloat);return I>=a&&I<=b};
 /* Cable que aguanta la protección y cumple la caída de tensión (3 %) */
-function pickCable(In,I,L,V,tri){let k=Math.max(0,CABLE.findIndex(c=>c[1]>=In));if(k<0)k=CABLE.length-1;const lim=V*.03;let vd=0;
-  for(;k<CABLE.length;k++){vd=(tri?Math.sqrt(3):2)*L*I*CABLE[k][2]/1000;if(vd<=lim)break}k=Math.min(k,CABLE.length-1);
-  const byAmp=CABLE[Math.max(0,CABLE.findIndex(c=>c[1]>=In))][0];return{awg:CABLE[k][0],amp:CABLE[k][1],vd,pct:vd/V*100,bumped:CABLE[k][0]!==byAmp,byAmp}}
-const tubeFor=(awg,n)=>{const i=CABLE.findIndex(c=>c[0]===awg);return i<=2?(n<=4?'1/2"':'3/4"'):i<=4?'3/4"':i<=7?'1"':'1 1/4"'};
+function pickCable(In,I,L,V,tri){let k=Math.max(0,CAB().findIndex(c=>c[1]>=In));if(k<0)k=CAB().length-1;const lim=V*.03;let vd=0;
+  for(;k<CAB().length;k++){vd=(tri?Math.sqrt(3):2)*L*I*CAB()[k][2]/1000;if(vd<=lim)break}k=Math.min(k,CAB().length-1);
+  const byAmp=CAB()[Math.max(0,CAB().findIndex(c=>c[1]>=In))][0];return{awg:CAB()[k][0],amp:CAB()[k][1],vd,pct:vd/V*100,bumped:CAB()[k][0]!==byAmp,byAmp}}
+const tubeFor=(awg,n)=>{const i=CAB().findIndex(c=>c[0]===awg);return i<=2?(n<=4?'1/2"':'3/4"'):i<=4?'3/4"':i<=7?'1"':'1 1/4"'};
 const sumRows=rows=>rows.reduce((o,[n,q])=>{const a=appOf(n),W=a[1]*q;o.W+=W;o.list.push({n,q,W,V:a[2],k:a[3]});if(a[2]===240)o.v240=true;if(a[3]==="m")o.motor=Math.max(o.motor,a[1]);return o},{W:0,list:[],v240:false,motor:0});
 
 /* ---------- 1) circuito: breaker, cable y tubo ---------- */
@@ -49,7 +51,7 @@ function calcCirc(c){const s=sumRows(c.rows),V=c.V==="auto"?(s.v240?(S.lc.sys===
   const In=din?(firstGE(DIN_IN,des)||63):(firstGE(BRK_IN,Math.max(15,des))||125),cab=pickCable(In,I,c.dist,V,false);
   const type=c.wet&&V===120?"GFCI":"Estándar",curve=s.motor||s.list.some(l=>l.k==="r")?"C":"B";
   const why=[`${fmtNum(s.W,0)} W ÷ ${V} V = ${fmtA(I)}.`,cont>0&&cont<I-1e-9?`Lo que queda encendido horas (${fmtA(cont)}) se cuenta al 125 % y lo de uso corto al 100 %: ${fmtA(des)} → breaker de ${In} A.`:cont>0?`Carga continua (encendida horas) al 125 %: ${fmtA(des)} → breaker de ${In} A.`:`Aparatos de uso corto, al 100 %: ${fmtA(des)} → breaker de ${In} A.`,
-    `Cable #${cab.byAmp} aguanta ${CABLE.find(x=>x[0]===cab.byAmp)[1]} A ≥ ${In} A del breaker.`+(cab.bumped?` A ${c.dist} m caía más de 3 %: se sube a #${cab.awg}.`:""),
+    `Cable ${calTxt(cab.byAmp)} aguanta ${CAB().find(x=>x[0]===cab.byAmp)[1]} A ≥ ${In} A del breaker.`+(cab.bumped?` A ${c.dist} m caía más de 3 %: se sube a ${calTxt(cab.awg)}.`:""),
     `Caída de tensión a ${c.dist} m: ${fmtNum(cab.vd,1)} V (${fmtNum(cab.pct,1)} %).`];
   if(s.v240&&V===120)why.push("Ojo: hay equipos de 240 V en la lista; con 120 V no funcionan bien.");
   if(I>0&&s.list.some(l=>l.W>=3000)&&s.list.length>1)why.push("Los equipos grandes (calentador, secadora, cocina) llevan su propio circuito.");
@@ -62,7 +64,7 @@ function calcMot(m){const tab=MOTOR_FLA[m.sys],hp=tab[m.hp]!=null?m.hp:Object.ke
   return{hp,F,V,tri,din,lcIn,dinIn,cab,mp,ov,kc,poles:tri?3:V===120?1:2,tube:tubeFor(cab.awg,(tri?3:2)+1),kva:firstGE(STAB_KVA,F*V*(tri?Math.sqrt(3):1)*3/1000)||30,
     why:[`Corriente de placa (tabla NEC) de un motor de ${hp} HP a ${V} V ${tri?"trifásico":"monofásico"}: ${fmtA(F)}.`,
       `Al arrancar pide de 5 a 7 veces esa corriente unos segundos: por eso el breaker se elige más grande y la protección fina la da el relé térmico o el guardamotor.`,
-      `Cable para 125 % de la corriente (${fmtA(F*1.25)}): #${cab.byAmp}${cab.bumped?`, y por la distancia (${m.dist} m) se sube a #${cab.awg}`:""}. Caída ${fmtNum(cab.pct,1)} %.`]}}
+      `Cable para 125 % de la corriente (${fmtA(F*1.25)}): ${calTxt(cab.byAmp)}${cab.bumped?`, y por la distancia (${m.dist} m) se sube a ${calTxt(cab.awg)}`:""}. Caída ${fmtNum(cab.pct,1)} %.`]}}
 
 /* ---------- 3) estabilizador, UPS o inversor ---------- */
 function calcBk(b){const s=sumRows(b.rows),pf=l=>l.k==="r"||l.k==="l"?1:l.k==="m"?.8:.9,VA=s.list.reduce((a,l)=>a+l.W/pf(l),0),start=s.motor?s.motor/.8*2:0,warn=[];
@@ -86,7 +88,7 @@ function calcBk(b){const s=sumRows(b.rows),pf=l=>l.k==="r"||l.k==="l"?1:l.k==="m
 function calcCasa(h){const tri=S.lc.sys==="3F",gen=h.area*33+1500*2+(h.lav?1500:0)+1500*h.banos,genD=gen<=3000?gen:3000+(gen-3000)*.35;
   const aa=Object.entries(h.aa).flatMap(([n,q])=>Array(+q||0).fill(n)),fixed=[...Array(+h.cal||0).fill("Calentador de agua"),...Array(+h.sec||0).fill("Secadora de ropa"),...Array(+h.coc||0).fill("Cocina eléctrica"),...Array(+h.bomba||0).fill("Bomba de agua 1 HP")];
   const fixW=fixed.reduce((a,n)=>a+appOf(n)[1],0),fixD=fixed.length>=4?fixW*.75:fixW,aaW=aa.reduce((a,n)=>a+appOf(n)[1],0),dem=genD+fixD+aaW,V=tri?208*Math.sqrt(3):240,I=dem/V;
-  const main=MAINS.filter(m=>m>0).find(m=>m>=I*1.25)||225,ac=AWG[main]||"4/0";
+  const main=MAINS.filter(m=>m>0).find(m=>m>=I*1.25)||225,ac=cabKey(main);
   const circ=[],add=(name,poles,In,W,type="Estándar")=>circ.push({name,poles,In,W,type});
   const nl=Math.max(1,Math.ceil(h.area*33*.4/1440));for(let k=0;k<nl;k++)add(`Iluminación ${nl>1?k+1:""}`.trim(),1,15,Math.round(h.area*33*.4/nl));
   const nt=Math.max(1,Math.ceil(h.area/45));for(let k=0;k<nt;k++)add(`Tomas generales ${nt>1?k+1:""}`.trim(),1,20,1200);
@@ -96,7 +98,7 @@ function calcCasa(h){const tri=S.lc.sys==="3F",gen=h.area*33+1500*2+(h.lav?1500:
   const poles=circ.reduce((a,c)=>a+c.poles,0),spaces=[12,16,20,24,30,40,42].find(x=>x>=Math.ceil(poles*1.2))||42;
   return{gen,genD,fixW,fixD,aaW,dem,I,main,ac,circ,poles,spaces,tri,why:[`Alumbrado y tomas: ${h.area} m² × 33 W/m² más cocina, lavadero y baños = ${fmtNum(gen,0)} W. Se cuentan 3000 W completos y el resto al 35 % (no todo se usa a la vez): ${fmtNum(genD,0)} W.`,
     `Equipos fijos (calentador, secadora, cocina, bomba): ${fmtNum(fixW,0)} W${fixed.length>=4?" al 75 % por ser 4 o más":" al 100 %"}. Aires: ${fmtNum(aaW,0)} W al 100 %.`,
-    `Demanda: ${fmtNum(dem,0)} W ÷ ${tri?"(208 V × √3)":"240 V"} = ${fmtA(I)}. Principal al 125 %: ${main} A con acometida #${ac}.`,`Circuitos: ${circ.length} (${poles} espacios) + 20 % de reserva → caja de ${spaces} espacios.`]}}
+    `Demanda: ${fmtNum(dem,0)} W ÷ ${tri?"(208 V × √3)":"240 V"} = ${fmtA(I)}. Principal al 125 %: ${main} A con acometida ${calTxt(ac)}.`,`Circuitos: ${circ.length} (${poles} espacios) + 20 % de reserva → caja de ${spaces} espacios.`]}}
 
 /* ---------- pasar resultados al proyecto ---------- */
 function calcAddBreaker(poles,In,type,name,curve="C"){
@@ -119,7 +121,7 @@ function rowsEditor(id,rows){return`<div class="c-rows">${rows.map(([n,q],i)=>`<
   <button class="btn sm" data-add="${id}">+ Agregar equipo</button></div>`}
 const big=(lab,val,sub="")=>`<div class="c-big"><span>${esc(lab)}</span><b>${esc(val)}</b>${sub?`<small>${esc(sub)}</small>`:""}</div>`;
 const whyList=w=>`<details class="c-why" open><summary>Cómo se calculó</summary><ol>${w.map(x=>`<li>${esc(x)}</li>`).join("")}</ol></details>`;
-function calcDialog(){openModal(`<div class="calc"><div class="c-head"><h2>Calculadora</h2><button class="icon-btn" data-close aria-label="Cerrar">×</button></div>
+function calcDialog(){openModal(`<div class="calc"><div class="c-head"><h2>Calculadora</h2><button class="icon-btn" data-close aria-label="Cerrar">×</button></div>${pais().v220?`<p class="note c-warn">${pais().f} Calibres en mm² para ${esc(pais().n)}, pero los cálculos todavía usan 120/240 V. Para ${esc(pais().v.split(" ·")[0])} la corriente es casi la mitad: tómalo como referencia mientras sale la versión para tu país.</p>`:""}
   <div class="seg c-tabs" role="tablist">${[["circ","Circuito: breaker y cable"],["mot","Motor o bomba"],["bk","Estabilizador, UPS o inversor"],["casa","Toda la casa"]].map(([k,l])=>`<button class="segb" data-tab="${k}" aria-pressed="${CALC.tab===k}">${l}</button>`).join("")}</div>
   <div class="c-body" id="c-body"></div><p class="note">Guía con criterios usuales del Código Eléctrico Nacional para Venezuela. Para obras grandes o comerciales, el cálculo final lo firma un ingeniero.</p></div>`);
   $("dlg").classList.add("wide");$("dlg").onclick=calcClick;$("dlg").onchange=calcChange;$("dlg").oninput=e=>{if(e.target.type==="number")calcChange(e,true)};calcRender()}
@@ -129,7 +131,7 @@ function calcRender(){const b=$("c-body");if(!b)return;document.querySelectorAll
       <div class="fields"><label class="field"><span>Tensión</span><select class="sel" data-f="circ.V">${cOpt(["auto","120","240","208"],c.V,v=>v==="auto"?"Automática":v+" V")}</select></label>
       <label class="field"><span>Distancia al tablero (m)</span><input class="txt" type="number" min="1" max="200" value="${c.dist}" data-f="circ.dist"></label></div>
       <label class="switch"><input type="checkbox" data-f="circ.wet"${c.wet?" checked":""}> Zona húmeda (baño, cocina, lavadero o exterior)</label></div>
-    <div class="c-out">${r.s.W?`<div class="c-grid">${big("Breaker",`${r.poles}P ${r.In} A`,r.din?`Termomagnético curva ${r.curve}`:r.type==="GFCI"?"Tipo GFCI":"Estándar")}${big("Cable",`#${r.cab.awg} AWG`,`${r.poles===1?"Fase, neutro y tierra":"Dos fases y tierra"} · THHN`)}${big("Corriente",fmtA(r.I),`${fmtNum(r.s.W,0)} W a ${r.V} V`)}${big("Tubo",r.tube,"PVC")}</div>
+    <div class="c-out">${r.s.W?`<div class="c-grid">${big("Breaker",`${r.poles}P ${r.In} A`,r.din?`Termomagnético curva ${r.curve}`:r.type==="GFCI"?"Tipo GFCI":"Estándar")}${big("Cable",calTxt(r.cab.awg),`${r.poles===1?"Fase, neutro y tierra":"Dos fases y tierra"} · THHN`)}${big("Corriente",fmtA(r.I),`${fmtNum(r.s.W,0)} W a ${r.V} V`)}${big("Tubo",r.tube,"PVC")}</div>
       ${r.type==="GFCI"?`<p class="note">En zona húmeda la toma o el breaker deben ser <b>GFCI</b> (protegen a las personas contra descargas).</p>`:""}${whyList(r.why)}
       <div class="row-btns"><button class="btn primary" id="c-add">Agregar este breaker al tablero</button></div>`:`<p class="note">Agrega al menos un equipo.</p>`}</div>`}
   else if(CALC.tab==="mot"){const m=CALC.mot,r=calcMot(m),hps=Object.keys(MOTOR_FLA[m.sys]);
@@ -137,7 +139,7 @@ function calcRender(){const b=$("c-body");if(!b)return;document.querySelectorAll
       <label class="field"><span>Alimentación</span><select class="sel" data-f="mot.sys">${cOpt(Object.keys(MOTOR_FLA),m.sys)}</select></label>
       <label class="field"><span>Distancia al tablero (m)</span><input class="txt" type="number" min="1" max="300" value="${m.dist}" data-f="mot.dist"></label></div>
       <p class="note">Mira la placa del motor: dice HP, voltaje y fases. Si dice la corriente (A o FLA), compárala con la que sale aquí.</p></div>
-    <div class="c-out"><div class="c-grid">${big("Corriente del motor",fmtA(r.F),`${r.hp} HP · ${r.V} V`)}${big("Cable",`#${r.cab.awg} AWG`,`Caída ${fmtNum(r.cab.pct,1)} %`)}
+    <div class="c-out"><div class="c-grid">${big("Corriente del motor",fmtA(r.F),`${r.hp} HP · ${r.V} V`)}${big("Cable",calTxt(r.cab.awg),`Caída ${fmtNum(r.cab.pct,1)} %`)}
       ${big(r.din?"Termomagnético":"Breaker",r.din?`${r.poles}P D${r.dinIn}`:`${r.poles}P ${r.lcIn} A`,r.din?"Curva D (arranque fuerte)":"Más grande por el arranque")}${big("Guardamotor",r.mp||"—","O breaker + relé térmico")}
       ${big("Contactor",`${r.kc} A AC-3`,`Bobina ${r.V===120?"120":r.tri?"208 (o 120 con neutro)":"240"} V`)}${big("Relé térmico",r.ov||"—","Ajústalo a "+fmtA(r.F))}</div>
       <p class="note">Si el motor va con estabilizador, necesita uno de <b>${r.kva} kVA</b> o más (por el arranque).</p>${whyList(r.why)}
@@ -157,8 +159,8 @@ function calcRender(){const b=$("c-body");if(!b)return;document.querySelectorAll
       <label class="field"><span>Calentador de agua</span>${num("casa.cal",c.cal)}</label><label class="field"><span>Secadora de ropa</span>${num("casa.sec",c.sec)}</label>
       <label class="field"><span>Cocina eléctrica</span>${num("casa.coc",c.coc)}</label><label class="field"><span>Bomba de agua 1 HP</span>${num("casa.bomba",c.bomba)}</label></div>
       <p class="note">Sistema del proyecto: ${esc(sysLabel())}. Cámbialo arriba en la vista Tablero si es trifásico.</p></div>
-    <div class="c-out"><div class="c-grid">${big("Breaker principal",`${r.main} A`,`${r.tri?"3":"2"} polos`)}${big("Acometida",`#${r.ac} AWG`,r.tri?"3 fases + neutro":"2 fases + neutro")}${big("Demanda",`${fmtNum(r.dem/1000,1)} kW`,fmtA(r.I))}${big("Caja de breakers",`${r.spaces} espacios`,`${r.circ.length} circuitos`)}</div>
-      <table class="c-tab"><thead><tr><th>Circuito</th><th>Breaker</th><th>Cable</th></tr></thead><tbody>${r.circ.map(x=>`<tr><td>${esc(x.name)}</td><td>${x.poles}P ${x.In} A${x.type!=="Estándar"?" "+x.type:""}</td><td>#${AWG[x.In]||"12"}</td></tr>`).join("")}</tbody></table>
+    <div class="c-out"><div class="c-grid">${big("Breaker principal",`${r.main} A`,`${r.tri?"3":"2"} polos`)}${big("Acometida",calTxt(r.ac),r.tri?"3 fases + neutro":"2 fases + neutro")}${big("Demanda",`${fmtNum(r.dem/1000,1)} kW`,fmtA(r.I))}${big("Caja de breakers",`${r.spaces} espacios`,`${r.circ.length} circuitos`)}</div>
+      <table class="c-tab"><thead><tr><th>Circuito</th><th>Breaker</th><th>Cable</th></tr></thead><tbody>${r.circ.map(x=>`<tr><td>${esc(x.name)}</td><td>${x.poles}P ${x.In} A${x.type!=="Estándar"?" "+x.type:""}</td><td>${cabTxt(x.In)}</td></tr>`).join("")}</tbody></table>
       ${whyList(r.why)}<div class="row-btns"><button class="btn primary" id="c-box">Crear la caja de breakers con estos circuitos</button></div></div>`}
   b.innerHTML=h;
   const on=(id,f)=>{const el=$(id);if(el)el.onclick=f};
