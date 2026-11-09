@@ -441,3 +441,10 @@ textarea.txt{width:100%;resize:vertical;font:inherit}
 @media (prefers-color-scheme:dark){.c-warn{background:#3a3010;border-color:#7a6420;color:#f3e2a8}}
 .pais-welcome{margin:10px 0 4px}.pais-welcome select{width:100%}
 .legend small{color:var(--muted)}
+
+/* ---------- lista de materiales ---------- */
+.bom{max-height:56vh;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:4px 12px 10px;margin:10px 0}
+.bom h3{margin:12px 0 4px;font-size:13px;color:#1c5fa8;text-transform:uppercase;letter-spacing:.4px}
+.bom-t{width:100%;border-collapse:collapse;font-size:13.5px}.bom-t td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.bom-t td.q{white-space:nowrap;font-weight:600;width:76px;font-variant-numeric:tabular-nums}.bom-t td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bom-t small{display:block;color:var(--muted);font-size:11px}.bom-tot{text-align:right;margin:10px 0 0}

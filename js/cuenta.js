@@ -34,6 +34,8 @@ async function refreshAcct(silent){if(!sb)return;
     if(!session){if(acct.user){acct={user:null,st:null,skew:0,at:0};saveAcct()}setProjOwner("");renderAcct();return}
     const {data,error}=await sb.rpc("my_status");if(error)throw error;
     acct={user:{id:session.user.id,email:session.user.email},st:data,skew:new Date(data.now).getTime()-Date.now(),at:Date.now()};saveAcct();setProjOwner(session.user.id);
+    /* el país de la cuenta manda; si la cuenta aún no tiene, se guarda el que eligió en este equipo */
+    if(data.pais&&PAISES[data.pais]){if(data.pais!==PAIS_ID)setPais(data.pais,false,true)}else if(paisElegido())sb.from("profiles").update({pais:PAIS_ID}).eq("id",session.user.id).then(()=>{acct.st.pais=PAIS_ID});
     const c=await sb.from("app_settings").select("*").eq("id",1).maybeSingle();if(c.data)appCfg=c.data;checkUnread();
   }catch(e){if(!silent)toast(sbErr(e))}
   renderAcct()}
@@ -54,7 +56,7 @@ function renderAcct(){const b=$("acct");if(!b)return;
 setInterval(renderAcct,60000);
 
 /* ---------- funciones que requieren cuenta con acceso ---------- */
-const GATED=["#pdf","#fPdf","#png","#fPng","#qz-pdf","#qz-img","#qz-wa","#pj-down","#img-dl"];
+const GATED=["#pdf","#fPdf","#png","#fPng","#qz-pdf","#qz-img","#qz-wa","#pj-down","#img-dl","#bom-wa","#bom-pdf","#bom-copy"];
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest(GATED.join(","));if(!t||fullAccess())return;
   e.preventDefault();e.stopImmediatePropagation();paywall()},true);
 function paywall(){const p=fmtNum(appCfg.price_usd,0);if(!acct.user){planDialog();return}
@@ -97,19 +99,19 @@ function authDialog(mode="registro"){if(!sb){toast("Las cuentas necesitan intern
    <div class="seg" role="group"><button class="segb" id="au-r" aria-pressed="${reg}">Crear cuenta</button><button class="segb" id="au-e" aria-pressed="${!reg}">Entrar</button></div>
    ${reg?`<p class="note">Tienes <b>${appCfg.trial_hours} horas con todo desbloqueado</b>. Después, licencia de por vida por <b>$${fmtNum(appCfg.price_usd,0)}</b>.</p>`:""}
    ${googleOn?`<button class="btn gbtn" id="au-g">${GLOGO} Continuar con Google</button><div class="or"><span>o con tu correo</span></div>`:""}
-   <div class="fields">${reg?`<label class="field wide"><span>Nombre</span><input class="txt" id="au-name" autocomplete="name"></label><label class="field wide"><span>WhatsApp</span><input class="txt" id="au-tel" type="tel" inputmode="tel" placeholder="0412 123 4567" autocomplete="tel"></label>`:""}
+   <div class="fields">${reg?`<label class="field wide"><span>Nombre</span><input class="txt" id="au-name" autocomplete="name"></label><label class="field wide"><span>País (la app usa su norma: colores de cable, calibres y voltaje)</span><select class="sel" id="au-pais">${paisOptions()}</select></label><label class="field wide"><span>WhatsApp</span><input class="txt" id="au-tel" type="tel" inputmode="tel" placeholder="${pais().ej}" autocomplete="tel"></label>`:""}
    <label class="field wide"><span>Correo</span><input class="txt" id="au-mail" type="email" autocomplete="email"></label>
    <label class="field wide"><span>Contraseña${reg?" (mínimo 8 caracteres)":""}</span><input class="txt" id="au-pass" type="password" autocomplete="${reg?"new-password":"current-password"}"></label></div>
    <div class="row-btns"><button class="btn primary" id="au-go">${reg?"Crear cuenta y empezar la prueba":"Entrar"}</button><button class="btn" data-close>Cancelar</button></div>
    ${reg?"":`<p class="note"><a href="#" id="au-forgot">¿Olvidaste tu contraseña?</a></p>`}<p class="note" id="au-msg" role="status"></p>`);
   $("au-r").onclick=()=>authDialog("registro");$("au-e").onclick=()=>authDialog("entrar");
-  const g=$("au-g");if(g)g.onclick=async()=>{g.disabled=true;projSave();const {error}=await sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname}});if(error){$("au-msg").textContent=sbErr(error);g.disabled=false}};
+  const g=$("au-g");if(g)g.onclick=async()=>{g.disabled=true;{const ps=$("au-pais");if(ps)setPais(ps.value,true,true)}projSave();const {error}=await sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname}});if(error){$("au-msg").textContent=sbErr(error);g.disabled=false}};
   const fg=$("au-forgot");if(fg)fg.onclick=async e=>{e.preventDefault();const m=$("au-mail").value.trim();if(!m){$("au-msg").textContent="Escribe tu correo primero.";return}
     const {error}=await sb.auth.resetPasswordForEmail(m,{redirectTo:location.origin+location.pathname});$("au-msg").textContent=error?sbErr(error):"Te enviamos un correo para cambiar la contraseña."};
-  $("au-go").onclick=async()=>{const mail=$("au-mail").value.trim(),pass=$("au-pass").value,msg=$("au-msg"),go=$("au-go");
+  {const ps=$("au-pais");if(ps)ps.onchange=()=>{const t=$("au-tel");if(t)t.placeholder=PAISES[ps.value].ej}};$("au-go").onclick=async()=>{const mail=$("au-mail").value.trim(),pass=$("au-pass").value,msg=$("au-msg"),go=$("au-go");
     if(!/\S+@\S+\.\S+/.test(mail)){msg.textContent="Escribe un correo válido.";return}if(pass.length<(reg?8:1)){msg.textContent="La contraseña debe tener al menos 8 caracteres.";return}
     go.disabled=true;msg.textContent=reg?"Creando tu cuenta…":"Entrando…";
-    try{const r=reg?await sb.auth.signUp({email:mail,password:pass,options:{data:{nombre:$("au-name").value.trim(),telefono:$("au-tel").value.trim()}}}):await sb.auth.signInWithPassword({email:mail,password:pass});
+    try{const r=reg?await sb.auth.signUp({email:mail,password:pass,options:{data:{nombre:$("au-name").value.trim(),telefono:$("au-tel").value.trim(),pais:$("au-pais").value}}}):await sb.auth.signInWithPassword({email:mail,password:pass});
       if(r.error)throw r.error;if(reg&&!r.data.session){msg.textContent="Revisa tu correo para confirmar la cuenta y luego entra.";go.disabled=false;return}
       await refreshAcct();closeModal();toast(reg?`¡Listo! Tienes ${appCfg.trial_hours} horas con todo desbloqueado.`:"Sesión iniciada.");accountDialog()}
     catch(e){msg.textContent=sbErr(e);go.disabled=false}}}
@@ -121,6 +123,7 @@ function accountDialog(){if(!acct.user){authDialog("registro");return}const st=a
    :`<div class="paycard off"><b>Tu prueba terminó</b><span>Activa tu licencia de por vida por $${p} para exportar y usar la nube.</span></div>`;
   const askTel=!st.telefono?`<div class="fields"><label class="field wide"><span>Tu WhatsApp (para avisarte cuando se active tu licencia)</span><input class="txt" id="ac-tel" type="tel" inputmode="tel" placeholder="0412 123 4567"></label></div><div class="row-btns"><button class="btn sm primary" id="ac-tel-ok">Guardar WhatsApp</button></div>`:"";
   openModal(`<h2>Mi cuenta</h2><p class="note">${esc(st.nombre||"")} · ${esc(acct.user.email)}</p>${state}${askTel}
+   <div class="fields"><label class="field wide"><span>Tu país (colores de cable, calibres, voltaje y moneda según su norma)</span><select class="sel" id="ac-pais">${paisOptions()}</select></label></div>
    <div class="acct-grid">
     <button class="btn" id="ac-cloud">☁ Mis proyectos en la nube</button>
     ${isPro()?"":`<button class="btn primary" id="ac-buy">Activar licencia ($${p})</button>`}
@@ -131,6 +134,7 @@ function accountDialog(){if(!acct.user){authDialog("registro");return}const st=a
    <div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`);
   const tk=$("ac-tel-ok");if(tk)tk.onclick=async()=>{const v=$("ac-tel").value.trim();if(v.length<7){toast("Escribe tu número de WhatsApp.");return}
     const {error}=await sb.from("profiles").update({telefono:v}).eq("id",acct.user.id);if(error){toast(sbErr(error));return}await refreshAcct(true);toast("WhatsApp guardado.");accountDialog()};
+  $("ac-pais").onchange=e=>setPais(e.target.value);
   $("ac-cloud").onclick=cloudDialog;const bb=$("ac-buy");if(bb)bb.onclick=buyDialog;$("ac-fb").onclick=feedbackDialog;
   const w=$("ac-wa");if(w)w.onclick=()=>openWa(appCfg.whatsapp,`Hola, te escribo desde Taller de Tableros (${acct.user.email}).`);
   const ad=$("ac-admin");if(ad)ad.onclick=()=>adminDialog(unread.pending?"mensajes":"estadisticas");
@@ -273,7 +277,7 @@ async function adminDialog(tab="pagos"){if(!isAdmin())return;const T=[["estadist
     const pro=all.filter(u=>u.pro).length,tr=all.filter(u=>!u.pro&&new Date(u.trial_ends_at)>now).length,act=u=>u.last_seen_at&&now-new Date(u.last_seen_at)<7*864e5;
     const ago=t=>{if(!t)return"no ha vuelto a entrar desde que se registró";const m=(now-new Date(t))/60000;return"entró "+(m<5?"ahora mismo":m<60?`hace ${Math.floor(m)} min`:m<1440?`hace ${Math.floor(m/60)} h`:m<2880?"ayer":`hace ${Math.floor(m/1440)} días`)};
     const data=f==="activos"?all.filter(act):f==="inactivos"?all.filter(u=>!act(u)):all;
-    B.innerHTML=`<div class="seg sm">${[["todos",`Todos (${all.length})`],["activos",`Activos 7 días (${all.filter(act).length})`],["inactivos",`No han vuelto (${all.filter(u=>!act(u)).length})`]].map(([k,l])=>`<button class="segb" data-uf="${k}" aria-pressed="${k===f}">${l}</button>`).join("")}</div><p class="note">${pro} con licencia · ${tr} en prueba</p>`+data.map(u=>`<div class="pitem"><div class="pinfo"><b><span class="seen ${act(u)?"on":""}"></span>${esc(u.nombre||"Sin nombre")} · ${esc(u.email||"")}</b><small>${ago(u.last_seen_at)} · ${u.telefono?esc(u.telefono)+" · ":""}${u.pro?"✅ Licencia":new Date(u.trial_ends_at)>now?"⏳ Prueba hasta "+new Date(u.trial_ends_at).toLocaleString("es-VE"):"Prueba vencida"} · ${u.proyectos} en la nube · desde ${new Date(u.created_at).toLocaleDateString("es-VE")}</small></div>
+    B.innerHTML=`<div class="seg sm">${[["todos",`Todos (${all.length})`],["activos",`Activos 7 días (${all.filter(act).length})`],["inactivos",`No han vuelto (${all.filter(u=>!act(u)).length})`]].map(([k,l])=>`<button class="segb" data-uf="${k}" aria-pressed="${k===f}">${l}</button>`).join("")}</div><p class="note">${pro} con licencia · ${tr} en prueba</p>`+data.map(u=>`<div class="pitem"><div class="pinfo"><b><span class="seen ${act(u)?"on":""}"></span>${u.pais&&PAISES[u.pais]?PAISES[u.pais].f+" ":""}${esc(u.nombre||"Sin nombre")} · ${esc(u.email||"")}</b><small>${ago(u.last_seen_at)} · ${u.telefono?esc(u.telefono)+" · ":""}${u.pro?"✅ Licencia":new Date(u.trial_ends_at)>now?"⏳ Prueba hasta "+new Date(u.trial_ends_at).toLocaleString("es-VE"):"Prueba vencida"} · ${u.proyectos} en la nube · desde ${new Date(u.created_at).toLocaleDateString("es-VE")}</small></div>
       <div class="row-btns">${u.telefono?`<button class="btn sm wa" data-wa="${esc(u.telefono)}">WhatsApp</button>`:""}<button class="btn sm" data-pro="${u.id}" data-v="${!u.pro}">${u.pro?"Quitar licencia":"Dar licencia"}</button><button class="btn sm" data-tr="${u.id}">+24 h de prueba</button></div></div>`).join("");
     B.querySelectorAll("[data-uf]").forEach(b=>b.onclick=()=>{adminDialog.ufiltro=b.dataset.uf;adminDialog("usuarios")});
     B.querySelectorAll("[data-wa]").forEach(b=>b.onclick=()=>openWa(b.dataset.wa,"Hola, te escribo de Taller de Tableros."));

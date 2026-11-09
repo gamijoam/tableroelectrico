@@ -43,6 +43,9 @@ const PAISES={
 /* tensión fase-neutro, entre fases (trifásico) y frecuencia */
 Object.entries({PE:[220,380,60],CL:[220,380,50],AR:[220,380,50],ES:[230,400,50]}).forEach(([k,[vn,vn3,hz]])=>Object.assign(PAISES[k],{vn,vn3,hz}));
 Object.values(PAISES).forEach(p=>{if(!p.hz)Object.assign(p,{vn:120,vn3:208,hz:60})});
+/* código telefónico y ejemplo de número local de cada país */
+Object.entries({VE:["58","0412 123 4567"],CO:["57","300 123 4567"],MX:["52","55 1234 5678"],PE:["51","912 345 678"],CL:["56","9 1234 5678"],AR:["54","11 1234 5678"],
+  EC:["593","099 123 4567"],PA:["507","6123 4567"],DO:["1","809 123 4567"],ES:["34","612 345 678"],US:["1","305 123 4567"]}).forEach(([k,[cc,ej]])=>Object.assign(PAISES[k],{cc,ej}));
 /* el país se adivina por el idioma del navegador la primera vez */
 function guessPais(){const l=(navigator.languages||[navigator.language||""]).join(",").toUpperCase();for(const k of Object.keys(PAISES))if(l.includes("-"+k))return k;return"VE"}
 let PAIS_ID=(()=>{const v=lsGet(PAIS_KEY);return PAISES[v]?v:guessPais()})();
@@ -91,7 +94,9 @@ const rateTxt=r=>{const c=curLocal();return c?`${fmtNum(r)} ${c.sym}/$`:""};
 
 /* ---------- selector de país ---------- */
 function paisOptions(){return Object.entries(PAISES).map(([k,p])=>`<option value="${k}"${k===PAIS_ID?" selected":""}>${p.f} ${p.n}</option>`).join("")}
-function setPais(k,quiet){if(!PAISES[k])return;const was=PAIS_ID;PAIS_ID=k;lsSet(PAIS_KEY,k);document.documentElement.dataset.pais=k;
+function setPais(k,quiet,noSave){if(!PAISES[k])return;const was=PAIS_ID;PAIS_ID=k;lsSet(PAIS_KEY,k);
+  /* con cuenta, el país se guarda en el perfil y la app sale igual en cualquier equipo */
+  if(!noSave&&typeof sb!=="undefined"&&sb&&typeof acct!=="undefined"&&acct.user&&(!acct.st||acct.st.pais!==k)){if(acct.st)acct.st.pais=k;sb.from("profiles").update({pais:k}).eq("id",acct.user.id).then(()=>{})}document.documentElement.dataset.pais=k;
   if(typeof wAwg!=="undefined"){const ok=wallCals();if(!ok.includes(wAwg))wAwg=isMM()?"m2.5":"12"}
   paintPais();if(typeof renderAll==="function")renderAll();
   if(!quiet&&was!==k)toast(vraw(`${pais().f} ${pais().n}: colores, calibres${isMM()?" en mm²":" AWG"}, voltajes (${pais().v}) y presupuesto según ${pais().norma}.`))}

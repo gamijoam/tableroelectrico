@@ -42,7 +42,7 @@ function resizeLC(spaces,sys){const rows=spaces/2,items=JSON.parse(JSON.stringif
   for(const b of out){let ok=false;for(let s=0;s<rows&&!ok;s++)for(const side of ["L","R"])if(!ok&&lfits(side,s,b.p.poles,b.id,keep,rows,sys)){b.side=side;b.slot=s;keep.push(b);ok=true}
    if(!ok){toast("No entran todos los breakers en esa caja. Quita alguno primero.");renderTools();return}}
   mutate(()=>{S.lc.spaces=spaces;S.lc.sys=sys;S.lc.items=keep});if(out.length)toast(`${out.length} breaker${out.length>1?"s se reubicaron":" se reubicó"}.`);fixSel();if(autoFit)fit()}
-function copyText(t,msg){try{navigator.clipboard.writeText(t).then(()=>toast(msg),()=>toast("No se pudo copiar: selecciona el texto y cópialo a mano."))}catch(e){toast("No se pudo copiar: selecciona el texto y cópialo a mano.")}}
+function copyText(t,msg){t=vtxt(String(t||"")).replace(/\u2060/g,"");try{navigator.clipboard.writeText(t).then(()=>toast(msg),()=>toast("No se pudo copiar: selecciona el texto y cópialo a mano."))}catch(e){toast("No se pudo copiar: selecciona el texto y cópialo a mano.")}}
 
 /* ---------- drag & drop ---------- */
 let drag=null;const ghost=$("ghost");
@@ -117,7 +117,7 @@ document.addEventListener("keydown",e=>{const tag=(e.target.tagName||"").toLower
 function openModal(html){const d=$("dlg");d.className="dlg";d.onclick=d.onchange=d.oninput=null;d.innerHTML=html;$("modal").hidden=false}
 function closeModal(){$("modal").hidden=true}
 $("modal").addEventListener("click",e=>{if(e.target.id==="modal"||e.target.closest("[data-close]"))closeModal()});
-function showPng(svg,Wd,H,title,msg){const sc=2,src=`<svg xmlns="http://www.w3.org/2000/svg" width="${Wd*sc}" height="${H*sc}" viewBox="0 0 ${Wd} ${H}"><defs>${DEFS}</defs><rect width="${Wd}" height="${H}" fill="#ffffff"/>${svg}</svg>`;
+function showPng(svg,Wd,H,title,msg){svg=vtxt(svg);const sc=2,src=`<svg xmlns="http://www.w3.org/2000/svg" width="${Wd*sc}" height="${H*sc}" viewBox="0 0 ${Wd} ${H}"><defs>${DEFS}</defs><rect width="${Wd}" height="${H}" fill="#ffffff"/>${svg}</svg>`;
   const img=new Image();img.onload=()=>{const cv=document.createElement("canvas");cv.width=Wd*sc;cv.height=H*sc;cv.getContext("2d").drawImage(img,0,0);let url;try{url=cv.toDataURL("image/png")}catch(_){url=img.src}
    openModal(`<h2>${esc(title)}</h2><p class="note">${esc(msg)}</p><img src="${url}" alt="${esc(title)}: ${esc(S.project.name)}"><div class="row-btns"><button class="btn primary" id="img-dl">Descargar PNG</button><button class="btn" data-close>Cerrar</button></div>`);
    $("img-dl").onclick=()=>cv.toBlob(b=>{if(b)saveFile(slug(S.project.name+" "+title)+".png",b);else toast("No se pudo preparar la imagen.")},"image/png")};
