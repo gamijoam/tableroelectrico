@@ -59,14 +59,14 @@ function startWith(k){closeModal();if(k==="tour"){tourStart();return}if(k==="nue
   const s=$("tpl");s.value=k;s.dispatchEvent(new Event("change"))}
 function guiaWelcome(){lsSet(GUIA_KEY,"1");
   openModal(`<h2>👋 Bienvenido a Taller de Tableros</h2><p class="note">Diseña tableros eléctricos, cabléalos, pruébalos con un simulador y saca el presupuesto, <b>antes de tocar un cable</b>. ¿Cómo quieres empezar?</p>
-   <label class="field pais-welcome"><span>Tu país (colores de cable, calibres y moneda según su norma)</span><select class="sel" id="gw-pais">${paisOptions()}</select></label>
+   <div class="fields"><label class="field pais-welcome"><span>Tu país (colores de cable, calibres y moneda según su norma)</span><select class="sel" id="gw-pais">${paisOptions()}</select></label><label class="field pais-welcome"><span>Idioma / Language</span><select class="sel" id="gw-lang">${langOptions()}</select></label></div>
    <div class="help-grid">
     <button class="help-card" data-w="tour"><b>🧭 Ver la guía (1 minuto)</b><span>Te muestro para qué sirve cada parte de la pantalla.</span></button>
     <button class="help-card" data-w="casaVE"><b>🏠 Ver un ejemplo: casa</b><span>Caja de breakers de una casa, ya cableada en la pared.</span></button>
     <button class="help-card" data-w="motor"><b>⚙️ Ver un ejemplo: bomba trifásica</b><span>Arranque con contactor, relé térmico y pulsadores.</span></button>
     <button class="help-card" data-w="nuevo"><b>✏️ Empezar de cero</b><span>Crea tu propio proyecto.</span></button>
    </div><div class="row-btns"><button class="btn" data-close>Explorar por mi cuenta</button></div>`);
-  $("gw-pais").onchange=e=>setPais(e.target.value);lsSet(PAIS_KEY,PAIS_ID);
+  $("gw-pais").onchange=e=>setPais(e.target.value);$("gw-lang").onchange=e=>{lsSet(GUIA_KEY,"");setLang(e.target.value,true)};lsSet(PAIS_KEY,PAIS_ID);
   $("dlg").querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>startWith(b.dataset.w))}
 function guiaFinal(){openModal(`<h2>🎉 ¡Listo!</h2><p class="note">Ya conoces lo principal. Lo mejor para aprender es ver un ejemplo y presionar <b>▶ Probar</b> en la pared.</p>
    <div class="help-grid"><button class="help-card" data-w="casaVE"><b>🏠 Abrir el ejemplo de una casa</b><span>Y luego Pared → ▶ Probar.</span></button><button class="help-card" data-w="nuevo"><b>✏️ Empezar mi proyecto</b><span>Desde cero.</span></button></div>

@@ -5,7 +5,7 @@
      no responde en 4 segundos o no hay conexión, usa la copia guardada.
    · La lista y VERSION las actualiza scripts/sw-files.py al publicar.
    ===================================================================== */
-const VERSION="tt-2fa1173801",FILES=[
+const VERSION="tt-c6ee8f7332",FILES=[
     "./",
     "index.html",
     "manifest.webmanifest",
@@ -31,6 +31,8 @@ const VERSION="tt-2fa1173801",FILES=[
     "js/equipment.js",
     "js/flow.js",
     "js/guia.js",
+    "js/i18n-en.js",
+    "js/i18n.js",
     "js/info.js",
     "js/layout.js",
     "js/loadcenter.js",

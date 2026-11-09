@@ -36,7 +36,7 @@ function libChips(){const list=$("libList"),cats=[...list.querySelectorAll(".cat
 /* ---------- side panels ---------- */
 function opt(v,cur){return`<option value="${esc(v)}"${String(v)===String(cur)?" selected":""}>${esc(v)}</option>`}
 const fmtM=n=>String(n).replace(".5","½").replace(/^0½/,"½");
-const fmtA=a=>a.toFixed(1).replace(".",",")+" A";
+const fmtA=a=>(LANG==="en"?a.toFixed(1):a.toFixed(1).replace(".",","))+" A";
 function projFields(){return`<h3>Rótulo del plano</h3><div class="fields">
    <label class="field wide"><span>Proyecto</span><input class="txt" id="pj-name" value="${esc(S.project.name)}"></label>
    <label class="field wide"><span>Cliente / obra</span><input class="txt" id="pj-client" value="${esc(S.project.client)}"></label>

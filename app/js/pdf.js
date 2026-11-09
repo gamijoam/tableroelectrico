@@ -6,8 +6,8 @@
    ===================================================================== */
 const PDF_W=215.9,PDF_H=279.4,PM=14;
 /* Las fuentes estándar del PDF no traen símbolos como Φ o →: se reemplazan */
-const pdfText=s=>vtxt(String(s??"")).replace(/Φ/g,"F").replace(/Δ/g,"D").replace(/[→↳]/g,"-").replace(/…/g,"...").replace(/[^\x00-\xFF–—]/g,"");
-function svgPng(inner,W,H,scale=2){inner=vtxt(inner);return new Promise((res,rej)=>{const src=`<svg xmlns="http://www.w3.org/2000/svg" width="${W*scale}" height="${H*scale}" viewBox="0 0 ${W} ${H}"><defs>${DEFS}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${inner}</svg>`;
+const pdfText=s=>vtxt(trTxt(String(s??""))).replace(/Φ/g,"F").replace(/Δ/g,"D").replace(/[→↳]/g,"-").replace(/…/g,"...").replace(/[^\x00-\xFF–—]/g,"");
+function svgPng(inner,W,H,scale=2){inner=vtxt(trSvg(inner));return new Promise((res,rej)=>{const src=`<svg xmlns="http://www.w3.org/2000/svg" width="${W*scale}" height="${H*scale}" viewBox="0 0 ${W} ${H}"><defs>${DEFS}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${inner}</svg>`;
   const img=new Image();img.onload=()=>{const c=document.createElement("canvas");c.width=W*scale;c.height=H*scale;c.getContext("2d").drawImage(img,0,0);try{res(c.toDataURL("image/jpeg",.86))}catch(e){rej(e)}};
   img.onerror=()=>rej(new Error("no se pudo dibujar la imagen"));img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(src)})}
 
@@ -70,15 +70,15 @@ function pdfKV(doc,y,rows,x1=PDF_W-PM-70,x2=PDF_W-PM){for(const [k,v,big] of row
 /* ---------- secciones ---------- */
 function loadSection(doc,y){const calc=lcCalc(),its=[...S.lc.items].sort((a,b)=>calc.per[a.id].cs[0]-calc.per[b.id].cs[0]);
   const cols=[{h:"Circ.",w:15},{h:"Descripción",w:52},{h:"Breaker",w:24},{h:"Carga W",w:18,a:"r"},{h:"Corriente",w:19,a:"r"},{h:"Fase",w:13},{h:"V",w:11,a:"r"},{h:"Cable",w:15},{h:"Estado",w:20.9}];
-  const rows=its.map(b=>{const k=calc.per[b.id];return{cells:[k.cs.join("-"),b.p.name||"Sin nombre",`${b.p.poles}P ${b.p.In} A${b.p.type!=="Estándar"?" "+b.p.type:""}`,fmtNum(k.W,0),fmtNum(k.I,1)+" A",k.ph.join("-"),k.V,cabTxt(b.p.In),{ok:"OK",warn:"Al límite",crit:"Sobrecargado"}[k.st]],
+  const rows=its.map(b=>{const k=calc.per[b.id];return{cells:[k.cs.join("-"),b.p.name||"Sin nombre",`${b.p.poles}P ${b.p.In} A${b.p.type!=="Estándar"?" "+b.p.type:""}`,fmtNum(k.W,0),fmtNum(k.I,1)+" A",k.ph.join("-"),k.V,cabTxt(b.p.In).replace(" AWG",""),{ok:"OK",warn:"Al límite",crit:"Sobrecargado"}[k.st]],
     color:k.st==="crit"?[192,50,42]:k.st==="warn"?[181,82,29]:null}});
   y=pdfTable(doc,y,cols,rows.length?rows:[{cells:["—","La caja no tiene breakers","","","","","","",""]}],"Cuadro de cargas")+8;
   if(y>PDF_H-80){doc.addPage();pdfHeader(doc,getCompany(),"Cuadro de cargas");y=40}
-  const dm=demandCalc(),L=S.lc;doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.setTextColor(29,35,38);doc.text("Balance de fases",PM,y);doc.text("Demanda y protección principal",PDF_W/2+4,y);y+=6;
-  let yl=y;for(const [ph,a] of Object.entries(calc.amps)){doc.setFont("helvetica","normal");doc.setFontSize(9.5);doc.text(`Fase ${ph}`,PM,yl);doc.text(fmtNum(a,1)+" A",PM+42,yl,{align:"right"});
+  const dm=demandCalc(),L=S.lc;doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.setTextColor(29,35,38);doc.text(pdfText("Balance de fases"),PM,y);doc.text(pdfText("Demanda y protección principal"),PDF_W/2+4,y);y+=6;
+  let yl=y;for(const [ph,a] of Object.entries(calc.amps)){doc.setFont("helvetica","normal");doc.setFontSize(9.5);doc.text(pdfText(`Fase ${ph}`),PM,yl);doc.text(fmtNum(a,1)+" A",PM+42,yl,{align:"right"});
     const mx=Math.max(1,calc.max);doc.setFillColor(219,231,244);doc.rect(PM+46,yl-3,40,3.4,"F");doc.setFillColor(28,95,168);doc.rect(PM+46,yl-3,40*a/mx,3.4,"F");yl+=6}
-  doc.text(`Desbalance: ${Math.round(calc.imb)}%${calc.imb>20?" (conviene repartir mejor los circuitos)":""}`,PM,yl+1);
-  pdfKV(doc,y,[["Norma de referencia",`${pais().n}: ${pais().norma}`],["Carga instalada",fmtNum(dm.W,0)+" W"],["Demanda estimada",fmtNum(dm.dem,0)+" W"],["Corriente de demanda",fmtNum(dm.I,1)+" A"],["Principal instalado",L.main?L.main+" A":"Sin principal"],["Principal sugerido",dm.sug+" A"],["Acometida sugerida","#"+dm.awg+" AWG cobre"]],PDF_W/2+4);
+  doc.text(pdfText(`Desbalance: ${Math.round(calc.imb)}%${calc.imb>20?" (conviene repartir mejor los circuitos)":""}`),PM,yl+1);
+  pdfKV(doc,y,[["Norma de referencia",`${pais().n}: ${pais().norma}`],["Carga instalada",fmtNum(dm.W,0)+" W"],["Demanda estimada",fmtNum(dm.dem,0)+" W"],["Corriente de demanda",fmtNum(dm.I,1)+" A"],["Principal instalado",L.main?L.main+" A":"Sin principal"],["Principal sugerido",dm.sug+" A"],["Acometida sugerida",dm.awg+(isMM()?" Cu":" Cu")]],PDF_W/2+4);
   y=Math.max(yl,y+6*5.6)+8;doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(110);
   doc.text(doc.splitTextToSize(pdfText("Método referencial para vivienda: 100% de los primeros 3.000 W y 35% del resto. Breakers al 80% para carga continua; cable de cobre THHN/THW a 75 °C. No sustituye el cálculo según el Código Eléctrico Nacional (CEN)."),PDF_W-2*PM),PM,y);return y+12}
 function quoteSection(doc,y){const d=quoteData(),Q=S.quote,P=S.project;
@@ -105,7 +105,7 @@ async function buildPdf(o){const {jsPDF}=window.jspdf,doc=new jsPDF({unit:"mm",f
     finally{S.wallI=cur;simState.running=run;sel=b}}
   if(first)page("Proyecto");
   const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(120);
-    doc.text(pdfText(`${S.project.name} · ${S.project.date}`),PM,PDF_H-8);doc.text(`Página ${i} de ${n}`,PDF_W-PM,PDF_H-8,{align:"right"})}
+    doc.text(pdfText(`${S.project.name} · ${S.project.date}`),PM,PDF_H-8);doc.text(pdfText(`Página ${i} de ${n}`),PDF_W-PM,PDF_H-8,{align:"right"})}
   return doc.output("blob")}
 
 /* ---------- ventana del PDF ---------- */
