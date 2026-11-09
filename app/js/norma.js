@@ -40,6 +40,9 @@ const PAISES={
      colNota:"Fases marrón, negro y gris; neutro azul claro; protección verde-amarillo (ITC-BT-19).",cur:{sym:"€",name:"euros"},tax:"IVA",taxD:21,fis:"NIF"},
  US:{n:"Estados Unidos",f:"🇺🇸",norma:"NEC (NFPA 70)",u:"awg",v:"120/240 V y 208Y/120 V · 60 Hz",v220:false,col:NEC_COL,cur:null,tax:"Sales tax",taxD:0,fis:"EIN"},
 };
+/* tensión fase-neutro, entre fases (trifásico) y frecuencia */
+Object.entries({PE:[220,380,60],CL:[220,380,50],AR:[220,380,50],ES:[230,400,50]}).forEach(([k,[vn,vn3,hz]])=>Object.assign(PAISES[k],{vn,vn3,hz}));
+Object.values(PAISES).forEach(p=>{if(!p.hz)Object.assign(p,{vn:120,vn3:208,hz:60})});
 /* el país se adivina por el idioma del navegador la primera vez */
 function guessPais(){const l=(navigator.languages||[navigator.language||""]).join(",").toUpperCase();for(const k of Object.keys(PAISES))if(l.includes("-"+k))return k;return"VE"}
 let PAIS_ID=(()=>{const v=lsGet(PAIS_KEY);return PAISES[v]?v:guessPais()})();
@@ -91,16 +94,59 @@ function paisOptions(){return Object.entries(PAISES).map(([k,p])=>`<option value
 function setPais(k,quiet){if(!PAISES[k])return;const was=PAIS_ID;PAIS_ID=k;lsSet(PAIS_KEY,k);document.documentElement.dataset.pais=k;
   if(typeof wAwg!=="undefined"){const ok=wallCals();if(!ok.includes(wAwg))wAwg=isMM()?"m2.5":"12"}
   paintPais();if(typeof renderAll==="function")renderAll();
-  if(!quiet&&was!==k)toast(`${pais().f} ${pais().n}: colores, calibres${isMM()?" en mm²":" AWG"} y presupuesto según ${pais().norma}.${pais().v220?" El simulador todavía trabaja a 120/240 V; la versión a "+pais().v.split(" ·")[0]+" viene pronto.":""}`)}
-function paintPais(){const s=$("pais");if(s){s.innerHTML=paisOptions();s.value=PAIS_ID}
+  if(!quiet&&was!==k)toast(vraw(`${pais().f} ${pais().n}: colores, calibres${isMM()?" en mm²":" AWG"}, voltajes (${pais().v}) y presupuesto según ${pais().norma}.`))}
+function paintPais(){paintGrid();vtScan(document.body);const s=$("pais");if(s){s.innerHTML=paisOptions();s.value=PAIS_ID}
   const w=$("wAwg");if(w){w.innerHTML=wallCals().map(a=>`<option value="${a}">${calTxt(a)}</option>`).join("");if(typeof wAwg!=="undefined")w.value=wAwg}
-  const n=$("paisNota");if(n){const p=pais();n.innerHTML=`${p.norma} · ${p.v}${p.v220?`<br><b>Simulador a 120/240 V por ahora.</b>`:""}`}}
+  const n=$("paisNota");if(n){const p=pais();n.innerHTML=vraw(`${p.norma} · ${p.v}${p.v220?`<br>El simulador y la calculadora trabajan a ${p.v}.`:""}`)}}
 document.documentElement.dataset.pais=PAIS_ID;
 
 /* tabla de cables en mm² para la calculadora: [clave, protección máxima, Ω/km] */
 const CABLE_MM=MM_BRK.map(([mm,b])=>["m"+mm,b,MM_OHM[mm]]);
 /* pinta todos los cables con los colores de la norma del país (plantillas y botón de la leyenda) */
-function normaRecolor(wl=S.wall){if(!wl||!wl.wires)return 0;const terms=allTerms(wl);let n=0;
-  wl.wires.forEach(w=>{const ta=terms.get(w.a),tb=terms.get(w.b);if(!ta||!tb)return;const c=autoColor(ta,tb);if(c&&c!==w.color){w.color=c;n++}});return n}
-document.addEventListener("click",e=>{if(!e.target.closest("#normaFix"))return;let n=0;mutate(()=>{n=normaRecolor()});renderAll();
+function normaRecolor(wl=S.wall){if(!wl||!wl.wires)return 0;const c=pais().col,tri=S.lc&&S.lc.sys==="3F",ph=tri?c.c3:c.c1;
+  /* equivalencias desde los colores de base NEC con que están hechas las plantillas */
+  const map={Negro:ph[0],Rojo:ph[1]||c.c3[1],Azul:c.c3[2],Blanco:c.N,Gris:c.N,Verde:c.T,Amarillo:c.trav};let n=0;
+  wl.wires.forEach(w=>{const to=map[w.color];if(to&&to!==w.color){w.color=to;n++}});return n}
+document.addEventListener("click",e=>{if(!e.target.closest("#normaFix"))return;let n=0;mutate(()=>{(S.walls&&S.walls.length?S.walls:[S.wall]).forEach(w=>{n+=normaRecolor(w)})});renderAll();
   toast(n?`${n} cable${n>1?"s":""} con los colores de ${pais().n}. Deshacer los devuelve como estaban.`:`Los cables ya tienen los colores de ${pais().n}.`)});
+
+/* =====================================================================
+   Tensión del país en el simulador.
+   El simulador calcula por dentro en base 120 V (120/240 y 208Y/120).
+   En los países de 220/230 V:
+   · todo voltaje que se ve se traduce: 120 → 220/230, 208 → 380/400,
+     y un bajón a 105 V se ve como 201 V (misma proporción);
+   · las corrientes se calculan con el voltaje real (I = W ÷ 230 V);
+   · el monofásico tiene una sola fase: el aire, el calentador y la
+     bomba van fase-neutro (su borne F2 pasa a ser N).
+   ===================================================================== */
+const iec=()=>!!pais().v220;
+const VN=()=>pais().vn,VN3=()=>pais().vn3,HZ=()=>pais().hz;
+const VK=()=>iec()?VN()/120:1;
+/* tensión nominal de un aparato en la base interna: en 220/230 V todo es fase-neutro */
+const dV=d=>iec()&&d.V===240?120:d.V;
+/* marca un texto que ya está en los voltios del país para que no se vuelva a traducir */
+const vraw=t=>String(t).replace(/(\d{2,3})(?=\s?(?:\/|V|Y))/g,"$1\u2060");
+/* voltaje interno → el que se muestra */
+function Vd(v){v=+v;if(!iec()||!isFinite(v))return v;if(Math.abs(v-120)/120<.03)return VN();if(Math.abs(v-208)/208<.03)return VN3();if(Math.abs(v-240)/240<.03)return VN();return Math.round(v*VK())}
+/* traduce los voltajes escritos en un texto ("120 V", "120/240V", "208Y/120 V", "105/210 V") */
+function vtxt(s){if(!iec()||!s||!/\dV|\d V|60 Hz|3 hilos/.test(s))return s;
+  /* cada número convertido lleva una marca invisible (U+2060) para no convertirlo dos veces */
+  s=s.replace(/(?<![\d.,\u2060])(\d{2,3})\s?\/\s?(\d{2,3})(\s?V)(?![A-Za-z])/g,(m,a,b,v)=>{a=+a;b=+b;return Math.abs(b-2*a)<=2?`${Vd(a)}\u2060${v}`:m});
+  s=s.replace(/(?<![\d.,\u2060])(\d{2,3})(?=(?:\s?(?:\/|Y\/|×)\s?\d{2,3})*\s?V(?![A-Za-zÁ-ú]))/g,(m,n)=>+n<50||+n>=500?m:`${Vd(+n)}\u2060`);
+  return s.replace(/\b60 Hz\b/g,`${HZ()} Hz`).replace(/1(Φ|F) 3 hilos/g,"1$1 2 hilos")}
+/* aplica la traducción a lo que aparece en pantalla (textos de SVG, paneles, avisos y ventanas) */
+const VT_DONE=new WeakMap(),VT_SKIP="script,style,textarea,input,[data-novolt]";
+function vtNode(n){const p=n.parentElement;if(!p||p.closest(VT_SKIP))return;if(VT_DONE.get(n)===n.data)return;
+  const t=vtxt(n.data);if(t!==n.data){const o=p.tagName==="OPTION"?p:null;if(o&&!o.hasAttribute("value"))o.setAttribute("value",n.data);n.data=t}VT_DONE.set(n,n.data)}
+function vtScan(root){if(!iec()||!root)return;if(root.nodeType===3){vtNode(root);return}if(root.nodeType!==1)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode()))vtNode(n)}
+new MutationObserver(ms=>{if(!iec())return;for(const m of ms){if(m.type==="characterData")vtNode(m.target);else m.addedNodes.forEach(vtScan)}}).observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+/* opciones del voltaje de la calle durante la prueba */
+function paintGrid(){const g=$("grid");if(!g)return;[...g.options].forEach(o=>{if(!o.dataset.t)o.dataset.t=o.textContent;o.textContent=iec()?o.dataset.t.replace(/\(.*\)/,()=>{const v=+o.value;return`(${Vd(v)}\u2060${typeof S!=="undefined"&&S&&S.lc&&S.lc.sys==="3F"?"/"+Vd(v*1.732)+"\u2060":""} V)`}):o.dataset.t})}
+/* plantillas en 220/230 V: lo que iba entre dos fases (F2 a otra fase) pasa al neutro */
+function normaAdapt(wl=S.wall){if(!iec()||!wl||!wl.wires)return 0;const terms=allTerms(wl),used=new Set(wl.wires.flatMap(w=>[w.a,w.b]));let n=0;
+  for(const w of wl.wires)for(const [me,ot] of [["a","b"],["b","a"]]){const t=terms.get(w[me]),o=terms.get(w[ot]);
+    if(!t||!o||t.item.type==="panel"||!DEV[t.item.type]||DEV[t.item.type].V!==240||t.key!=="F2"||!o.src)continue;
+    const bars=[...terms.values()].filter(x=>x.item===o.item&&x.role==="N"&&x.bar);if(!bars.length)continue;
+    const free=bars.find(x=>!used.has(x.id))||bars[0];used.add(free.id);w[ot]=free.id;w.color="Blanco";n++}
+  return n}

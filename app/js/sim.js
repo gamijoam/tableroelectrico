@@ -86,7 +86,10 @@ function simCore(prevTrip,burnt,ctl){
           for(let k=0;k<b.poles;k++){const out=`${P.id}/b${b.id}.${k}`;if(!terms.has(out))continue;let L=null,ii=null;
             const inT=isDin()?`${P.id}/t${b.id}.${k}`:`${P.id}/M${PH().indexOf(b.ph(k))}`;
             if(isDin()||mainOk)ii=info.get(nets.find(inT));
-            if(ii&&ii.ph.size===1)L=[...ii.ph][0];if(!L)continue;edge(inT,out,null);const no=get(nets.find(out));
+            if(ii&&ii.ph.size===1)L=[...ii.ph][0];
+            /* un polo que recibe el neutro lo deja pasar cerrado (breaker bipolar fase + neutro, común en 220/230 V) */
+            if(!L&&ii&&!ii.ph.size&&ii.N&&isDin()){edge(inT,out,null);const no=get(nets.find(out));if(!no.N){no.N=true;ch=true}continue}
+            if(!L)continue;edge(inT,out,null);const no=get(nets.find(out));
             if(!no.feed.some(f=>f.b===b&&f.k===k)){no.ph.add(L);no.feed.push({b,k});ch=true}}}
         if(!ch)break}}
     else if(P){for(const b of SRC)for(let k=0;k<b.poles;k++){const id=`${P.id}/b${b.id}.${k}`;if(!terms.has(id))continue;const ni=get(nets.find(id));
@@ -146,11 +149,12 @@ function simCore(prevTrip,burnt,ctl){
       const a=pot(k0),b=pot(k1),v=volt(a,b),W=d.W(it.p)||0;let st;
       if(burnt.has(it.id))st={s:"burnt",v};
       else if(v===0)st={s:"off",v,why:whyOff(it,k0,k1,{terms,nets,pot,SRC,trips:res.trips,ctl})};
-      else if(v>=d.V*1.25){st={s:"burnt",v};if(!res.newBurnt.includes(it.id)){res.newBurnt.push(it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)} recibió ${v} V en vez de ${d.V} V y se quemó.`})}}
-      else if(d.V===240&&v<150)st={s:"weak",v};
-      else if(d.V===120&&v<70)st={s:"weak",v};
-      else{st={s:W>0?"on":"idle",v};if(W>0&&v>d.V*1.1)st.hi=true;else if(W>0&&v<d.V*.88)st.lo=true}
-      st.I=st.s==="on"?W/v:st.s==="weak"?W/4/120:0;res.loads[it.id]=st;st.W=st.s==="on"?W:st.s==="weak"?W/4:0;if(st.I)loadPts.push({t:k0,I:st.I},{t:k1,I:st.I});
+      else if(v>=dV(d)*1.25){st={s:"burnt",v};if(!res.newBurnt.includes(it.id)){res.newBurnt.push(it.id);res.log.push({lvl:"crit",msg:`${devLabel(it)} recibió ${v} V en vez de ${dV(d)} V y se quemó.`})}}
+      else if(dV(d)===240&&v<150)st={s:"weak",v};
+      else if(dV(d)===120&&v<70)st={s:"weak",v};
+      else{st={s:W>0?"on":"idle",v};if(W>0&&v>dV(d)*1.1)st.hi=true;else if(W>0&&v<dV(d)*.88)st.lo=true}
+      /* corriente con el voltaje real del país (en 230 V es casi la mitad que en 120 V) */
+      st.I=st.s==="on"?W/(v*VK()):st.s==="weak"?W/4/(120*VK()):0;res.loads[it.id]=st;st.W=st.s==="on"?W:st.s==="weak"?W/4:0;if(st.I)loadPts.push({t:k0,I:st.I},{t:k1,I:st.I});
       if(st.s==="on")for(const k of [k0,k1]){const i=netOf(k);if(i)for(const ph of i.ph)if(ph[0]==="U")res.batW[ph.slice(1)]=(res.batW[ph.slice(1)]||0)+W}
       if(st.s==="on"){const ss=new Set();for(const k of [k0,k1]){const i=netOf(k);if(i)for(const ph of i.ph)if(ph[0]==="S")ss.add(parseInt(ph.slice(1)))}ss.forEach(id=>res.stabW[id]=(res.stabW[id]||0)+W)}
       if(st.I)for(const k of [k0,k1]){const r=nets.find(k);netCur.set(r,(netCur.get(r)||0)+st.I);const i=netOf(k);if(i&&i.ph.size===1&&i.feed.length){const f=i.feed[0],key=f.b.id+"."+f.k;res.pcur[key]=(res.pcur[key]||0)+st.I}}
@@ -158,7 +162,7 @@ function simCore(prevTrip,burnt,ctl){
       if(st.s==="on"&&(it.type==="pump"||it.type==="ac"))for(const k of [k0,k1]){const i=netOf(k);if(!i)continue;const f=i.feed.find(f=>f.b.din&&f.b.ref.type==="mcb"&&f.b.ref.p.curve==="B");
         if(f&&!res.trips.has(f.b.id)){res.trips.add(f.b.id);gfci=true;res.log.push({lvl:"crit",msg:`Al arrancar, ${devLabel(it)} pidió varias veces su corriente y disparó ${f.b.lab} (curva B). Para motores usa curva C o D.`})}}
       /* GFCI: si el neutro del aparato regresa por la tierra, el GFCI dispara */
-      if(st.I&&d.V===120){const nN=netOf(k1),nF=netOf(k0);if(nN&&nN.G&&!nN.N&&nF&&nF.feed.length){const g=nF.feed.find(f=>f.b.gfci);
+      if(st.I&&dV(d)===120){const nN=netOf(k1),nF=netOf(k0);if(nN&&nN.G&&!nN.N&&nF&&nF.feed.length){const g=nF.feed.find(f=>f.b.gfci);
         if(g&&!res.trips.has(g.b.id)){res.trips.add(g.b.id);gfci=true;res.log.push({lvl:"crit",msg:`${g.b.din?"El diferencial "+g.b.lab:"El GFCI del "+g.b.lab} detectó corriente regresando por la tierra (${devLabel(it)}) y disparó.`})}}}}
     /* motores trifásicos: tres fases distintas giran; con dos zumban (falta de fase); el orden define el sentido */
     for(const it of S.wall.items){if(it.type!=="motor3")continue;const d=DEV.motor3,ks=["U","V","W"].map(k=>`${it.id}/${k}`),ps=ks.map(pot),fla=d.fla(it.p),ph=ps.map(x=>x&&/^[ABC]$/.test(x)?x:null),u=new Set(ph.filter(Boolean));let st;
@@ -256,7 +260,7 @@ function simCore(prevTrip,burnt,ctl){
     if(d.tri){if(st.s==="on")res.status.push(st.rev?{lvl:"warn",msg:`${L}: gira al revés. Intercambia dos fases (por ejemplo, los cables de T1 y T2).`}:{lvl:"ok",msg:`${L}: girando (${fmtA(st.I)} por fase).`});
       else if(st.s==="fase")res.status.push({lvl:"crit",msg:`${L}: falta una fase${S.lc.sys==="1F"?" (el sistema 120/240 V solo tiene dos)":""}. Zumba, no arranca bien y se recalienta.`});
       else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: detenido (${st.why}).`});continue}
-    if(st.s==="on")res.status.push(st.hi?{lvl:"warn",msg:`${L}: recibe ${st.v} V (es de ${d.V} V). Sobretensión: se calienta y se acorta su vida${it.type==="ac"||it.type==="pump"?"; el compresor sufre":""}.`}:st.lo?{lvl:"warn",msg:`${L}: recibe solo ${st.v} V (es de ${d.V} V). ${it.type==="ac"||it.type==="pump"||(it.type==="toma"&&/Nevera|Freezer/.test(it.p.carga))?"El motor toma más corriente y se recalienta: riesgo de quemarse.":"Funciona débil."}`}:{lvl:"ok",msg:`${L}: funcionando a ${st.v} V (${fmtA(st.I)}).`});
+    if(st.s==="on")res.status.push(st.hi?{lvl:"warn",msg:`${L}: recibe ${st.v} V (es de ${dV(d)} V). Sobretensión: se calienta y se acorta su vida${it.type==="ac"||it.type==="pump"?"; el compresor sufre":""}.`}:st.lo?{lvl:"warn",msg:`${L}: recibe solo ${st.v} V (es de ${dV(d)} V). ${it.type==="ac"||it.type==="pump"||(it.type==="toma"&&/Nevera|Freezer/.test(it.p.carga))?"El motor toma más corriente y se recalienta: riesgo de quemarse.":"Funciona débil."}`}:{lvl:"ok",msg:`${L}: funcionando a ${st.v} V (${fmtA(st.I)}).`});
     else if(st.s==="idle")res.status.push({lvl:"ok",msg:`${L}: tiene ${st.v} V, sin aparato conectado.`});
     else if(st.s==="weak")res.status.push({lvl:"warn",msg:`${L}: recibe solo 120 V y necesita ${S.lc.sys==="1F"?240:208} V. Conéctalo a dos fases.`});
     else if(st.s==="off")res.status.push({lvl:"off",msg:`${L}: no funciona, ${st.why}`.replace(/([^.])$/,"$1.")})}

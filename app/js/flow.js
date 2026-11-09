@@ -17,7 +17,7 @@ const NOMV=[120,208,240,360];
 /* Voltaje fase-neutro de la calle durante la prueba (120 V normal; bajones y subidas lo cambian) */
 const gridLN=()=>(typeof simState!=="undefined"&&simState.running&&simState.grid)||120;
 function phasor(x){if(x==="0")return[0,0];const d=Math.PI/180,P=(m,g)=>[m*Math.cos(g*d),m*Math.sin(g*d)],g=gridLN();
-  if(x==="A")return P(g,0);if(x==="B")return S.lc.sys==="1F"?P(g,180):P(g,-120);if(x==="C")return P(g,120);
+  if(x==="A")return P(g,0);if(x==="B")return S.lc.sys==="1F"?P(g,iec()?0:180):P(g,-120);if(x==="C")return P(g,120);
   if(x[0]==="S")return P(x.endsWith("b")?240:120,0);if(x[0]==="R")return P(120,0);return null}
 const voltOf=(a,b)=>{if(a==null||b==null||a==="X"||b==="X"||a===b)return 0;
   if(a[0]==="U"||b[0]==="U"){if(a==="0"||b==="0")return 120;return S.lc.sys==="1F"?240:208}
@@ -106,7 +106,7 @@ function circuitTerms(k){const seen=new Set([k]),q=[k],it=id=>S.wall.items.find(
       if(d.type==="inter3"){const tk="T"+(d.p.pos===2?2:1);if(key==="COM")nx.push(`${iid}/${tk}`);else if(key===tk)nx.push(`${iid}/COM`)}}
     for(const n of nx)if(!seen.has(n)){seen.add(n);q.push(n)}}return seen}
 /* Explica por qué un aparato de dos bornes no tiene voltaje */
-function whyOff(it,k0,k1,ctx){const d=DEV[it.type],[l0,l1]=d.terms.filter(t=>t[1]!=="T").map(t=>t[2]),a=ctx.pot(k0),b=ctx.pot(k1),two=d.V!==120;
+function whyOff(it,k0,k1,ctx){const d=DEV[it.type],[l0,l1]=d.terms.filter(t=>t[1]!=="T").map(t=>t[2]),a=ctx.pot(k0),b=ctx.pot(k1),two=dV(d)!==120;
   const tail=k=>{const bl=netBlockers(k,ctx);return bl.length?` Revisa: ${bl.join("; ")}.`:""};
   const wired=k=>S.wall.wires.some(w=>w.a===k||w.b===k);
   if(a==null&&b==null)return!wired(k0)&&!wired(k1)?"no tiene cables conectados":`ninguno de sus bornes llega a algo con corriente.${tail(k0)||tail(k1)}`;
