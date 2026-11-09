@@ -349,3 +349,5 @@ details.info p{margin:7px 0 0}details.info ul{margin:4px 0 0;padding-left:18px;d
 .pitem.col{flex-direction:column;align-items:stretch}
 textarea.txt{width:100%;resize:vertical;font:inherit}
 .paylist{margin:6px 0 10px}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:44px;background:#fff;color:#1f1f1f;border-color:#dadce0;font-weight:600}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px}.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
