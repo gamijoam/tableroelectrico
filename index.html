@@ -76,6 +76,7 @@
       <span class="tgroup pop" id="boardTools">
       <button class="btn pop-btn" aria-expanded="false" aria-haspopup="true">Ajustes del tablero ▾</button>
       <span class="pop-body">
+      <label class="pais-row">Idioma <select class="sel" id="lang" aria-label="Idioma / Language"></select></label>
       <label class="pais-row">País y norma <select class="sel" id="pais" aria-describedby="paisNota"></select></label><small class="pais-nota" id="paisNota"></small>
       <label>Tipo <select class="sel" id="kind"><option value="lc">Caja de breakers</option><option value="din">Riel DIN</option></select></label>
       <span class="tgroup" id="lcTools">
@@ -140,6 +141,8 @@
 <script src="vendor/supabase.js"></script>
 <!-- El orden importa: cada archivo usa lo definido en los anteriores. -->
 <script src="js/util.js"></script>
+<script src="js/i18n-en.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/din.js"></script>
 <script src="js/loadcenter.js"></script>
 <script src="js/equipment.js"></script>

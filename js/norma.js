@@ -63,7 +63,7 @@ const MM_OHM={1.5:12.1,2.5:7.41,4:4.61,6:3.08,10:1.83,16:1.15,25:.727,35:.524,50
 /* equivalencia comercial AWG → mm² (el siguiente mayor) */
 const AWG_MM={"14":2.5,"12":4,"10":6,"8":10,"6":16,"4":25,"3":35,"2":35,"1":50,"1/0":70,"2/0":70,"3/0":95,"4/0":120};
 const mmFor=In=>(MM_BRK.find(([,b])=>b>=In)||MM_BRK[MM_BRK.length-1])[0];
-const mmTxt=mm=>String(mm).replace(".",",")+" mm²";
+const mmTxt=mm=>(LANG==="en"?String(mm):String(mm).replace(".",","))+" mm²";
 const isMM=()=>pais().u==="mm2";
 /* etiqueta de un calibre guardado en un cable ("12" = AWG, "m2.5" = mm²) */
 function calTxt(k){k=String(k);if(k[0]==="m")return mmTxt(+k.slice(1));return isMM()?mmTxt(AWG_MM[k]||2.5):`#${k} AWG`}
@@ -100,7 +100,7 @@ function setPais(k,quiet,noSave){if(!PAISES[k])return;const was=PAIS_ID;PAIS_ID=
   if(typeof wAwg!=="undefined"){const ok=wallCals();if(!ok.includes(wAwg))wAwg=isMM()?"m2.5":"12"}
   paintPais();if(typeof renderAll==="function")renderAll();
   if(!quiet&&was!==k)toast(vraw(`${pais().f} ${pais().n}: colores, calibres${isMM()?" en mm²":" AWG"}, voltajes (${pais().v}) y presupuesto según ${pais().norma}.`))}
-function paintPais(){paintGrid();vtScan(document.body);const s=$("pais");if(s){s.innerHTML=paisOptions();s.value=PAIS_ID}
+function paintPais(){const lg=$("lang");if(lg&&!lg.options.length){lg.innerHTML=langOptions();lg.onchange=e=>setLang(e.target.value)}paintGrid();vtScan(document.body);const s=$("pais");if(s){s.innerHTML=paisOptions();s.value=PAIS_ID}
   const w=$("wAwg");if(w){w.innerHTML=wallCals().map(a=>`<option value="${a}">${calTxt(a)}</option>`).join("");if(typeof wAwg!=="undefined")w.value=wAwg}
   const n=$("paisNota");if(n){const p=pais();n.innerHTML=vraw(`${p.norma} · ${p.v}${p.v220?`<br>El simulador y la calculadora trabajan a ${p.v}.`:""}`)}}
 document.documentElement.dataset.pais=PAIS_ID;
@@ -141,13 +141,15 @@ function vtxt(s){if(!iec()||!s||!/\dV|\d V|60 Hz|3 hilos/.test(s))return s;
   s=s.replace(/(?<![\d.,\u2060])(\d{2,3})(?=(?:\s?(?:\/|Y\/|×)\s?\d{2,3})*\s?V(?![A-Za-zÁ-ú]))/g,(m,n)=>+n<50||+n>=500?m:`${Vd(+n)}\u2060`);
   return s.replace(/\b60 Hz\b/g,`${HZ()} Hz`).replace(/1(Φ|F) 3 hilos/g,"1$1 2 hilos")}
 /* aplica la traducción a lo que aparece en pantalla (textos de SVG, paneles, avisos y ventanas) */
-const VT_DONE=new WeakMap(),VT_SKIP="script,style,textarea,input,[data-novolt]";
-function vtNode(n){const p=n.parentElement;if(!p||p.closest(VT_SKIP))return;if(VT_DONE.get(n)===n.data)return;
-  const t=vtxt(n.data);if(t!==n.data){const o=p.tagName==="OPTION"?p:null;if(o&&!o.hasAttribute("value"))o.setAttribute("value",n.data);n.data=t}VT_DONE.set(n,n.data)}
-function vtScan(root){if(!iec()||!root)return;if(root.nodeType===3){vtNode(root);return}if(root.nodeType!==1)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode()))vtNode(n)}
-new MutationObserver(ms=>{if(!iec())return;for(const m of ms){if(m.type==="characterData")vtNode(m.target);else m.addedNodes.forEach(vtScan)}}).observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+/* capa de pantalla: idioma (i18n.js) y voltios del país; [data-novolt] solo se traduce de idioma */
+const vtOn=()=>iec()||LANG==="en";
+const VT_DONE=new WeakMap(),VT_SKIP="script,style,textarea,input";
+function vtNode(n){const p=n.parentElement;if(!p||p.closest(VT_SKIP))return;if(VT_DONE.get(n)===n.data)return;const nov=!!p.closest("[data-novolt]");
+  let t=trTxt(n.data);if(!nov)t=vtxt(t);if(t!==n.data){const o=p.tagName==="OPTION"?p:null;if(o&&!o.hasAttribute("value"))o.setAttribute("value",n.data);n.data=t}VT_DONE.set(n,n.data)}
+function vtScan(root){if(!vtOn()||!root)return;if(root.nodeType===3){vtNode(root);return}if(root.nodeType!==1)return;if(LANG==="en"){trAttrs(root);root.querySelectorAll("[placeholder],[title],[aria-label]").forEach(trAttrs)}const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode()))vtNode(n)}
+new MutationObserver(ms=>{if(!vtOn())return;for(const m of ms){if(m.type==="characterData")vtNode(m.target);else if(m.type==="attributes")trAttrs(m.target);else m.addedNodes.forEach(vtScan)}}).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:TR_ATTR});
 /* opciones del voltaje de la calle durante la prueba */
-function paintGrid(){const g=$("grid");if(!g)return;[...g.options].forEach(o=>{if(!o.dataset.t)o.dataset.t=o.textContent;o.textContent=iec()?o.dataset.t.replace(/\(.*\)/,()=>{const v=+o.value;return`(${Vd(v)}\u2060${typeof S!=="undefined"&&S&&S.lc&&S.lc.sys==="3F"?"/"+Vd(v*1.732)+"\u2060":""} V)`}):o.dataset.t})}
+function paintGrid(){const g=$("grid");if(!g)return;[...g.options].forEach(o=>{if(!o.dataset.t)o.dataset.t=o.textContent;o.textContent=iec()?trTxt(o.dataset.t).replace(/\(.*\)/,()=>{const v=+o.value;return`(${Vd(v)}\u2060${typeof S!=="undefined"&&S&&S.lc&&S.lc.sys==="3F"?"/"+Vd(v*1.732)+"\u2060":""} V)`}):o.dataset.t})}
 /* plantillas en 220/230 V: lo que iba entre dos fases (F2 a otra fase) pasa al neutro */
 function normaAdapt(wl=S.wall){if(!iec()||!wl||!wl.wires)return 0;const terms=allTerms(wl),used=new Set(wl.wires.flatMap(w=>[w.a,w.b]));let n=0;
   for(const w of wl.wires)for(const [me,ot] of [["a","b"],["b","a"]]){const t=terms.get(w[me]),o=terms.get(w[ot]);

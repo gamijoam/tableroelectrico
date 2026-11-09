@@ -35,6 +35,7 @@ async function refreshAcct(silent){if(!sb)return;
     const {data,error}=await sb.rpc("my_status");if(error)throw error;
     acct={user:{id:session.user.id,email:session.user.email},st:data,skew:new Date(data.now).getTime()-Date.now(),at:Date.now()};saveAcct();setProjOwner(session.user.id);
     /* el país de la cuenta manda; si la cuenta aún no tiene, se guarda el que eligió en este equipo */
+    if((data.idioma==="en"||data.idioma==="es")&&data.idioma!==LANG){setLang(data.idioma,true);return}else if(!data.idioma)sb.from("profiles").update({idioma:LANG}).eq("id",session.user.id).then(()=>{});
     if(data.pais&&PAISES[data.pais]){if(data.pais!==PAIS_ID)setPais(data.pais,false,true)}else if(paisElegido())sb.from("profiles").update({pais:PAIS_ID}).eq("id",session.user.id).then(()=>{acct.st.pais=PAIS_ID});
     const c=await sb.from("app_settings").select("*").eq("id",1).maybeSingle();if(c.data)appCfg=c.data;checkUnread();
   }catch(e){if(!silent)toast(sbErr(e))}
@@ -123,7 +124,7 @@ function accountDialog(){if(!acct.user){authDialog("registro");return}const st=a
    :`<div class="paycard off"><b>Tu prueba terminó</b><span>Activa tu licencia de por vida por $${p} para exportar y usar la nube.</span></div>`;
   const askTel=!st.telefono?`<div class="fields"><label class="field wide"><span>Tu WhatsApp (para avisarte cuando se active tu licencia)</span><input class="txt" id="ac-tel" type="tel" inputmode="tel" placeholder="0412 123 4567"></label></div><div class="row-btns"><button class="btn sm primary" id="ac-tel-ok">Guardar WhatsApp</button></div>`:"";
   openModal(`<h2>Mi cuenta</h2><p class="note">${esc(st.nombre||"")} · ${esc(acct.user.email)}</p>${state}${askTel}
-   <div class="fields"><label class="field wide"><span>Tu país (colores de cable, calibres, voltaje y moneda según su norma)</span><select class="sel" id="ac-pais">${paisOptions()}</select></label></div>
+   <div class="fields"><label class="field wide"><span>Tu país (colores de cable, calibres, voltaje y moneda según su norma)</span><select class="sel" id="ac-pais">${paisOptions()}</select></label><label class="field wide"><span>Idioma / Language</span><select class="sel" id="ac-lang">${langOptions()}</select></label></div>
    <div class="acct-grid">
     <button class="btn" id="ac-cloud">☁ Mis proyectos en la nube</button>
     ${isPro()?"":`<button class="btn primary" id="ac-buy">Activar licencia ($${p})</button>`}
@@ -134,7 +135,7 @@ function accountDialog(){if(!acct.user){authDialog("registro");return}const st=a
    <div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`);
   const tk=$("ac-tel-ok");if(tk)tk.onclick=async()=>{const v=$("ac-tel").value.trim();if(v.length<7){toast("Escribe tu número de WhatsApp.");return}
     const {error}=await sb.from("profiles").update({telefono:v}).eq("id",acct.user.id);if(error){toast(sbErr(error));return}await refreshAcct(true);toast("WhatsApp guardado.");accountDialog()};
-  $("ac-pais").onchange=e=>setPais(e.target.value);
+  $("ac-pais").onchange=e=>setPais(e.target.value);$("ac-lang").onchange=e=>setLang(e.target.value);
   $("ac-cloud").onclick=cloudDialog;const bb=$("ac-buy");if(bb)bb.onclick=buyDialog;$("ac-fb").onclick=feedbackDialog;
   const w=$("ac-wa");if(w)w.onclick=()=>openWa(appCfg.whatsapp,`Hola, te escribo desde Taller de Tableros (${acct.user.email}).`);
   const ad=$("ac-admin");if(ad)ad.onclick=()=>adminDialog(unread.pending?"mensajes":"estadisticas");

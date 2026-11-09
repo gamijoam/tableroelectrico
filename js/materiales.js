@@ -35,7 +35,7 @@ function bomDialog(){const st=bomDialog.price??false,d=bomData();
    <div class="row-btns"><button class="btn wa" id="bom-wa">Enviar por WhatsApp</button><button class="btn primary" id="bom-pdf">PDF</button><button class="btn" id="bom-copy">Copiar</button><span class="sp"></span><button class="btn" data-close>Cerrar</button></div><p class="note" id="bom-msg" role="status"></p>`);
   $("dlg").classList.add("wide");
   $("bom-p").onchange=e=>{bomDialog.price=e.target.checked;bomDialog()};
-  $("bom-copy").onclick=async()=>{try{await navigator.clipboard.writeText(vtxt(bomText(st)).replace(/\u2060/g,""));$("bom-msg").textContent="Copiada: pégala donde quieras."}catch(e){$("bom-msg").textContent="No se pudo copiar en este navegador."}};
+  $("bom-copy").onclick=async()=>{try{await navigator.clipboard.writeText(vtxt(trLines(bomText(st))).replace(/\u2060/g,""));$("bom-msg").textContent="Copiada: pégala donde quieras."}catch(e){$("bom-msg").textContent="No se pudo copiar en este navegador."}};
   $("bom-wa").onclick=()=>openWa("",bomText(st));
   $("bom-pdf").onclick=async()=>{const m=$("bom-msg");if(!window.jspdf){m.textContent="No se pudo cargar el generador de PDF. Revisa tu conexión.";return}
     try{m.textContent="Generando…";const blob=bomPdf(st),ok=await saveFile(slug(S.project.name)+"-materiales.pdf",blob);m.textContent=ok?"PDF listo.":"No se descargó."}catch(e){m.textContent="Hubo un problema: "+(e&&e.message||e)}}}

@@ -36,9 +36,9 @@ async function quoteFile(){const q=quoteImageSvg(),url=await svgPng(q.svg,q.W,q.
   return new File([b],slug(S.project.name+" presupuesto")+".jpg",{type:"image/jpeg"})}
 const canShareFiles=f=>{try{return!!(navigator.canShare&&navigator.share&&navigator.canShare({files:[f]}))}catch(e){return false}};
 const shareProbe=()=>canShareFiles(new File(["x"],"x.jpg",{type:"image/jpeg"}));
-async function shareFile(f,text){text=vtxt(String(text||"")).replace(/\u2060/g,"");try{await navigator.share({files:[f],text,title:S.project.name});return true}
+async function shareFile(f,text){text=vtxt(trLines(String(text||""))).replace(/\u2060/g,"");try{await navigator.share({files:[f],text,title:S.project.name});return true}
   catch(e){if(e&&e.name==="AbortError")return false;toast("No se pudo compartir: "+(e&&e.message||e));return false}}
-function openWa(phone,text){text=vtxt(String(text||"")).replace(/\u2060/g,"");const url=`https://wa.me/${waPhone(phone)}?text=${encodeURIComponent(text)}`;const w=window.open(url,"_blank");if(w)try{w.opener=null}catch(e){}
+function openWa(phone,text){text=vtxt(trLines(String(text||""))).replace(/\u2060/g,"");const url=`https://wa.me/${waPhone(phone)}?text=${encodeURIComponent(text)}`;const w=window.open(url,"_blank");if(w)try{w.opener=null}catch(e){}
   if(!w)openModal(`<h2>Abrir WhatsApp</h2><p class="note">Tu navegador bloqueó la ventana nueva. Toca el enlace para abrir WhatsApp con el presupuesto.</p><p><a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">Abrir WhatsApp</a></p><div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`)}
 
 function waDialog(){const d=quoteData();if(d.mat.length<2&&!d.lab.length){toast("Agrega componentes al tablero para armar el presupuesto.");return}
