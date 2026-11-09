@@ -37,6 +37,7 @@ Para publicarla basta cualquier hosting estático (GitHub Pages, Cloudflare Page
   con baterías; y la demanda completa de una vivienda con su caja de breakers.
 - **Cotiza** en $ (y Bs opcional) y genera un PDF profesional con logo, unifilar y cuadro de cargas.
 - **Segundo tablero, estabilizador 110/220 V y puente entre barras** en la pared, para instalaciones con protección general + estabilizador. Ejemplo listo en `ejemplos/proteccion-estabilizador.json` (Proyectos → Abrir archivo).
+- **Cuentas, prueba gratis y licencia de por vida**: registro, prueba de 24 h, licencia de pago único, proyectos y plantillas en la nube, sugerencias y panel de administración (Supabase; esquema en `supabase/migrations/`).
 - **Diagrama unifilar** automático de la caja de breakers o del riel DIN, visible en la app y en el PDF.
 - **Envía el presupuesto por WhatsApp** (imagen o PDF desde el teléfono, texto desde la computadora). Tus precios quedan guardados para todos los proyectos.
 
