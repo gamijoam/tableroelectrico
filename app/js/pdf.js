@@ -7,7 +7,7 @@
 const PDF_W=215.9,PDF_H=279.4,PM=14;
 /* Las fuentes estándar del PDF no traen símbolos como Φ o →: se reemplazan */
 const pdfText=s=>vtxt(String(s??"")).replace(/Φ/g,"F").replace(/Δ/g,"D").replace(/[→↳]/g,"-").replace(/…/g,"...").replace(/[^\x00-\xFF–—]/g,"");
-function svgPng(inner,W,H,scale=2){return new Promise((res,rej)=>{const src=`<svg xmlns="http://www.w3.org/2000/svg" width="${W*scale}" height="${H*scale}" viewBox="0 0 ${W} ${H}"><defs>${DEFS}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${inner}</svg>`;
+function svgPng(inner,W,H,scale=2){inner=vtxt(inner);return new Promise((res,rej)=>{const src=`<svg xmlns="http://www.w3.org/2000/svg" width="${W*scale}" height="${H*scale}" viewBox="0 0 ${W} ${H}"><defs>${DEFS}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${inner}</svg>`;
   const img=new Image();img.onload=()=>{const c=document.createElement("canvas");c.width=W*scale;c.height=H*scale;c.getContext("2d").drawImage(img,0,0);try{res(c.toDataURL("image/jpeg",.86))}catch(e){rej(e)}};
   img.onerror=()=>rej(new Error("no se pudo dibujar la imagen"));img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(src)})}
 

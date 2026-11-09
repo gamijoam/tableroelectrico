@@ -19,8 +19,10 @@ function resetPricesDialog(){const n=Object.keys(myPrices()).length+Object.keys(
 
 /* ---------- WhatsApp ---------- */
 /* número internacional sin signos; los números venezolanos 0412… pasan a 58412… */
-function waPhone(s){let d=String(s||"").replace(/\D/g,"");if(d.startsWith("00"))d=d.slice(2);
-  if(d.length===11&&d.startsWith("0"))d="58"+d.slice(1);else if(d.length===10&&/^[24]/.test(d))d="58"+d;return d}
+/* número local → internacional con el código del país elegido (+58, +57, +54…) */
+function waPhone(s){const raw=String(s||"").trim();let d=raw.replace(/\D/g,"");if(!d)return"";if(raw.startsWith("+"))return d;if(d.startsWith("00"))return d.slice(2);
+  const cc=(typeof pais==="function"&&pais().cc)||"58";if(d.startsWith(cc)&&d.length>=cc.length+8)return d;
+  if(d.startsWith("0"))d=d.replace(/^0+/,"");return d.length>=7&&d.length<=10?cc+d:d}
 function waText(d){const P=S.project,Q=S.quote,co=getCompany(),L=[`*PRESUPUESTO — ${P.name}*`];
   if(P.client)L.push(`Cliente: ${P.client}`);L.push(`Fecha: ${P.date} · válido por ${Q.valid} días`,"","*Materiales y equipos*");
   const max=25;d.mat.slice(0,max).forEach(e=>L.push(`• ${fmtQ(e.q)}${e.u?" "+e.u:""} × ${e.desc}: ${fmtUSD(e.total)}`));
@@ -34,9 +36,9 @@ async function quoteFile(){const q=quoteImageSvg(),url=await svgPng(q.svg,q.W,q.
   return new File([b],slug(S.project.name+" presupuesto")+".jpg",{type:"image/jpeg"})}
 const canShareFiles=f=>{try{return!!(navigator.canShare&&navigator.share&&navigator.canShare({files:[f]}))}catch(e){return false}};
 const shareProbe=()=>canShareFiles(new File(["x"],"x.jpg",{type:"image/jpeg"}));
-async function shareFile(f,text){try{await navigator.share({files:[f],text,title:S.project.name});return true}
+async function shareFile(f,text){text=vtxt(String(text||"")).replace(/\u2060/g,"");try{await navigator.share({files:[f],text,title:S.project.name});return true}
   catch(e){if(e&&e.name==="AbortError")return false;toast("No se pudo compartir: "+(e&&e.message||e));return false}}
-function openWa(phone,text){const url=`https://wa.me/${waPhone(phone)}?text=${encodeURIComponent(text)}`;const w=window.open(url,"_blank");if(w)try{w.opener=null}catch(e){}
+function openWa(phone,text){text=vtxt(String(text||"")).replace(/\u2060/g,"");const url=`https://wa.me/${waPhone(phone)}?text=${encodeURIComponent(text)}`;const w=window.open(url,"_blank");if(w)try{w.opener=null}catch(e){}
   if(!w)openModal(`<h2>Abrir WhatsApp</h2><p class="note">Tu navegador bloqueó la ventana nueva. Toca el enlace para abrir WhatsApp con el presupuesto.</p><p><a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">Abrir WhatsApp</a></p><div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`)}
 
 function waDialog(){const d=quoteData();if(d.mat.length<2&&!d.lab.length){toast("Agrega componentes al tablero para armar el presupuesto.");return}
