@@ -389,3 +389,26 @@ textarea.txt{width:100%;resize:vertical;font:inherit}
 .tour-bub p{font-size:14px;line-height:1.45;margin-bottom:12px}
 .tour-bub .row-btns{display:flex;align-items:center;gap:6px}.tour-bub .sp{flex:1}
 .tour-n{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
+
+/* ---------- soporte ---------- */
+.dot{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:#e0302a;color:#fff;font-size:11px;font-weight:700;margin-left:4px;vertical-align:middle}
+.ticket{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid var(--line);background:var(--panel-2);border-radius:10px;padding:10px 12px;cursor:pointer;color:inherit;font:inherit}
+.ticket:hover{border-color:var(--accent)}.ticket.unread{border-color:#e0302a;background:#fff4f2}
+@media (prefers-color-scheme:dark){.ticket.unread{background:#3a1c1a}}
+.ticket .tk-ic{font-size:20px}.ticket .tk-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.ticket .tk-main small{color:var(--muted);font-size:12px}
+.ticket i{font-style:normal;color:#e0302a;font-weight:700}.ticket .tk-go{font-size:22px;color:var(--muted)}
+.pill{display:inline-block;padding:0 7px;border-radius:99px;font-size:11px;font-weight:600}
+.pill.st-new{background:#fff1c2;color:#7a5600}.pill.st-ans{background:#dbe7f4;color:#1c5fa8}.pill.st-ok{background:#e3f4e6;color:#2f7d3e}
+.th-head{display:flex;justify-content:space-between;align-items:center}
+.chat{display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow:auto;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
+.bub{max-width:80%;padding:8px 11px;border-radius:12px;font-size:14px;line-height:1.4;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bub small{display:block;font-size:10.5px;opacity:.7;margin-top:3px}
+.bub.them{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:3px}
+.bub.me{align-self:flex-end;background:#1c5fa8;color:#fff;border-bottom-right-radius:3px}
+.reply{display:flex;gap:8px;align-items:flex-end}.reply textarea{flex:1}
+.help-card.hot{border-color:#e0302a;background:#fff4f2}
+@media (prefers-color-scheme:dark){.help-card.hot{background:#3a1c1a}}
+.seg.sm .segb{padding:4px 10px;font-size:12px}
+.row-btns .sp{flex:1}
+#acct.has-dot{position:relative}#acct.has-dot::after{content:"";position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:#e0302a;border:2px solid var(--panel)}
+.reply .txt{min-height:0;height:62px;resize:vertical}
