@@ -44,14 +44,19 @@ if(sb){const fromOAuth=/access_token=|[?&]code=/.test(location.hash+location.sea
 /* ---------- botón de la cabecera ---------- */
 function renderAcct(){const b=$("acct");if(!b)return;
   b.innerHTML=!acct.user?"Entrar · prueba gratis":isPro()?`Mi cuenta <span class="acct-badge pro">PRO</span>`:trialLeft()>0?`Mi cuenta <span class="acct-badge">Prueba: ${fmtLeft(trialLeft())}</span>`:`Mi cuenta <span class="acct-badge off">Activar $${fmtNum(appCfg.price_usd,0)}</span>`;
-  b.classList.toggle("primary",!acct.user)}
+  b.classList.toggle("primary",!acct.user);
+  const p=fmtNum(appCfg.price_usd,0),gp=$("goPro"),tb=$("trialBar");
+  if(gp){gp.hidden=isPro();gp.textContent=`⭐ Hazte PRO · $${p}`}
+  if(tb){const left=trialLeft(),hid=isPro()||!acct.user||sessionStorage.getItem("tt-bar-off")==="1";tb.hidden=hid;tb.classList.toggle("off",!!acct.user&&left<=0);
+    if(!hid)tb.innerHTML=left>0?`<span>⏳ <b>Prueba gratis:</b> te quedan ${fmtLeft(left)} con todo desbloqueado.</span><button class="btn sm pro-cta" data-pro>Hazte PRO · $${p} para siempre</button><button class="tb-x" aria-label="Ocultar aviso" data-x>×</button>`
+      :`<span>🔒 <b>Tu prueba terminó.</b> Sigues pudiendo diseñar y simular; para exportar y usar la nube, activa PRO.</span><button class="btn sm pro-cta" data-pro>Activar PRO · $${p}</button><button class="tb-x" aria-label="Ocultar aviso" data-x>×</button>`}}
 setInterval(renderAcct,60000);
 
 /* ---------- funciones que requieren cuenta con acceso ---------- */
 const GATED=["#pdf","#fPdf","#png","#fPng","#qz-pdf","#qz-img","#qz-wa","#pj-down","#img-dl"];
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest(GATED.join(","));if(!t||fullAccess())return;
   e.preventDefault();e.stopImmediatePropagation();paywall()},true);
-function paywall(){const p=fmtNum(appCfg.price_usd,0);
+function paywall(){const p=fmtNum(appCfg.price_usd,0);if(!acct.user){planDialog();return}
   if(!acct.user){openModal(`<h2>Crea tu cuenta gratis</h2><p class="note">Exportar PDF, imágenes, presupuestos por WhatsApp y guardar en la nube requiere una cuenta.</p>
     <div class="paycard"><b>${appCfg.trial_hours} horas con todo desbloqueado</b><span>Después, licencia de por vida por solo <b>$${p}</b>: un pago, sin mensualidades.</span></div>
     <div class="row-btns"><button class="btn primary" id="pw-reg">Crear cuenta gratis</button><button class="btn" id="pw-in">Ya tengo cuenta</button><button class="btn" data-close>Ahora no</button></div>`);
@@ -60,6 +65,27 @@ function paywall(){const p=fmtNum(appCfg.price_usd,0);
     <div class="paycard"><b>Licencia de por vida: $${p}</b><span>Un solo pago. Incluye las actualizaciones.</span></div>
     <div class="row-btns"><button class="btn primary" id="pw-buy">Activar mi licencia</button><button class="btn" data-close>Ahora no</button></div>`);
   $("pw-buy").onclick=buyDialog}
+
+/* ---------- Hazte PRO: qué incluye y cómo comprarlo ---------- */
+function planDialog(){const p=fmtNum(appCfg.price_usd,0),ok=t=>`<li><span class="ck">✓</span>${t}</li>`;
+  openModal(`<h2>⭐ Taller de Tableros PRO</h2>
+   <div class="plan"><div class="price"><b>$${p}</b><span>pago único · de por vida</span></div>
+    <ul class="feat-list">${["Exportar el <b>PDF profesional</b> con tu logo, unifilar y cuadro de cargas","<b>Imágenes y presupuestos por WhatsApp</b>","Proyectos y plantillas <b>en la nube</b> (teléfono y PC)","Descargar y compartir proyectos","Todas las <b>actualizaciones futuras</b> incluidas","Soporte directo por WhatsApp"].map(ok).join("")}</ul></div>
+   <p class="note">Gratis para siempre: diseñar, cablear, simular, la calculadora y el diagnóstico. ${acct.user?"":`Al crear tu cuenta tienes <b>${appCfg.trial_hours} horas con todo PRO</b> para probarlo.`}</p>
+   <div class="row-btns">${!acct.user?`<button class="btn pro-cta" id="pl-reg">Crear cuenta y probar gratis</button><button class="btn" id="pl-in">Ya tengo cuenta</button>`:isPro()?`<span class="chip">Ya tienes PRO ✓</span>`:`<button class="btn pro-cta" id="pl-buy">Comprar PRO · $${p}</button>`}<button class="btn" data-close>Cerrar</button></div>`);
+  const r=$("pl-reg");if(r)r.onclick=()=>authDialog("registro");const i=$("pl-in");if(i)i.onclick=()=>authDialog("entrar");const b=$("pl-buy");if(b)b.onclick=buyDialog}
+
+/* ---------- Ayuda: sugerencias, errores y contacto ---------- */
+function helpDialog(){const wa=appCfg.whatsapp;
+  openModal(`<h2>💬 Ayuda y sugerencias</h2><p class="note">¿Algo no funciona, tienes una idea o necesitas una mano? Escríbeme: leo todo y la app mejora con lo que pides.</p>
+   <div class="help-grid">
+    <button class="help-card" id="hp-sug"><b>💡 Sugerir una mejora</b><span>Una función, una plantilla, un componente que falte…</span></button>
+    <button class="help-card" id="hp-err"><b>🐞 Reportar un error</b><span>Se adjunta tu proyecto para verlo tal cual lo tienes.</span></button>
+    ${wa?`<button class="help-card wa" id="hp-wa"><b>📱 Escribir por WhatsApp</b><span>Respuesta directa para dudas o ayuda con tu tablero.</span></button>`:""}
+    <button class="help-card" id="hp-pro"><b>⭐ Hazte PRO</b><span>Qué incluye y cómo pagar ($${fmtNum(appCfg.price_usd,0)}, de por vida).</span></button>
+   </div><div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`);
+  $("hp-sug").onclick=()=>feedbackDialog("sugerencia");$("hp-err").onclick=()=>feedbackDialog("error");$("hp-pro").onclick=planDialog;
+  const w=$("hp-wa");if(w)w.onclick=()=>openWa(wa,`Hola, te escribo desde Taller de Tableros${acct.user?" ("+acct.user.email+")":""}.`)}
 
 /* ---------- registro y entrada ---------- */
 function authDialog(mode="registro"){if(!sb){toast("Las cuentas necesitan internet la primera vez.");return}
@@ -144,11 +170,11 @@ async function buyDialog(){if(!acct.user){authDialog("registro");return}const p=
     if(error){msg.textContent=sbErr(error);return}msg.textContent="¡Recibido! Te avisamos apenas se verifique. Puedes cerrar esta ventana.";$("by-r").value="";mine()}}
 
 /* ---------- sugerencias y reportes ---------- */
-async function feedbackDialog(){if(!acct.user){authDialog("registro");return}
+async function feedbackDialog(kind="sugerencia"){if(!acct.user){toast("Crea tu cuenta gratis (un minuto) para enviarme mensajes.");authDialog("registro");return}
   openModal(`<h2>Sugerencias y errores</h2><p class="note">Cuéntame qué mejorarías o qué no funcionó. Si adjuntas tu proyecto, lo veo exactamente como lo tienes.</p>
-   <div class="fields"><label class="field"><span>Tipo</span><select class="sel" id="fb-k"><option value="sugerencia">Sugerencia o mejora</option><option value="error">Algo no funciona</option><option value="otro">Otro</option></select></label>
+   <div class="fields"><label class="field"><span>Tipo</span><select class="sel" id="fb-k"><option value="sugerencia"${kind==="sugerencia"?" selected":""}>Sugerencia o mejora</option><option value="error"${kind==="error"?" selected":""}>Algo no funciona</option><option value="otro">Otro</option></select></label>
    <label class="field wide"><span>Mensaje</span><textarea class="txt" id="fb-m" rows="5" placeholder="Ej.: me gustaría una plantilla para locales con 3 fases…"></textarea></label>
-   <label class="switch"><input type="checkbox" id="fb-p" checked> Adjuntar el proyecto abierto ("${esc(S.project.name)}")</label></div>
+   <label class="switch"><input type="checkbox" id="fb-p"${kind==="error"?" checked":""}> Adjuntar el proyecto abierto ("${esc(S.project.name)}")</label></div>
    <div class="row-btns"><button class="btn primary" id="fb-go">Enviar</button>${appCfg.whatsapp?`<button class="btn wa" id="fb-wa">Mejor por WhatsApp</button>`:""}<button class="btn" data-close>Cerrar</button></div><p class="note" id="fb-msg" role="status"></p><div id="fb-mine"></div>`);
   const mine=async()=>{const {data}=await sb.from("feedback").select("kind,message,status,reply,created_at").order("created_at",{ascending:false}).limit(10);const el=$("fb-mine");if(!el||!data||!data.length)return;
     el.innerHTML=`<h3>Tus mensajes</h3>`+data.map(x=>`<div class="pitem"><div class="pinfo"><b>${esc(cutText(x.message,80))}</b><small>${{nuevo:"Enviado",visto:"Visto",resuelto:"Resuelto"}[x.status]}${x.reply?" · Respuesta: "+esc(x.reply):""}</small></div></div>`).join("")};mine();
@@ -192,4 +218,6 @@ async function adminDialog(tab="pagos"){if(!isAdmin())return;const T=[["pagos","
       const v={price_usd:parseFloat(String($("cf-p").value).replace(",","."))||5,trial_hours:parseInt($("cf-h").value)||24,whatsapp:$("cf-w").value.trim(),pay_instructions:pay,updated_at:new Date().toISOString()};
       const {error:e}=await sb.from("app_settings").update(v).eq("id",1);if(e){toast(sbErr(e));return}appCfg=Object.assign(appCfg,v);renderAcct();toast("Ajustes guardados.")}}}
 
-$("acct").onclick=accountDialog;renderAcct();
+$("acct").onclick=accountDialog;$("goPro").onclick=planDialog;$("helpFab").onclick=helpDialog;
+$("trialBar").addEventListener("click",e=>{if(e.target.closest("[data-pro]"))acct.user&&trialLeft()<=0?buyDialog():planDialog();if(e.target.closest("[data-x]")){sessionStorage.setItem("tt-bar-off","1");renderAcct()}});
+renderAcct();
