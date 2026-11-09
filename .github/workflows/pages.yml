@@ -21,3 +21,4 @@ jobs:
           publish_dir: ./app
           publish_branch: gh-pages
           commit_message: "Publicar la app"
+          cname: tableros.invensoft.lat
