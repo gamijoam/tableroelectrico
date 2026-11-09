@@ -108,7 +108,7 @@ function lcSvg(forExport){const L=S.lc,{tbY,Wd}=dims(),calc=lcCalc();
    s+=T(DX+30,y,c,{fs:8,a:"end",c:"#1d2326"});
    if(!b){s+=T(DX+40,y,"Reserva",{fs:8,a:"start",ff:SANS,fw:400,c:"#9aa0a4"});continue}
    if(b.slot!==slot){s+=T(DX+40,y,"↳ "+cutText(b.p.name,30),{fs:8,a:"start",ff:SANS,fw:400,c:"#8a9195"});continue}
-   const k=calc.per[b.id];s+=T(DX+40,y,cutText(b.p.name||"Sin nombre",32),{fs:8,a:"start",ff:SANS,fw:500,c:"#1d2326"})+T(DX+226,y,`${b.p.poles}P ${b.p.In}A${b.p.type!=="Estándar"?" "+b.p.type:""}`,{fs:7.5,a:"start",c:"#1d2326"})+T(DX+340,y,k.W?k.W+" W":"—",{fs:7.5,a:"end",c:"#1d2326",fw:400})+T(DX+352,y,"#"+AWG[b.p.In],{fs:7.5,a:"start",c:"#1d2326",fw:400});
+   const k=calc.per[b.id];s+=T(DX+40,y,cutText(b.p.name||"Sin nombre",32),{fs:8,a:"start",ff:SANS,fw:500,c:"#1d2326"})+T(DX+226,y,`${b.p.poles}P ${b.p.In}A${b.p.type!=="Estándar"?" "+b.p.type:""}`,{fs:7.5,a:"start",c:"#1d2326"})+T(DX+340,y,k.W?k.W+" W":"—",{fs:7.5,a:"end",c:"#1d2326",fw:400})+T(DX+352,y,isMM()?mmTxt(mmFor(b.p.In)):"#"+AWG[b.p.In],{fs:7.5,a:"start",c:"#1d2326",fw:400});
    if(k.st!=="ok")s+=C(DX+DIRW-14,y-3,4,k.st==="crit"?"#e0302a":"#f08a2b")}
   return s+extSvg(forExport)+titleBlock(Wd,tbY,`${L.spaces} esp. · ${L.main?"ppal. "+L.main+" A":"zapatas"}`)}
 function titleBlock(Wd,y,gab){const P=S.project,w=Wd-2,c=[["PROYECTO",P.name,.34],["CLIENTE / OBRA",P.client||"—",.24],["DIBUJÓ",P.author||"—",.14],["FECHA",P.date||"—",.1],["TABLERO",gab,.18]];

@@ -104,9 +104,9 @@ function supvCheck(it,q,volt){const s=String(it.p.sys||"");let ok=false,why="";
     else if((ix[1]-ix[0]+3)%3!==1||(ix[2]-ix[1]+3)%3!==1)why="secuencia de fases invertida";else ok=true}
   /* cortes ajustables, en voltios entre fases (base 240 V); el monofásico mide fase-neutro (x2) y el trifásico 208 V */
   const lo=+it.p.lo||180,hi=+it.p.hi||260,rng=(v,k)=>v*k<lo?`bajo voltaje (${v} V; corta por debajo de ${Math.round(lo/k)} V)`:v*k>hi?`alto voltaje (${v} V; corta por encima de ${Math.round(hi/k)} V)`:"";
-  if(ok&&s.startsWith("Trif")){const r=rng(volt(q("L1"),q("L2")),240/208);if(r){ok=false;why=r}}
+  if(ok&&s.startsWith("Trif")){const r=rng(volt(q("L1"),q("L2")),iec()?VK()/Math.sqrt(3):240/208);if(r){ok=false;why=r}}
   else if(s.startsWith("Bif")){const a=q("L1"),b=q("L2"),v=volt(a,b);if(!v)why="sin tensión";else if(v<=150&&(a==="0"||b==="0"))why=`mide ${v} V: L2 recibe neutro; para 240 V, L2 va a la otra fase`;else{why=rng(v,1);ok=!why}}
-  else{const v=volt(q("L"),q("N"));if(!v)why="sin tensión";else if(q("N")!=="0")why="no tiene neutro en N";else{why=rng(v,2);ok=!why}}
+  else{const v=volt(q("L"),q("N"));if(!v)why="sin tensión";else if(q("N")!=="0")why="no tiene neutro en N";else{why=rng(v,iec()?VK():2);ok=!why}}
   return{on:ok,why}}
 
 /* ---------- motor trifásico en la pared ---------- */
