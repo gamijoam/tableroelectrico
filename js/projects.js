@@ -7,6 +7,9 @@
    ===================================================================== */
 const IDX="taller-tableros-projects",PKEY=id=>"taller-tableros-proj-"+id,COMPKEY="taller-tableros-company";
 let projIdx={cur:null,list:[]};
+/* Cada cuenta tiene su propia lista de proyectos en este equipo; sin sesión se usa la lista "sin cuenta" */
+let projOwner=(()=>{try{const a=JSON.parse(localStorage.getItem("taller-tableros-cuenta")||"null");return a&&a.user?a.user.id:""}catch(e){return""}})();
+const idxKey=(o=projOwner)=>o?IDX+"@"+o:IDX;
 const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v);return true}catch(e){return false}};
 const lsDel=k=>{try{localStorage.removeItem(k)}catch(e){}};
@@ -14,14 +17,23 @@ const newPid=()=>"p"+Date.now().toString(36)+Math.random().toString(36).slice(2,
 const fmtDate=t=>t?new Date(t).toLocaleString("es-VE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"";
 const slug=s=>(String(s||"tablero").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-zA-Z0-9]+/g,"-").replace(/^-|-$/g,"").toLowerCase()||"tablero").slice(0,60);
 
-function idxSave(){lsSet(IDX,JSON.stringify(projIdx))}
+function idxSave(){lsSet(idxKey(),JSON.stringify(projIdx))}
+/* Cambió la cuenta: guarda lo abierto en la lista anterior y abre la lista de la nueva */
+function setProjOwner(o){o=o||"";if(o===projOwner)return;projSave();projOwner=o;projIdx={cur:null,list:[]};
+  try{const v=JSON.parse(lsGet(idxKey())||"null");if(v&&Array.isArray(v.list))projIdx=v}catch(e){}
+  let v=null;const id=projIdx.cur||(projIdx.list[0]&&projIdx.list[0].id);if(id){try{v=normalize(JSON.parse(lsGet(PKEY(id))||"null"))}catch(e){}}
+  if(v)switchTo(v,id);else switchTo(linkWall(blankAll()),newPid())}
+/* Proyectos guardados sin cuenta en este equipo (para traerlos a la cuenta) */
+const guestList=()=>{try{const v=JSON.parse(lsGet(IDX)||"null");return v&&Array.isArray(v.list)?v.list.filter(p=>!(p.n===0&&(p.name||"Tablero nuevo")==="Tablero nuevo")):[]}catch(e){return[]}};
+function adoptGuest(){if(!projOwner)return 0;const g=guestList();if(!g.length)return 0;const have=new Set(projIdx.list.map(p=>p.id));
+  for(const p of g)if(!have.has(p.id))projIdx.list.push(p);projIdx.list.sort((a,b)=>(b.updated||0)-(a.updated||0));idxSave();lsSet(IDX,JSON.stringify({cur:null,list:[]}));return g.length}
 function projSave(){if(!S)return;if(!projIdx.cur)projIdx.cur=newPid();lsSet(PKEY(projIdx.cur),JSON.stringify(S));
   let e=projIdx.list.find(p=>p.id===projIdx.cur);if(!e){e={id:projIdx.cur};projIdx.list.unshift(e)}
   Object.assign(e,{name:S.project.name,client:S.project.client,updated:Date.now(),kind:S.kind,n:S.kind==="lc"?S.lc.items.length:S.items.length});idxSave()}
 /* Carga el proyecto abierto; si no hay lista, adopta el tablero único guardado antes */
-function projLoad(){try{const v=JSON.parse(lsGet(IDX)||"null");if(v&&Array.isArray(v.list))projIdx=v}catch(e){}
+function projLoad(){try{const v=JSON.parse(lsGet(idxKey())||"null");if(v&&Array.isArray(v.list))projIdx=v}catch(e){}
   if(projIdx.cur){try{const v=normalize(JSON.parse(lsGet(PKEY(projIdx.cur))||"null"));if(v){S=v;syncUid();return true}}catch(e){}}
-  try{const v=normalize(JSON.parse(lsGet(KEY)||"null"));if(v){S=v;syncUid();projIdx.cur=newPid();projSave();return true}}catch(e){}
+  if(!projOwner)try{const v=normalize(JSON.parse(lsGet(KEY)||"null"));if(v){S=v;syncUid();projIdx.cur=newPid();projSave();return true}}catch(e){}
   return false}
 function switchTo(v,id){if(simState.running)setRunning(false);S=v;projIdx.cur=id;hist=[];fut=[];sel=null;pending=null;reconn=null;activeRow=0;syncUid();projSave();
   $("q").value="";hideAlert();renderLib();autoFit=true;renderAll();fit()}
@@ -45,7 +57,9 @@ async function saveFile(filename,blob){let dl=null;try{dl=window.claude&&window.
 
 /* ---------- ventana de proyectos ---------- */
 function projectsDialog(){projSave();const L=[...projIdx.list].sort((a,b)=>(b.updated||0)-(a.updated||0));
-  openModal(`<h2>Proyectos</h2><p class="note">Se guardan solos en este navegador. Para llevar uno a otra computadora, descárgalo como archivo y ábrelo allá.</p>
+  const gN=projOwner?guestList().length:0;
+  openModal(`<h2>Proyectos</h2><p class="note">${projOwner?"Proyectos de tu cuenta guardados en este equipo. Para tenerlos en otro equipo, guárdalos en la nube (Mi cuenta).":"Se guardan solos en este navegador. Crea tu cuenta para guardarlos en la nube."}</p>
+   ${gN?`<div class="paycard"><b>Hay ${gN} proyecto${gN>1?"s":""} guardado${gN>1?"s":""} sin cuenta en este equipo</b><span>Puedes traerlos a esta cuenta. Solo pasan a la cuenta con la que los traigas.</span><div class="row-btns"><button class="btn sm primary" id="pj-adopt">Traer a mi cuenta</button></div></div>`:""}
    <div class="plist">${L.map(p=>`<div class="pitem${p.id===projIdx.cur?" cur":""}"><div class="pinfo"><b>${esc(p.name||"Sin nombre")}</b><small>${esc(p.client||"Sin cliente")} · ${p.kind==="din"?"Riel DIN":"Caja de breakers"} · ${fmtDate(p.updated)}</small></div>
      <div class="row-btns">${p.id===projIdx.cur?`<span class="chip">Abierto</span>`:`<button class="btn sm primary" data-open="${p.id}">Abrir</button>`}<button class="btn sm" data-dup="${p.id}">Duplicar</button><button class="btn sm danger" data-del="${p.id}">Eliminar</button></div></div>`).join("")}</div>
    <div class="row-btns"><button class="btn primary" id="pj-new">+ Nuevo proyecto</button><button class="btn" id="pj-down">Descargar este proyecto</button><label class="btn" for="pj-file">Abrir archivo de proyecto</label><input type="file" id="pj-file" accept=".json,application/json" hidden>
@@ -54,6 +68,7 @@ function projectsDialog(){projSave();const L=[...projIdx.list].sort((a,b)=>(b.up
   M.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{closeModal();openProject(b.dataset.open)});
   M.querySelectorAll("[data-dup]").forEach(b=>b.onclick=()=>{closeModal();dupProject(b.dataset.dup)});
   M.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(b.dataset.sure){deleteProject(b.dataset.del);projectsDialog();return}b.dataset.sure="1";b.textContent="¿Seguro? Eliminar";b.classList.add("primary")});
+  const ad=$("pj-adopt");if(ad)ad.onclick=()=>{const n=adoptGuest();toast(`${n} proyecto${n>1?"s":""} traído${n>1?"s":""} a tu cuenta.`);projectsDialog()};
   $("pj-new").onclick=newProjectDialog;$("pj-company").onclick=()=>companyDialog();
   $("pj-down").onclick=()=>saveFile(slug(S.project.name)+".json",new Blob([JSON.stringify(S,null,1)],{type:"application/json"}));
   $("pj-file").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{let v=null;try{v=normalize(JSON.parse(r.result))}catch(_){}

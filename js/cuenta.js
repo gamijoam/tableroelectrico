@@ -31,9 +31,9 @@ const sbErr=e=>{const m=String(e&&e.message||e||"");return/Invalid login/i.test(
 /* ---------- sincronizar con el servidor ---------- */
 async function refreshAcct(silent){if(!sb)return;
   try{const {data:{session}}=await sb.auth.getSession();
-    if(!session){if(acct.user){acct={user:null,st:null,skew:0,at:0};saveAcct()}renderAcct();return}
+    if(!session){if(acct.user){acct={user:null,st:null,skew:0,at:0};saveAcct()}setProjOwner("");renderAcct();return}
     const {data,error}=await sb.rpc("my_status");if(error)throw error;
-    acct={user:{id:session.user.id,email:session.user.email},st:data,skew:new Date(data.now).getTime()-Date.now(),at:Date.now()};saveAcct();
+    acct={user:{id:session.user.id,email:session.user.email},st:data,skew:new Date(data.now).getTime()-Date.now(),at:Date.now()};saveAcct();setProjOwner(session.user.id);
     const c=await sb.from("app_settings").select("*").eq("id",1).maybeSingle();if(c.data)appCfg=c.data;
   }catch(e){if(!silent)toast(sbErr(e))}
   renderAcct()}
@@ -131,7 +131,7 @@ function accountDialog(){if(!acct.user){authDialog("registro");return}const st=a
   $("ac-cloud").onclick=cloudDialog;const bb=$("ac-buy");if(bb)bb.onclick=buyDialog;$("ac-fb").onclick=feedbackDialog;
   const w=$("ac-wa");if(w)w.onclick=()=>openWa(appCfg.whatsapp,`Hola, te escribo desde Taller de Tableros (${acct.user.email}).`);
   const ad=$("ac-admin");if(ad)ad.onclick=()=>adminDialog("pagos");
-  $("ac-out").onclick=async()=>{await sb.auth.signOut();acct={user:null,st:null,skew:0,at:0};saveAcct();renderAcct();closeModal();toast("Sesión cerrada.")}}
+  $("ac-out").onclick=async()=>{await sb.auth.signOut();acct={user:null,st:null,skew:0,at:0};saveAcct();setProjOwner("");renderAcct();closeModal();toast("Sesión cerrada.")}}
 
 /* ---------- proyectos y plantillas en la nube ---------- */
 async function cloudDialog(){if(!sb||!acct.user){authDialog("entrar");return}
