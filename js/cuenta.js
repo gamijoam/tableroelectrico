@@ -38,7 +38,8 @@ async function refreshAcct(silent){if(!sb)return;
   }catch(e){if(!silent)toast(sbErr(e))}
   renderAcct()}
 if(sb){const fromOAuth=/access_token=|[?&]code=/.test(location.hash+location.search);
-  sb.auth.onAuthStateChange((ev)=>{if(ev==="SIGNED_IN"||ev==="SIGNED_OUT"||ev==="USER_UPDATED")refreshAcct(true).then(()=>{if(ev==="SIGNED_IN"&&fromOAuth&&acct.user){history.replaceState(null,"",location.pathname);toast("¡Bienvenido! Sesión iniciada con Google.");accountDialog()}})});
+  /* ojo: nunca consultar Supabase dentro de este aviso (se bloquea); se hace justo después con setTimeout */
+  sb.auth.onAuthStateChange((ev)=>{if(ev==="SIGNED_IN"||ev==="SIGNED_OUT"||ev==="USER_UPDATED")setTimeout(()=>refreshAcct(true).then(()=>{if(ev==="SIGNED_IN"&&fromOAuth&&acct.user){history.replaceState(null,"",location.pathname);toast("¡Bienvenido! Sesión iniciada con Google.");accountDialog()}}),0)});
   refreshAcct(true);setInterval(()=>refreshAcct(true),10*60*1000);window.addEventListener("online",()=>refreshAcct(true))}
 
 /* ---------- botón de la cabecera ---------- */
@@ -229,9 +230,14 @@ async function supportThread(id,admin){const {data:t,error}=await sb.from("feedb
   const w=$("th-wa");if(w)w.onclick=()=>admin?openWa(who.telefono,`Hola ${who.nombre||""}, te escribo de Taller de Tableros sobre tu mensaje: "${cutText(t.message,60)}"`):openWa(appCfg.whatsapp,`Hola, te escribo por mi mensaje de soporte: "${cutText(t.message,60)}"`)}
 
 /* ---------- panel del administrador ---------- */
+/* si una pestaña del panel falla, se dice por qué y se puede reintentar (nunca se queda en "Cargando…") */
+function adminFail(B,tab,why){B.innerHTML=`<p class="note">⚠ No se pudo cargar: ${esc(String(why))}</p><div class="row-btns"><button class="btn primary" id="ad-retry">Reintentar</button><button class="btn" id="ad-reload">Recargar la app</button></div>`;
+  $("ad-retry").onclick=()=>adminDialog(tab);$("ad-reload").onclick=()=>location.reload()}
+window.addEventListener("unhandledrejection",e=>{const B=$("ad-body");if(B&&B.isConnected&&/Cargando/.test(B.textContent)){const t=document.querySelector('#dlg [data-tab][aria-pressed="true"]');adminFail(B,t?t.dataset.tab:"pagos",e.reason&&e.reason.message||e.reason)}});
 async function adminDialog(tab="pagos"){if(!isAdmin())return;const T=[["estadisticas","Estadísticas"],["pagos","Pagos"],["usuarios","Usuarios"],["mensajes",`Soporte${unread.pending?" ("+unread.pending+")":""}`],["ajustes","Ajustes"]];
   openModal(`<h2>Panel de administración</h2><div class="seg" role="group">${T.map(([k,l])=>`<button class="segb" data-tab="${k}" aria-pressed="${k===tab}">${l}</button>`).join("")}</div><div id="ad-body" class="ad-body"><p class="note">Cargando…</p></div><div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`);
   $("dlg").classList.add("wide");$("dlg").querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>adminDialog(b.dataset.tab));const B=$("ad-body");
+  setTimeout(()=>{if(B.isConnected&&/Cargando/.test(B.textContent))adminFail(B,tab,"la conexión tardó demasiado (más de 15 segundos)")},15000);
   if(tab==="estadisticas"){const dias=adminDialog.dias||30;const {data:d,error}=await sb.rpc("admin_stats",{days:dias});if(error){B.textContent=sbErr(error);return}
     const pct=(a,b)=>b?Math.round(a*100/b):0,N=n=>Number(n).toLocaleString("es-VE");
     const NOM={directo:"Directo (escribió la dirección o QR)",facebook:"Facebook",instagram:"Instagram",tiktok:"TikTok",whatsapp:"WhatsApp",google:"Google",youtube:"YouTube",twitter:"X / Twitter",marketplace:"Marketplace",grupos:"Grupos de Facebook",movil:"Teléfono",tablet:"Tablet",pc:"Computadora",
