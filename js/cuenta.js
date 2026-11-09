@@ -34,7 +34,7 @@ async function refreshAcct(silent){if(!sb)return;
     if(!session){if(acct.user){acct={user:null,st:null,skew:0,at:0};saveAcct()}setProjOwner("");renderAcct();return}
     const {data,error}=await sb.rpc("my_status");if(error)throw error;
     acct={user:{id:session.user.id,email:session.user.email},st:data,skew:new Date(data.now).getTime()-Date.now(),at:Date.now()};saveAcct();setProjOwner(session.user.id);
-    const c=await sb.from("app_settings").select("*").eq("id",1).maybeSingle();if(c.data)appCfg=c.data;
+    const c=await sb.from("app_settings").select("*").eq("id",1).maybeSingle();if(c.data)appCfg=c.data;checkUnread();
   }catch(e){if(!silent)toast(sbErr(e))}
   renderAcct()}
 if(sb){const fromOAuth=/access_token=|[?&]code=/.test(location.hash+location.search);
@@ -80,12 +80,13 @@ function helpDialog(){const wa=appCfg.whatsapp;
   openModal(`<h2>💬 Ayuda y sugerencias</h2><p class="note">¿Algo no funciona, tienes una idea o necesitas una mano? Escríbeme: leo todo y la app mejora con lo que pides.</p>
    <div class="help-grid">
     <button class="help-card" id="hp-guia"><b>🧭 Guía de primeros pasos</b><span>Recorrido de 1 minuto por cada parte de la pantalla.</span></button>
+    ${unread.mine?`<button class="help-card hot" id="hp-inbox"><b>💬 Tienes ${unread.mine} respuesta${unread.mine>1?"s":""} nueva${unread.mine>1?"s":""}</b><span>Ver mis conversaciones de soporte.</span></button>`:acct.user?`<button class="help-card" id="hp-inbox"><b>💬 Mis conversaciones</b><span>Lo que me escribiste y mis respuestas.</span></button>`:""}
     <button class="help-card" id="hp-sug"><b>💡 Sugerir una mejora</b><span>Una función, una plantilla, un componente que falte…</span></button>
     <button class="help-card" id="hp-err"><b>🐞 Reportar un error</b><span>Se adjunta tu proyecto para verlo tal cual lo tienes.</span></button>
     ${wa?`<button class="help-card wa" id="hp-wa"><b>📱 Escribir por WhatsApp</b><span>Respuesta directa para dudas o ayuda con tu tablero.</span></button>`:""}
     <button class="help-card" id="hp-pro"><b>⭐ Hazte PRO</b><span>Qué incluye y cómo pagar ($${fmtNum(appCfg.price_usd,0)}, de por vida).</span></button>
    </div><div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`);
-  $("hp-guia").onclick=()=>tourStart();  $("hp-sug").onclick=()=>feedbackDialog("sugerencia");$("hp-err").onclick=()=>feedbackDialog("error");$("hp-pro").onclick=planDialog;
+  $("hp-guia").onclick=()=>tourStart();const ib=$("hp-inbox");if(ib)ib.onclick=()=>feedbackDialog();  $("hp-sug").onclick=()=>feedbackDialog("sugerencia");$("hp-err").onclick=()=>feedbackDialog("error");$("hp-pro").onclick=planDialog;
   const w=$("hp-wa");if(w)w.onclick=()=>openWa(wa,`Hola, te escribo desde Taller de Tableros${acct.user?" ("+acct.user.email+")":""}.`)}
 
 /* ---------- registro y entrada ---------- */
@@ -122,16 +123,16 @@ function accountDialog(){if(!acct.user){authDialog("registro");return}const st=a
    <div class="acct-grid">
     <button class="btn" id="ac-cloud">☁ Mis proyectos en la nube</button>
     ${isPro()?"":`<button class="btn primary" id="ac-buy">Activar licencia ($${p})</button>`}
-    <button class="btn" id="ac-fb">✎ Enviar sugerencia o reportar error</button>
+    <button class="btn" id="ac-fb">💬 Soporte y sugerencias${unread.mine?` <span class="dot">${unread.mine}</span>`:""}</button>
     ${appCfg.whatsapp?`<button class="btn wa" id="ac-wa">Escribir por WhatsApp</button>`:""}
-    ${isAdmin()?`<button class="btn" id="ac-admin">⚙ Panel de administración</button>`:""}
+    ${isAdmin()?`<button class="btn" id="ac-admin">⚙ Panel de administración${unread.pending?` <span class="dot">${unread.pending}</span>`:""}</button>`:""}
     <button class="btn" id="ac-out">Cerrar sesión</button></div>
    <div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`);
   const tk=$("ac-tel-ok");if(tk)tk.onclick=async()=>{const v=$("ac-tel").value.trim();if(v.length<7){toast("Escribe tu número de WhatsApp.");return}
     const {error}=await sb.from("profiles").update({telefono:v}).eq("id",acct.user.id);if(error){toast(sbErr(error));return}await refreshAcct(true);toast("WhatsApp guardado.");accountDialog()};
   $("ac-cloud").onclick=cloudDialog;const bb=$("ac-buy");if(bb)bb.onclick=buyDialog;$("ac-fb").onclick=feedbackDialog;
   const w=$("ac-wa");if(w)w.onclick=()=>openWa(appCfg.whatsapp,`Hola, te escribo desde Taller de Tableros (${acct.user.email}).`);
-  const ad=$("ac-admin");if(ad)ad.onclick=()=>adminDialog("pagos");
+  const ad=$("ac-admin");if(ad)ad.onclick=()=>adminDialog(unread.pending?"mensajes":"pagos");
   $("ac-out").onclick=async()=>{await sb.auth.signOut();acct={user:null,st:null,skew:0,at:0};saveAcct();setProjOwner("");renderAcct();closeModal();toast("Sesión cerrada.")}}
 
 /* ---------- proyectos y plantillas en la nube ---------- */
@@ -170,22 +171,65 @@ async function buyDialog(){if(!acct.user){authDialog("registro");return}const p=
     const {error}=await sb.from("payments").insert({method:$("by-m").value,reference:ref,amount:parseFloat(String($("by-a").value).replace(",","."))||null,note:$("by-n").value.trim()});
     if(error){msg.textContent=sbErr(error);return}msg.textContent="¡Recibido! Te avisamos apenas se verifique. Puedes cerrar esta ventana.";$("by-r").value="";mine()}}
 
-/* ---------- sugerencias y reportes ---------- */
+/* ---------- soporte: conversaciones con el cliente ---------- */
+let unread={mine:0,admin:0,pending:0};
+const KIND={sugerencia:["💡","Sugerencia"],error:["🐞","Error"],otro:["✉","Mensaje"]};
+const ST={nuevo:["Esperando respuesta","st-new"],respondido:["Respondido","st-ans"],resuelto:["Resuelto","st-ok"]};
+const when=t=>{const d=new Date(t),m=(Date.now()-d)/60000;return m<1?"ahora":m<60?`hace ${Math.floor(m)} min`:m<1440?`hace ${Math.floor(m/60)} h`:d.toLocaleDateString("es-VE",{day:"2-digit",month:"short"})};
+async function checkUnread(){if(!sb||!acct.user)return;const {data,error}=await sb.rpc("support_unread");if(error||!data)return;const prev=unread;unread=data;
+  if(data.mine>prev.mine)toast(`💬 Te respondieron en soporte (${data.mine}). Toca Ayuda para leerlo.`);
+  else if(isAdmin()&&data.admin>prev.admin)toast(`💬 Tienes ${data.admin} conversación${data.admin>1?"es":""} de soporte por responder.`);
+  paintUnread()}
+function paintUnread(){const n=(unread.mine||0)+(isAdmin()?unread.admin||0:0),f=$("helpFab"),a=$("acct");if(f)f.innerHTML=`💬 Ayuda${n?` <span class="dot">${n}</span>`:""}`;if(a)a.classList.toggle("has-dot",n>0)}
+if(sb){setInterval(()=>{if(document.visibilityState==="visible")checkUnread()},90000);window.addEventListener("focus",()=>checkUnread())}
+
+/* inicio de soporte: escribir un mensaje nuevo y ver las conversaciones */
 async function feedbackDialog(kind="sugerencia"){if(!acct.user){toast("Crea tu cuenta gratis (un minuto) para enviarme mensajes.");authDialog("registro");return}
-  openModal(`<h2>Sugerencias y errores</h2><p class="note">Cuéntame qué mejorarías o qué no funcionó. Si adjuntas tu proyecto, lo veo exactamente como lo tienes.</p>
+  openModal(`<h2>💬 Soporte y sugerencias</h2><p class="note">Escríbeme lo que mejorarías o lo que no funcionó. Te respondo aquí mismo y te aviso cuando haya respuesta.</p>
    <div class="fields"><label class="field"><span>Tipo</span><select class="sel" id="fb-k"><option value="sugerencia"${kind==="sugerencia"?" selected":""}>Sugerencia o mejora</option><option value="error"${kind==="error"?" selected":""}>Algo no funciona</option><option value="otro">Otro</option></select></label>
-   <label class="field wide"><span>Mensaje</span><textarea class="txt" id="fb-m" rows="5" placeholder="Ej.: me gustaría una plantilla para locales con 3 fases…"></textarea></label>
+   <label class="field wide"><span>Mensaje</span><textarea class="txt" id="fb-m" rows="4" placeholder="Ej.: me gustaría una plantilla para locales con 3 fases…"></textarea></label>
    <label class="switch"><input type="checkbox" id="fb-p"${kind==="error"?" checked":""}> Adjuntar el proyecto abierto ("${esc(S.project.name)}")</label></div>
-   <div class="row-btns"><button class="btn primary" id="fb-go">Enviar</button>${appCfg.whatsapp?`<button class="btn wa" id="fb-wa">Mejor por WhatsApp</button>`:""}<button class="btn" data-close>Cerrar</button></div><p class="note" id="fb-msg" role="status"></p><div id="fb-mine"></div>`);
-  const mine=async()=>{const {data}=await sb.from("feedback").select("kind,message,status,reply,created_at").order("created_at",{ascending:false}).limit(10);const el=$("fb-mine");if(!el||!data||!data.length)return;
-    el.innerHTML=`<h3>Tus mensajes</h3>`+data.map(x=>`<div class="pitem"><div class="pinfo"><b>${esc(cutText(x.message,80))}</b><small>${{nuevo:"Enviado",visto:"Visto",resuelto:"Resuelto"}[x.status]}${x.reply?" · Respuesta: "+esc(x.reply):""}</small></div></div>`).join("")};mine();
-  const wa=$("fb-wa");if(wa)wa.onclick=()=>openWa(appCfg.whatsapp,$("fb-m").value.trim()||"Hola, tengo una sugerencia para Taller de Tableros.");
+   <div class="row-btns"><button class="btn primary" id="fb-go">Enviar</button>${appCfg.whatsapp?`<button class="btn wa" id="fb-wa">Mejor por WhatsApp</button>`:""}<button class="btn" data-close>Cerrar</button></div><p class="note" id="fb-msg" role="status"></p>
+   <h3>Tus conversaciones</h3><div id="fb-mine" class="plist"><p class="note">Cargando…</p></div>`);
+  const mine=async()=>{const {data}=await sb.from("feedback").select("id,kind,message,status,updated_at,user_seen_at").order("updated_at",{ascending:false}).limit(30);const el=$("fb-mine");if(!el)return;
+    if(!data||!data.length){el.innerHTML=`<p class="note">Todavía no tienes conversaciones.</p>`;return}
+    const {data:ms}=await sb.from("feedback_messages").select("ticket_id,from_admin,created_at").in("ticket_id",data.map(t=>t.id)).eq("from_admin",true);
+    el.innerHTML=data.map(t=>{const nu=(ms||[]).some(m=>m.ticket_id===t.id&&new Date(m.created_at)>new Date(t.user_seen_at));
+      return`<button class="ticket${nu?" unread":""}" data-tk="${t.id}"><span class="tk-ic">${KIND[t.kind][0]}</span><span class="tk-main"><b>${esc(cutText(t.message,70))}</b><small>${nu?"<i>● Respuesta nueva</i> · ":""}<span class="pill ${ST[t.status][1]}">${ST[t.status][0]}</span> · ${when(t.updated_at)}</small></span><span class="tk-go">›</span></button>`}).join("");
+    el.querySelectorAll("[data-tk]").forEach(b=>b.onclick=()=>supportThread(b.dataset.tk,false))};mine();
+  const wa=$("fb-wa");if(wa)wa.onclick=()=>openWa(appCfg.whatsapp,$("fb-m").value.trim()||"Hola, tengo una consulta sobre Taller de Tableros.");
   $("fb-go").onclick=async()=>{const m=$("fb-m").value.trim(),msg=$("fb-msg");if(m.length<3){msg.textContent="Escribe tu mensaje.";return}
-    const {error}=await sb.from("feedback").insert({kind:$("fb-k").value,message:m,project:$("fb-p").checked?JSON.parse(JSON.stringify(S)):null});
-    if(error){msg.textContent=sbErr(error);return}msg.textContent="¡Gracias! Lo recibí.";$("fb-m").value="";mine()}}
+    const {data,error}=await sb.from("feedback").insert({kind:$("fb-k").value,message:m,project:$("fb-p").checked?JSON.parse(JSON.stringify(S)):null}).select("id").single();
+    if(error){msg.textContent=sbErr(error);return}toast("¡Recibido! Te aviso aquí cuando te responda.");supportThread(data.id,false)}}
+
+/* una conversación: mensajes en forma de chat y caja para responder */
+async function supportThread(id,admin){const {data:t,error}=await sb.from("feedback").select("*").eq("id",id).single();if(error){toast(sbErr(error));return}
+  const {data:ms}=await sb.from("feedback_messages").select("from_admin,body,created_at").eq("ticket_id",id).order("created_at");
+  let who=null;if(admin){const {data:us}=await sb.rpc("admin_users");who=(us||[]).find(u=>u.id===t.user_id)}
+  const msgs=[{from_admin:false,body:t.message,created_at:t.created_at},...(ms||[])];
+  openModal(`<div class="th-head"><button class="btn sm" id="th-back">← ${admin?"Bandeja":"Mis conversaciones"}</button><span class="pill ${ST[t.status][1]}">${ST[t.status][0]}</span></div>
+   <h2>${KIND[t.kind][0]} ${KIND[t.kind][1]}</h2>
+   ${admin&&who?`<p class="note"><b>${esc(who.nombre||"Sin nombre")}</b> · ${esc(who.email||"")}${who.telefono?" · "+esc(who.telefono):""} · ${who.pro?"✅ PRO":"Sin licencia"}</p>`:""}
+   <div class="chat" id="th-chat">${msgs.map(m=>`<div class="bub ${m.from_admin?(admin?"me":"them"):(admin?"them":"me")}"><div>${esc(m.body).replace(/\n/g,"<br>")}</div><small>${m.from_admin?(admin?"Tú":"Soporte"):(admin?(who&&who.nombre)||"Cliente":"Tú")} · ${new Date(m.created_at).toLocaleString("es-VE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</small></div>`).join("")}</div>
+   ${t.status==="resuelto"&&!admin?`<p class="note">Esta conversación está resuelta. Si escribes de nuevo, se reabre.</p>`:""}
+   <div class="reply"><textarea class="txt" id="th-txt" rows="2" placeholder="${admin?"Escribe tu respuesta al cliente…":"Escribe tu respuesta…"}"></textarea><button class="btn primary" id="th-send">Enviar</button></div>
+   <div class="row-btns">${t.status!=="resuelto"?`<button class="btn sm" id="th-done">✓ Marcar resuelto</button>`:admin?`<button class="btn sm" id="th-open">Reabrir</button>`:""}
+    ${admin&&t.project?`<button class="btn sm" id="th-pj">Abrir su proyecto</button>`:""}${admin&&who&&who.telefono?`<button class="btn sm wa" id="th-wa">WhatsApp</button>`:""}${!admin&&appCfg.whatsapp?`<button class="btn sm wa" id="th-wa">WhatsApp</button>`:""}
+    <span class="sp"></span><button class="btn sm" data-close>Cerrar</button></div>`);
+  $("dlg").classList.add("wide");const chat=$("th-chat");chat.scrollTop=chat.scrollHeight;
+  sb.rpc("ticket_seen",{tid:id}).then(()=>checkUnread());
+  $("th-back").onclick=()=>admin?adminDialog("mensajes"):feedbackDialog();
+  const send=async()=>{const v=$("th-txt").value.trim();if(!v)return;$("th-send").disabled=true;
+    const {error:e}=await sb.from("feedback_messages").insert({ticket_id:id,body:v,from_admin:!!admin});if(e){toast(sbErr(e));$("th-send").disabled=false;return}
+    if(admin)toast("Respuesta enviada: el cliente verá el aviso al abrir la app.");supportThread(id,admin)};
+  $("th-send").onclick=send;$("th-txt").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();send()}});$("th-txt").focus();
+  const st=async v=>{const {error:e}=await sb.rpc("ticket_set_status",{tid:id,st:v});if(e)toast(sbErr(e));supportThread(id,admin)};
+  const d=$("th-done");if(d)d.onclick=()=>st("resuelto");const o=$("th-open");if(o)o.onclick=()=>st("nuevo");
+  const pj=$("th-pj");if(pj)pj.onclick=()=>{const v=normalize(JSON.parse(JSON.stringify(t.project)));if(!v){toast("El proyecto adjunto está dañado.");return}v.project.cloudId=null;closeModal();projSave();switchTo(v,newPid());toast("Proyecto del cliente abierto como copia.")};
+  const w=$("th-wa");if(w)w.onclick=()=>admin?openWa(who.telefono,`Hola ${who.nombre||""}, te escribo de Taller de Tableros sobre tu mensaje: "${cutText(t.message,60)}"`):openWa(appCfg.whatsapp,`Hola, te escribo por mi mensaje de soporte: "${cutText(t.message,60)}"`)}
 
 /* ---------- panel del administrador ---------- */
-async function adminDialog(tab="pagos"){if(!isAdmin())return;const T=[["pagos","Pagos"],["usuarios","Usuarios"],["mensajes","Mensajes"],["ajustes","Ajustes"]];
+async function adminDialog(tab="pagos"){if(!isAdmin())return;const T=[["pagos","Pagos"],["usuarios","Usuarios"],["mensajes",`Soporte${unread.pending?" ("+unread.pending+")":""}`],["ajustes","Ajustes"]];
   openModal(`<h2>Panel de administración</h2><div class="seg" role="group">${T.map(([k,l])=>`<button class="segb" data-tab="${k}" aria-pressed="${k===tab}">${l}</button>`).join("")}</div><div id="ad-body" class="ad-body"><p class="note">Cargando…</p></div><div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`);
   $("dlg").classList.add("wide");$("dlg").querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>adminDialog(b.dataset.tab));const B=$("ad-body");
   if(tab==="pagos"){const {data,error}=await sb.from("payments").select("*").order("created_at",{ascending:false}).limit(100);if(error){B.textContent=sbErr(error);return}
@@ -201,14 +245,19 @@ async function adminDialog(tab="pagos"){if(!isAdmin())return;const T=[["pagos","
     B.querySelectorAll("[data-wa]").forEach(b=>b.onclick=()=>openWa(b.dataset.wa,"Hola, te escribo de Taller de Tableros."));
     B.querySelectorAll("[data-pro]").forEach(b=>b.onclick=async()=>{const {error:e}=await sb.rpc("admin_set_pro",{uid:b.dataset.pro,value:b.dataset.v==="true"});if(e)toast(sbErr(e));adminDialog("usuarios")});
     B.querySelectorAll("[data-tr]").forEach(b=>b.onclick=async()=>{const {error:e}=await sb.rpc("admin_extend_trial",{uid:b.dataset.tr,hours:24});if(e)toast(sbErr(e));adminDialog("usuarios")})}
-  if(tab==="mensajes"){const {data,error}=await sb.from("feedback").select("*").order("created_at",{ascending:false}).limit(100);if(error){B.textContent=sbErr(error);return}const {data:us}=await sb.rpc("admin_users");
-    const who=id=>{const u=(us||[]).find(x=>x.id===id);return u?`${u.nombre||"Sin nombre"} · ${u.email}`:""};
-    B.innerHTML=data.length?data.map(f=>`<div class="pitem col"><div class="pinfo"><b>${{sugerencia:"💡",error:"🐞",otro:"✉"}[f.kind]} ${esc(f.message)}</b><small>${esc(who(f.user_id))} · ${new Date(f.created_at).toLocaleString("es-VE")} · ${f.status}</small></div>
-      <div class="fields"><label class="field wide"><span>Respuesta</span><input class="txt" data-rep="${f.id}" value="${esc(f.reply)}"></label></div>
-      <div class="row-btns"><button class="btn sm primary" data-save="${f.id}">Guardar respuesta</button><button class="btn sm" data-st="${f.id}" data-v="resuelto">Marcar resuelto</button>${f.project?`<button class="btn sm" data-pj="${f.id}">Abrir su proyecto</button>`:""}</div></div>`).join(""):`<p class="note">No hay mensajes todavía.</p>`;
-    B.querySelectorAll("[data-save]").forEach(b=>b.onclick=async()=>{const v=B.querySelector(`[data-rep="${b.dataset.save}"]`).value;const {error:e}=await sb.from("feedback").update({reply:v,status:"visto"}).eq("id",b.dataset.save);toast(e?sbErr(e):"Respuesta guardada.")});
-    B.querySelectorAll("[data-st]").forEach(b=>b.onclick=async()=>{await sb.from("feedback").update({status:b.dataset.v}).eq("id",b.dataset.st);adminDialog("mensajes")});
-    B.querySelectorAll("[data-pj]").forEach(b=>b.onclick=()=>{const f=data.find(x=>x.id===b.dataset.pj),v=normalize(JSON.parse(JSON.stringify(f.project)));if(!v){toast("El proyecto adjunto está dañado.");return}v.project.cloudId=null;closeModal();projSave();switchTo(v,newPid());toast("Proyecto del usuario abierto como copia.")})}
+  if(tab==="mensajes"){const f=adminDialog.filtro||"pendientes";
+    let q=sb.from("feedback").select("id,user_id,kind,message,status,updated_at,admin_seen_at").order("updated_at",{ascending:false}).limit(100);
+    if(f==="pendientes")q=q.eq("status","nuevo");else if(f==="respondidos")q=q.eq("status","respondido");else if(f==="resueltos")q=q.eq("status","resuelto");
+    const {data,error}=await q;if(error){B.textContent=sbErr(error);return}const {data:us}=await sb.rpc("admin_users");
+    const ids=data.map(t=>t.id),{data:ms}=ids.length?await sb.from("feedback_messages").select("ticket_id,from_admin,body,created_at").in("ticket_id",ids).order("created_at",{ascending:false}):{data:[]};
+    const last=id=>(ms||[]).find(m=>m.ticket_id===id),who=id=>{const u=(us||[]).find(x=>x.id===id);return u?(u.nombre||u.email):"Cliente"};
+    const F=[["pendientes",`Pendientes${unread.pending?" ("+unread.pending+")":""}`],["respondidos","Respondidos"],["resueltos","Resueltos"],["todos","Todos"]];
+    B.innerHTML=`<div class="seg sm">${F.map(([k,l])=>`<button class="segb" data-f="${k}" aria-pressed="${k===f}">${l}</button>`).join("")}</div>
+     <div class="plist">${data.length?data.map(t=>{const l=last(t.id),nu=t.status==="nuevo"&&(!t.admin_seen_at||(l&&!l.from_admin&&new Date(l.created_at)>new Date(t.admin_seen_at)));
+       const snip=l?(l.from_admin?"Tú: ":"")+l.body:t.message;
+       return`<button class="ticket${nu?" unread":""}" data-tk="${t.id}"><span class="tk-ic">${KIND[t.kind][0]}</span><span class="tk-main"><b>${esc(who(t.user_id))}${nu?" <i>● nuevo</i>":""}</b><small>${esc(cutText(snip,90))}</small><small><span class="pill ${ST[t.status][1]}">${ST[t.status][0]}</span> · ${when(t.updated_at)}</small></span><span class="tk-go">›</span></button>`}).join(""):`<p class="note">${f==="pendientes"?"No hay conversaciones por responder. 🎉":"No hay conversaciones aquí."}</p>`}</div>`;
+    B.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{adminDialog.filtro=b.dataset.f;adminDialog("mensajes")});
+    B.querySelectorAll("[data-tk]").forEach(b=>b.onclick=()=>supportThread(b.dataset.tk,true))}
   if(tab==="ajustes"){const c=appCfg,ins=Array.isArray(c.pay_instructions)?c.pay_instructions:[];const row=(m={metodo:"",datos:""})=>`<div class="pitem col pay-row"><div class="fields"><label class="field"><span>Método</span><input class="txt" data-m value="${esc(m.metodo)}" placeholder="Pago Móvil"></label><label class="field wide"><span>Datos para pagar</span><textarea class="txt" data-d rows="3" placeholder="Banco, teléfono, cédula / correo de Zelle / ID de Binance">${esc(m.datos)}</textarea></label></div></div>`;
     B.innerHTML=`<div class="fields"><label class="field"><span>Precio de la licencia ($)</span><input class="txt" id="cf-p" inputmode="decimal" value="${esc(c.price_usd)}"></label><label class="field"><span>Horas de prueba gratis</span><input class="txt" id="cf-h" inputmode="numeric" value="${esc(c.trial_hours)}"></label>
       <label class="field wide"><span>Tu WhatsApp (para que te escriban)</span><input class="txt" id="cf-w" type="tel" value="${esc(c.whatsapp)}" placeholder="0412 123 4567"></label></div>
