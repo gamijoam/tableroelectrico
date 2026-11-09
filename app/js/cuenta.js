@@ -15,6 +15,10 @@ const sb=(()=>{try{return window.supabase&&window.supabase.createClient?window.s
 /* estado de la cuenta: usuario, estado del servidor y diferencia de reloj */
 let acct=(()=>{try{return JSON.parse(lsGet(ACCT_KEY)||"null")}catch(e){return null}})()||{user:null,st:null,skew:0,at:0};
 let appCfg={price_usd:5,trial_hours:24,whatsapp:"",pay_instructions:[]};
+/* ¿está activado "Continuar con Google" en Supabase? (se consulta una vez) */
+let googleOn=lsGet("taller-tableros-google")==="1";
+fetch(SB_URL+"/auth/v1/settings",{headers:{apikey:SB_KEY}}).then(r=>r.json()).then(d=>{googleOn=!!(d&&d.external&&d.external.google);lsSet("taller-tableros-google",googleOn?"1":"0")}).catch(()=>{});
+const GLOGO=`<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>`;
 const saveAcct=()=>lsSet(ACCT_KEY,JSON.stringify(acct));
 const srvNow=()=>Date.now()+(acct.skew||0);
 const isPro=()=>!!(acct.user&&acct.st&&acct.st.pro);
@@ -33,7 +37,8 @@ async function refreshAcct(silent){if(!sb)return;
     const c=await sb.from("app_settings").select("*").eq("id",1).maybeSingle();if(c.data)appCfg=c.data;
   }catch(e){if(!silent)toast(sbErr(e))}
   renderAcct()}
-if(sb){sb.auth.onAuthStateChange((ev)=>{if(ev==="SIGNED_IN"||ev==="SIGNED_OUT"||ev==="USER_UPDATED")refreshAcct(true)});
+if(sb){const fromOAuth=/access_token=|[?&]code=/.test(location.hash+location.search);
+  sb.auth.onAuthStateChange((ev)=>{if(ev==="SIGNED_IN"||ev==="SIGNED_OUT"||ev==="USER_UPDATED")refreshAcct(true).then(()=>{if(ev==="SIGNED_IN"&&fromOAuth&&acct.user){history.replaceState(null,"",location.pathname);toast("¡Bienvenido! Sesión iniciada con Google.");accountDialog()}})});
   refreshAcct(true);setInterval(()=>refreshAcct(true),10*60*1000);window.addEventListener("online",()=>refreshAcct(true))}
 
 /* ---------- botón de la cabecera ---------- */
@@ -62,12 +67,14 @@ function authDialog(mode="registro"){if(!sb){toast("Las cuentas necesitan intern
   openModal(`<h2>${reg?"Crear cuenta":"Entrar"}</h2>
    <div class="seg" role="group"><button class="segb" id="au-r" aria-pressed="${reg}">Crear cuenta</button><button class="segb" id="au-e" aria-pressed="${!reg}">Entrar</button></div>
    ${reg?`<p class="note">Tienes <b>${appCfg.trial_hours} horas con todo desbloqueado</b>. Después, licencia de por vida por <b>$${fmtNum(appCfg.price_usd,0)}</b>.</p>`:""}
+   ${googleOn?`<button class="btn gbtn" id="au-g">${GLOGO} Continuar con Google</button><div class="or"><span>o con tu correo</span></div>`:""}
    <div class="fields">${reg?`<label class="field wide"><span>Nombre</span><input class="txt" id="au-name" autocomplete="name"></label><label class="field wide"><span>WhatsApp</span><input class="txt" id="au-tel" type="tel" inputmode="tel" placeholder="0412 123 4567" autocomplete="tel"></label>`:""}
    <label class="field wide"><span>Correo</span><input class="txt" id="au-mail" type="email" autocomplete="email"></label>
    <label class="field wide"><span>Contraseña${reg?" (mínimo 8 caracteres)":""}</span><input class="txt" id="au-pass" type="password" autocomplete="${reg?"new-password":"current-password"}"></label></div>
    <div class="row-btns"><button class="btn primary" id="au-go">${reg?"Crear cuenta y empezar la prueba":"Entrar"}</button><button class="btn" data-close>Cancelar</button></div>
    ${reg?"":`<p class="note"><a href="#" id="au-forgot">¿Olvidaste tu contraseña?</a></p>`}<p class="note" id="au-msg" role="status"></p>`);
   $("au-r").onclick=()=>authDialog("registro");$("au-e").onclick=()=>authDialog("entrar");
+  const g=$("au-g");if(g)g.onclick=async()=>{g.disabled=true;projSave();const {error}=await sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname}});if(error){$("au-msg").textContent=sbErr(error);g.disabled=false}};
   const fg=$("au-forgot");if(fg)fg.onclick=async e=>{e.preventDefault();const m=$("au-mail").value.trim();if(!m){$("au-msg").textContent="Escribe tu correo primero.";return}
     const {error}=await sb.auth.resetPasswordForEmail(m,{redirectTo:location.origin+location.pathname});$("au-msg").textContent=error?sbErr(error):"Te enviamos un correo para cambiar la contraseña."};
   $("au-go").onclick=async()=>{const mail=$("au-mail").value.trim(),pass=$("au-pass").value,msg=$("au-msg"),go=$("au-go");
@@ -83,7 +90,8 @@ function accountDialog(){if(!acct.user){authDialog("registro");return}const st=a
   const state=isPro()?`<div class="paycard ok"><b>Licencia de por vida activa</b><span>Gracias por tu compra. Tienes todo desbloqueado.</span></div>`
    :trialLeft()>0?`<div class="paycard"><b>Prueba gratis: te quedan ${fmtLeft(trialLeft())}</b><span>Después, licencia de por vida por $${p}.</span></div>`
    :`<div class="paycard off"><b>Tu prueba terminó</b><span>Activa tu licencia de por vida por $${p} para exportar y usar la nube.</span></div>`;
-  openModal(`<h2>Mi cuenta</h2><p class="note">${esc(st.nombre||"")} · ${esc(acct.user.email)}</p>${state}
+  const askTel=!st.telefono?`<div class="fields"><label class="field wide"><span>Tu WhatsApp (para avisarte cuando se active tu licencia)</span><input class="txt" id="ac-tel" type="tel" inputmode="tel" placeholder="0412 123 4567"></label></div><div class="row-btns"><button class="btn sm primary" id="ac-tel-ok">Guardar WhatsApp</button></div>`:"";
+  openModal(`<h2>Mi cuenta</h2><p class="note">${esc(st.nombre||"")} · ${esc(acct.user.email)}</p>${state}${askTel}
    <div class="acct-grid">
     <button class="btn" id="ac-cloud">☁ Mis proyectos en la nube</button>
     ${isPro()?"":`<button class="btn primary" id="ac-buy">Activar licencia ($${p})</button>`}
@@ -92,6 +100,8 @@ function accountDialog(){if(!acct.user){authDialog("registro");return}const st=a
     ${isAdmin()?`<button class="btn" id="ac-admin">⚙ Panel de administración</button>`:""}
     <button class="btn" id="ac-out">Cerrar sesión</button></div>
    <div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`);
+  const tk=$("ac-tel-ok");if(tk)tk.onclick=async()=>{const v=$("ac-tel").value.trim();if(v.length<7){toast("Escribe tu número de WhatsApp.");return}
+    const {error}=await sb.from("profiles").update({telefono:v}).eq("id",acct.user.id);if(error){toast(sbErr(error));return}await refreshAcct(true);toast("WhatsApp guardado.");accountDialog()};
   $("ac-cloud").onclick=cloudDialog;const bb=$("ac-buy");if(bb)bb.onclick=buyDialog;$("ac-fb").onclick=feedbackDialog;
   const w=$("ac-wa");if(w)w.onclick=()=>openWa(appCfg.whatsapp,`Hola, te escribo desde Taller de Tableros (${acct.user.email}).`);
   const ad=$("ac-admin");if(ad)ad.onclick=()=>adminDialog("pagos");
