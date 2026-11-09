@@ -4,7 +4,7 @@ name: Publicar app en GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["app/**", "scripts/**"]
+    paths: ["app/**", "scripts/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 permissions:
   contents: write
