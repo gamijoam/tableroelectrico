@@ -35,6 +35,7 @@ js/pdf.js           PDF carta: tablero, diagrama unifilar, cuadro de cargas con 
 js/unifilar.js      Diagrama unifilar del riel DIN (por orden de montaje) y visor del unifilar
 js/share.js         Mis precios (guardados para todos los proyectos) y envío por WhatsApp
 js/pwa.js           Botón Instalar app y avisos de conexión
+js/cuenta.js        Cuentas (Supabase), prueba gratis, licencia de pago único, nube, sugerencias y panel admin
 sw.js               Guarda la app en el dispositivo para usarla sin internet
 manifest.webmanifest, icons/  Datos e íconos de la app instalada
 fonts/, vendor/     Fuentes y jsPDF servidos desde la app (sin depender de internet)
@@ -79,6 +80,7 @@ Es una herramienta de enseñanza y presupuesto, no un cálculo según el Código
 ## Dependencias
 
 - jsPDF 2.5.1 (licencia MIT) en `vendor/`, para generar el PDF.
+- supabase-js 2.45.4 (licencia MIT) en `vendor/`, para las cuentas y la nube.
 - Fuentes Barlow Condensed, IBM Plex Sans e IBM Plex Mono (licencia SIL OFL) en `fonts/`.
 
 No carga nada de internet: después de la primera visita la app funciona sin conexión.

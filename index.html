@@ -30,6 +30,7 @@
     <button class="icon-btn m-only" id="mUndo" aria-label="Deshacer" title="Deshacer">↶</button><button class="icon-btn m-only" id="mRedo" aria-label="Rehacer" title="Rehacer">↷</button>
     <button class="icon-btn m-only" id="mMenu" aria-label="Menú" aria-expanded="false">☰</button>
     <div class="actions">
+      <button class="btn" id="acct">Entrar · prueba gratis</button>
       <select class="sel" id="tpl" aria-label="Cargar plantilla">
         <option value="">Plantillas…</option>
         <optgroup label="Caja de breakers">
@@ -132,6 +133,7 @@
 <div class="modal" id="modal" hidden><div class="dlg" id="dlg"></div></div>
 
 <script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/supabase.js"></script>
 <!-- El orden importa: cada archivo usa lo definido en los anteriores. -->
 <script src="js/util.js"></script>
 <script src="js/din.js"></script>
@@ -159,6 +161,7 @@
 <script src="js/touch.js"></script>
 <script src="js/mobile.js"></script>
 <script src="js/pwa.js"></script>
+<script src="js/cuenta.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

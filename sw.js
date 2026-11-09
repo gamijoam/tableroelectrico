@@ -5,7 +5,7 @@
      no responde en 4 segundos o no hay conexión, usa la copia guardada.
    · La lista y VERSION las actualiza scripts/sw-files.py al publicar.
    ===================================================================== */
-const VERSION="tt-4e213fbd14",FILES=[
+const VERSION="tt-4f03097256",FILES=[
     "./",
     "index.html",
     "manifest.webmanifest",
@@ -26,6 +26,7 @@ const VERSION="tt-4e213fbd14",FILES=[
     "js/actions.js",
     "js/calc.js",
     "js/control.js",
+    "js/cuenta.js",
     "js/din.js",
     "js/equipment.js",
     "js/flow.js",
@@ -50,7 +51,8 @@ const VERSION="tt-4e213fbd14",FILES=[
     "js/unifilar.js",
     "js/util.js",
     "js/wall.js",
-    "vendor/jspdf.umd.min.js"
+    "vendor/jspdf.umd.min.js",
+    "vendor/supabase.js"
 ];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()))});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});

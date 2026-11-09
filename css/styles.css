@@ -334,3 +334,18 @@ details.info p{margin:7px 0 0}details.info ul{margin:4px 0 0;padding-left:18px;d
   .d-only{display:none}
   #play,#rearm,#blackout{order:-1}
 }
+
+/* ---------- cuentas, licencia y panel ---------- */
+.acct-badge{font-family:var(--f-mono);font-size:11px;font-weight:600;margin-left:6px;padding:2px 7px;border-radius:99px;background:#ffe14d;color:#3a2f05}
+.acct-badge.pro{background:#2f9e44;color:#fff}.acct-badge.off{background:#e0302a;color:#fff}
+.paycard{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:10px;background:var(--accent-soft);border:1px solid var(--line);margin:6px 0 12px}
+.paycard b{font-size:16px}.paycard span{font-size:13px;color:var(--muted)}
+.paycard.ok{background:#e3f4e6;border-color:#9fd1aa}.paycard.off{background:#fde9e7;border-color:#efb1aa}
+@media (prefers-color-scheme:dark){.paycard.ok{background:#173322}.paycard.off{background:#3a1c1a}}
+.acct-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.acct-grid .btn{text-align:left;min-height:40px}
+@media (max-width:560px){.acct-grid{grid-template-columns:1fr}}
+.dlg.wide{width:min(920px,100%)}
+.ad-body{max-height:62vh;overflow:auto;margin:10px 0}
+.pitem.col{flex-direction:column;align-items:stretch}
+textarea.txt{width:100%;resize:vertical;font:inherit}
+.paylist{margin:6px 0 10px}
