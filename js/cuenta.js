@@ -132,7 +132,7 @@ function accountDialog(){if(!acct.user){authDialog("registro");return}const st=a
     const {error}=await sb.from("profiles").update({telefono:v}).eq("id",acct.user.id);if(error){toast(sbErr(error));return}await refreshAcct(true);toast("WhatsApp guardado.");accountDialog()};
   $("ac-cloud").onclick=cloudDialog;const bb=$("ac-buy");if(bb)bb.onclick=buyDialog;$("ac-fb").onclick=feedbackDialog;
   const w=$("ac-wa");if(w)w.onclick=()=>openWa(appCfg.whatsapp,`Hola, te escribo desde Taller de Tableros (${acct.user.email}).`);
-  const ad=$("ac-admin");if(ad)ad.onclick=()=>adminDialog(unread.pending?"mensajes":"pagos");
+  const ad=$("ac-admin");if(ad)ad.onclick=()=>adminDialog(unread.pending?"mensajes":"estadisticas");
   $("ac-out").onclick=async()=>{await sb.auth.signOut();acct={user:null,st:null,skew:0,at:0};saveAcct();setProjOwner("");renderAcct();closeModal();toast("Sesión cerrada.")}}
 
 /* ---------- proyectos y plantillas en la nube ---------- */
@@ -229,19 +229,47 @@ async function supportThread(id,admin){const {data:t,error}=await sb.from("feedb
   const w=$("th-wa");if(w)w.onclick=()=>admin?openWa(who.telefono,`Hola ${who.nombre||""}, te escribo de Taller de Tableros sobre tu mensaje: "${cutText(t.message,60)}"`):openWa(appCfg.whatsapp,`Hola, te escribo por mi mensaje de soporte: "${cutText(t.message,60)}"`)}
 
 /* ---------- panel del administrador ---------- */
-async function adminDialog(tab="pagos"){if(!isAdmin())return;const T=[["pagos","Pagos"],["usuarios","Usuarios"],["mensajes",`Soporte${unread.pending?" ("+unread.pending+")":""}`],["ajustes","Ajustes"]];
+async function adminDialog(tab="pagos"){if(!isAdmin())return;const T=[["estadisticas","Estadísticas"],["pagos","Pagos"],["usuarios","Usuarios"],["mensajes",`Soporte${unread.pending?" ("+unread.pending+")":""}`],["ajustes","Ajustes"]];
   openModal(`<h2>Panel de administración</h2><div class="seg" role="group">${T.map(([k,l])=>`<button class="segb" data-tab="${k}" aria-pressed="${k===tab}">${l}</button>`).join("")}</div><div id="ad-body" class="ad-body"><p class="note">Cargando…</p></div><div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`);
   $("dlg").classList.add("wide");$("dlg").querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>adminDialog(b.dataset.tab));const B=$("ad-body");
+  if(tab==="estadisticas"){const dias=adminDialog.dias||30;const {data:d,error}=await sb.rpc("admin_stats",{days:dias});if(error){B.textContent=sbErr(error);return}
+    const pct=(a,b)=>b?Math.round(a*100/b):0,N=n=>Number(n).toLocaleString("es-VE");
+    const NOM={directo:"Directo (escribió la dirección o QR)",facebook:"Facebook",instagram:"Instagram",tiktok:"TikTok",whatsapp:"WhatsApp",google:"Google",youtube:"YouTube",twitter:"X / Twitter",marketplace:"Marketplace",grupos:"Grupos de Facebook",movil:"Teléfono",tablet:"Tablet",pc:"Computadora",
+      simular:"Probaron el simulador (▶ Probar)",pdf:"Sacaron un PDF",imagen:"Exportaron imagen",whatsapp_a:"Enviaron presupuesto por WhatsApp",instalar:"Instalaron la app"};
+    const bars=(rows,lab=k=>NOM[k]||k)=>{const tot=rows.reduce((a,x)=>a+x.n,0),mx=Math.max(1,...rows.map(x=>x.n));return rows.length?rows.map(x=>`<div class="hb" title="${esc(lab(x.k))}: ${N(x.n)}"><span class="hb-l">${esc(lab(x.k))}</span><span class="hb-t"><span class="hb-f" style="width:${Math.max(2,x.n*100/mx)}%"></span></span><span class="hb-v">${N(x.n)}${tot?` <small>${pct(x.n,tot)}%</small>`:""}</span></div>`).join(""):`<p class="note">Sin datos todavía.</p>`};
+    const pd=d.por_dia||[],mx=Math.max(1,...pd.map(x=>x.visitantes)),fd=s=>new Date(s+"T12:00").toLocaleDateString("es-VE",{day:"2-digit",month:"short"});
+    const lab=[0,Math.floor((pd.length-1)/2),pd.length-1].filter((v,i,a)=>a.indexOf(v)===i);
+    B.innerHTML=`<div class="seg sm">${[[7,"7 días"],[30,"30 días"],[90,"90 días"]].map(([k,l])=>`<button class="segb" data-d="${k}" aria-pressed="${k===dias}">${l}</button>`).join("")}</div>
+     <div class="kpis">
+      <div class="kpi"><small>Visitantes</small><b>${N(d.visitantes)}</b><span>${N(d.nuevos)} por primera vez · ${N(d.visitas)} visitas</span></div>
+      <div class="kpi"><small>Cuentas nuevas</small><b>${N(d.registros)}</b><span>${d.registros<=d.nuevos&&d.nuevos?pct(d.registros,d.nuevos)+"% de los visitantes nuevos":"de "+N(d.nuevos)+" visitantes nuevos"}</span></div>
+      <div class="kpi"><small>Ventas aprobadas</small><b>${N(d.ventas)}</b><span>$${fmtNum(d.ventas*(+appCfg.price_usd||5),0)} · ${N(d.pro)} PRO en total</span></div>
+      <div class="kpi"><small>Usuarios activos</small><b>${N(d.activos7)}</b><span>entraron en 7 días, de ${N(d.usuarios)} cuentas</span></div>
+     </div>
+     <h3>Visitantes por día</h3>
+     <div class="vchart" role="img" aria-label="Visitantes por día"><span class="vc-max">${N(mx)}</span>${pd.map(x=>`<div class="vc-col" title="${fd(x.dia)}: ${N(x.visitantes)} visitante${x.visitantes==1?"":"s"}${x.registros?` · ${x.registros} cuenta${x.registros==1?"":"s"} nueva${x.registros==1?"":"s"}`:""}"><span class="vc-bar" style="height:${x.visitantes?Math.max(3,x.visitantes*100/mx):0}%"></span>${x.registros?`<i class="vc-reg"></i>`:""}</div>`).join("")}</div>
+     <div class="vc-axis">${pd.map((x,i)=>`<span>${lab.includes(i)?fd(x.dia):""}</span>`).join("")}</div>
+     <p class="note"><i class="vc-reg inline"></i> día con cuentas nuevas. Pasa el dedo o el ratón por una barra para ver el detalle.</p>
+     <div class="stat-cols"><div><h3>De dónde vienen</h3>${bars(d.fuentes||[])}</div>
+      <div><h3>Desde qué equipo</h3>${bars(d.equipos||[])}<p class="note">${N(d.instalada)} la usan instalada como app.</p></div></div>
+     <h3>Qué hacen en la app</h3>${bars((d.acciones||[]).map(x=>({k:x.k==="whatsapp"?"whatsapp_a":x.k,n:x.n})))}
+     <details class="tipbox"><summary>¿Cómo saber qué red social te trae más gente?</summary><p class="note">Al publicar, agrega <b>?r=</b> y el nombre de la red al enlace. Así aparece separada en "De dónde vienen":</p>
+      <p class="mono">tableros.invensoft.lat/?r=tiktok<br>tableros.invensoft.lat/?r=instagram<br>tableros.invensoft.lat/?r=marketplace<br>tableros.invensoft.lat/?r=grupos</p>
+      <p class="note">Tus propias visitas y las pruebas no se cuentan.</p></details>`;
+    B.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{adminDialog.dias=+b.dataset.d;adminDialog("estadisticas")})}
   if(tab==="pagos"){const {data,error}=await sb.from("payments").select("*").order("created_at",{ascending:false}).limit(100);if(error){B.textContent=sbErr(error);return}
     const {data:us}=await sb.rpc("admin_users");const who=id=>{const u=(us||[]).find(x=>x.id===id);return u?`${u.nombre||"Sin nombre"} · ${u.email}${u.telefono?" · "+u.telefono:""}`:id};
     B.innerHTML=data.length?data.map(p=>`<div class="pitem"><div class="pinfo"><b>${esc(p.method)} · ref. ${esc(p.reference)} · ${p.amount!=null?"$"+fmtNum(p.amount):""}</b><small>${esc(who(p.user_id))}<br>${new Date(p.created_at).toLocaleString("es-VE")}${p.note?" · "+esc(p.note):""} · ${{pending:"⏳ Pendiente",approved:"✅ Aprobado",rejected:"❌ Rechazado"}[p.status]}</small></div>
       ${p.status==="pending"?`<div class="row-btns"><button class="btn sm primary" data-ok="${p.id}">Aprobar</button><button class="btn sm danger" data-no="${p.id}">Rechazar</button></div>`:""}</div>`).join(""):`<p class="note">No hay pagos todavía.</p>`;
     B.querySelectorAll("[data-ok]").forEach(b=>b.onclick=async()=>{const {error:e}=await sb.from("payments").update({status:"approved"}).eq("id",b.dataset.ok);if(e)toast(sbErr(e));else toast("Pago aprobado: licencia activada.");adminDialog("pagos")});
     B.querySelectorAll("[data-no]").forEach(b=>b.onclick=async()=>{const n=prompt("Motivo del rechazo (lo verá el usuario):","No encontramos el pago con esa referencia.");if(n===null)return;const {error:e}=await sb.from("payments").update({status:"rejected",admin_note:n}).eq("id",b.dataset.no);if(e)toast(sbErr(e));adminDialog("pagos")})}
-  if(tab==="usuarios"){const {data,error}=await sb.rpc("admin_users");if(error){B.textContent=sbErr(error);return}const now=srvNow();
-    const pro=data.filter(u=>u.pro).length,tr=data.filter(u=>!u.pro&&new Date(u.trial_ends_at)>now).length;
-    B.innerHTML=`<p class="note">${data.length} usuarios · ${pro} con licencia · ${tr} en prueba</p>`+data.map(u=>`<div class="pitem"><div class="pinfo"><b>${esc(u.nombre||"Sin nombre")} · ${esc(u.email||"")}</b><small>${u.telefono?esc(u.telefono)+" · ":""}${u.pro?"✅ Licencia":new Date(u.trial_ends_at)>now?"⏳ Prueba hasta "+new Date(u.trial_ends_at).toLocaleString("es-VE"):"Prueba vencida"} · ${u.proyectos} en la nube · desde ${new Date(u.created_at).toLocaleDateString("es-VE")}</small></div>
+  if(tab==="usuarios"){const {data:all,error}=await sb.rpc("admin_users");if(error){B.textContent=sbErr(error);return}const now=srvNow(),f=adminDialog.ufiltro||"todos";
+    const pro=all.filter(u=>u.pro).length,tr=all.filter(u=>!u.pro&&new Date(u.trial_ends_at)>now).length,act=u=>u.last_seen_at&&now-new Date(u.last_seen_at)<7*864e5;
+    const ago=t=>{if(!t)return"no ha vuelto a entrar desde que se registró";const m=(now-new Date(t))/60000;return"entró "+(m<5?"ahora mismo":m<60?`hace ${Math.floor(m)} min`:m<1440?`hace ${Math.floor(m/60)} h`:m<2880?"ayer":`hace ${Math.floor(m/1440)} días`)};
+    const data=f==="activos"?all.filter(act):f==="inactivos"?all.filter(u=>!act(u)):all;
+    B.innerHTML=`<div class="seg sm">${[["todos",`Todos (${all.length})`],["activos",`Activos 7 días (${all.filter(act).length})`],["inactivos",`No han vuelto (${all.filter(u=>!act(u)).length})`]].map(([k,l])=>`<button class="segb" data-uf="${k}" aria-pressed="${k===f}">${l}</button>`).join("")}</div><p class="note">${pro} con licencia · ${tr} en prueba</p>`+data.map(u=>`<div class="pitem"><div class="pinfo"><b><span class="seen ${act(u)?"on":""}"></span>${esc(u.nombre||"Sin nombre")} · ${esc(u.email||"")}</b><small>${ago(u.last_seen_at)} · ${u.telefono?esc(u.telefono)+" · ":""}${u.pro?"✅ Licencia":new Date(u.trial_ends_at)>now?"⏳ Prueba hasta "+new Date(u.trial_ends_at).toLocaleString("es-VE"):"Prueba vencida"} · ${u.proyectos} en la nube · desde ${new Date(u.created_at).toLocaleDateString("es-VE")}</small></div>
       <div class="row-btns">${u.telefono?`<button class="btn sm wa" data-wa="${esc(u.telefono)}">WhatsApp</button>`:""}<button class="btn sm" data-pro="${u.id}" data-v="${!u.pro}">${u.pro?"Quitar licencia":"Dar licencia"}</button><button class="btn sm" data-tr="${u.id}">+24 h de prueba</button></div></div>`).join("");
+    B.querySelectorAll("[data-uf]").forEach(b=>b.onclick=()=>{adminDialog.ufiltro=b.dataset.uf;adminDialog("usuarios")});
     B.querySelectorAll("[data-wa]").forEach(b=>b.onclick=()=>openWa(b.dataset.wa,"Hola, te escribo de Taller de Tableros."));
     B.querySelectorAll("[data-pro]").forEach(b=>b.onclick=async()=>{const {error:e}=await sb.rpc("admin_set_pro",{uid:b.dataset.pro,value:b.dataset.v==="true"});if(e)toast(sbErr(e));adminDialog("usuarios")});
     B.querySelectorAll("[data-tr]").forEach(b=>b.onclick=async()=>{const {error:e}=await sb.rpc("admin_extend_trial",{uid:b.dataset.tr,hours:24});if(e)toast(sbErr(e));adminDialog("usuarios")})}
