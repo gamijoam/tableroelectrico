@@ -35,6 +35,7 @@ js/pdf.js           PDF carta: tablero, diagrama unifilar, cuadro de cargas con 
 js/unifilar.js      Diagrama unifilar del riel DIN (por orden de montaje) y visor del unifilar
 js/share.js         Mis precios (guardados para todos los proyectos) y envío por WhatsApp
 js/pwa.js           Botón Instalar app y avisos de conexión
+js/guia.js          Bienvenida y recorrido de primeros pasos (PC y teléfono)
 js/cuenta.js        Cuentas (Supabase), prueba gratis, licencia de pago único, nube, sugerencias y panel admin
 sw.js               Guarda la app en el dispositivo para usarla sin internet
 manifest.webmanifest, icons/  Datos e íconos de la app instalada
