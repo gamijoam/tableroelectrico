@@ -380,3 +380,12 @@ textarea.txt{width:100%;resize:vertical;font:inherit}
 @media (prefers-color-scheme:dark){.sync-chip[data-st="saved"]{background:#173322;color:#8fdca0}.sync-chip[data-st="pending"],.sync-chip[data-st="saving"]{background:#16283d;color:#9cc6f5}.sync-chip[data-st="offline"],.sync-chip[data-st="locked"]{background:#3a3210;color:#ffe08a}.sync-chip[data-st="error"]{background:#3a1c1a;color:#ffb4ab}}
 @media (max-width:980px){.brand small#projName{display:block}.sync-chip{margin:3px 0 0}}
 .chip.cloud{font-size:10.5px;padding:1px 6px;background:#eaf6ec;color:#2f7d3e}
+
+/* ---------- guía de primeros pasos ---------- */
+#tour{position:fixed;inset:0;z-index:200}
+.tour-hole{position:fixed;border-radius:10px;box-shadow:0 0 0 9999px rgba(10,14,16,.62),0 0 0 3px #ffe14d;transition:all .25s ease;pointer-events:none}
+.tour-bub{position:fixed;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:0 14px 40px rgba(0,0,0,.35);transition:left .25s,top .25s}
+.tour-bub h3{font-family:var(--f-display);font-size:22px;text-transform:uppercase;margin:2px 0 6px}
+.tour-bub p{font-size:14px;line-height:1.45;margin-bottom:12px}
+.tour-bub .row-btns{display:flex;align-items:center;gap:6px}.tour-bub .sp{flex:1}
+.tour-n{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent)}

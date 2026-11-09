@@ -79,12 +79,13 @@ function planDialog(){const p=fmtNum(appCfg.price_usd,0),ok=t=>`<li><span class=
 function helpDialog(){const wa=appCfg.whatsapp;
   openModal(`<h2>💬 Ayuda y sugerencias</h2><p class="note">¿Algo no funciona, tienes una idea o necesitas una mano? Escríbeme: leo todo y la app mejora con lo que pides.</p>
    <div class="help-grid">
+    <button class="help-card" id="hp-guia"><b>🧭 Guía de primeros pasos</b><span>Recorrido de 1 minuto por cada parte de la pantalla.</span></button>
     <button class="help-card" id="hp-sug"><b>💡 Sugerir una mejora</b><span>Una función, una plantilla, un componente que falte…</span></button>
     <button class="help-card" id="hp-err"><b>🐞 Reportar un error</b><span>Se adjunta tu proyecto para verlo tal cual lo tienes.</span></button>
     ${wa?`<button class="help-card wa" id="hp-wa"><b>📱 Escribir por WhatsApp</b><span>Respuesta directa para dudas o ayuda con tu tablero.</span></button>`:""}
     <button class="help-card" id="hp-pro"><b>⭐ Hazte PRO</b><span>Qué incluye y cómo pagar ($${fmtNum(appCfg.price_usd,0)}, de por vida).</span></button>
    </div><div class="row-btns"><button class="btn" data-close>Cerrar</button></div>`);
-  $("hp-sug").onclick=()=>feedbackDialog("sugerencia");$("hp-err").onclick=()=>feedbackDialog("error");$("hp-pro").onclick=planDialog;
+  $("hp-guia").onclick=()=>tourStart();  $("hp-sug").onclick=()=>feedbackDialog("sugerencia");$("hp-err").onclick=()=>feedbackDialog("error");$("hp-pro").onclick=planDialog;
   const w=$("hp-wa");if(w)w.onclick=()=>openWa(wa,`Hola, te escribo desde Taller de Tableros${acct.user?" ("+acct.user.email+")":""}.`)}
 
 /* ---------- registro y entrada ---------- */
